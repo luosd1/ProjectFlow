@@ -1,21 +1,23 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { Loader2, AlertCircle, Lightbulb, Route, FileText, ListTodo } from "lucide-react";
+import { Loader2, AlertCircle, Lightbulb, Route, FileText, ListTodo, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { getProjectState } from "@/lib/api";
+import { getProjectState, runClarification } from "@/lib/api";
 import type { ProjectState } from "@/lib/types";
 
 export default function ProjectDashboardPage() {
   const params = useParams();
+  const router = useRouter();
   const projectId = params.projectId as string;
 
   const [state, setState] = useState<ProjectState | null>(null);
+  const [clarifying, setClarifying] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -192,8 +194,24 @@ export default function ProjectDashboardPage() {
               <span className="font-bold">{action_cards.filter((a) => a.status === "active").length}</span>
             </div>
             <Separator />
-            <Button variant="outline" className="w-full gap-2">
-              Run Clarification
+            <Button
+              variant="outline"
+              className="w-full gap-2"
+              disabled={clarifying}
+              onClick={async () => {
+                setClarifying(true);
+                try {
+                  await runClarification(projectId);
+                  router.refresh();
+                } catch {
+                  // Error shown by toast/notification when available
+                } finally {
+                  setClarifying(false);
+                }
+              }}
+            >
+              {clarifying ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+              {clarifying ? "Running..." : "Run Clarification"}
             </Button>
           </CardContent>
         </Card>

@@ -9,10 +9,12 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { useRouter } from "next/navigation";
 import { createUser, listUsers } from "@/lib/api";
 import type { User } from "@/lib/types";
 
 export function AccountSetupForm() {
+  const router = useRouter();
   const [displayName, setDisplayName] = useState("");
   const [email, setEmail] = useState("");
   const [users, setUsers] = useState<User[]>([]);
@@ -63,8 +65,8 @@ export function AccountSetupForm() {
             <CheckCircle2 className="h-10 w-10 text-moss" />
             <p className="text-lg font-bold">Account Created</p>
             <p className="text-sm text-ink/60">{createdUser.display_name}</p>
-            <Button className="mt-2 bg-moss text-white hover:bg-moss/80" onClick={() => window.location.href = `/onboarding/profile?userId=${createdUser.user_id}`}>
-              Fill Member Profile
+            <Button className="mt-2 bg-moss text-white hover:bg-moss/80" onClick={() => router.push(`/workspaces/new?ownerId=${createdUser.user_id}`)}>
+              Create Workspace
             </Button>
           </CardContent>
         </Card>
@@ -125,7 +127,7 @@ export function AccountSetupForm() {
               {users.map((user) => (
                 <a
                   key={user.user_id}
-                  href={`/onboarding/profile?userId=${user.user_id}`}
+                  href={`/workspaces/new?ownerId=${user.user_id}`}
                   className="flex items-center justify-between rounded-lg border border-ink/10 bg-white p-3 transition hover:border-moss/40 hover:bg-moss/5"
                 >
                   <span className="font-medium">{user.display_name}</span>

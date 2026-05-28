@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { Loader2, Lightbulb, CheckCircle2, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -15,15 +16,17 @@ import { ResourceInputPanel } from "./resource-input-panel";
 
 interface ProjectIntakeFormProps {
   workspaceId: string;
+  defaultCreatedBy?: string;
   onCreated?: (project: Project) => void;
 }
 
-export function ProjectIntakeForm({ workspaceId, onCreated }: ProjectIntakeFormProps) {
+export function ProjectIntakeForm({ workspaceId, defaultCreatedBy, onCreated }: ProjectIntakeFormProps) {
+  const router = useRouter();
   const [name, setName] = useState("");
   const [idea, setIdea] = useState("");
   const [deadline, setDeadline] = useState("");
   const [deliverables, setDeliverables] = useState("");
-  const [createdBy, setCreatedBy] = useState("");
+  const [createdBy, setCreatedBy] = useState(defaultCreatedBy ?? "");
   const [resources, setResources] = useState<AddResourceRequest[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -43,12 +46,16 @@ export function ProjectIntakeForm({ workspaceId, onCreated }: ProjectIntakeFormP
         created_by: createdBy.trim(),
       });
       // Add resources if any
+      const failedResources: string[] = [];
       for (const res of resources) {
         try {
           await addResource(project.id, res);
         } catch {
-          // Best effort - don't fail the whole creation for a resource error
+          failedResources.push(res.title || "untitled");
         }
+      }
+      if (failedResources.length > 0) {
+        setError(`Project created, but ${failedResources.length} resource(s) failed to save: ${failedResources.join(", ")}`);
       }
       setCreated(project);
       onCreated?.(project);
@@ -68,7 +75,7 @@ export function ProjectIntakeForm({ workspaceId, onCreated }: ProjectIntakeFormP
             <p className="text-lg font-bold">Project Created</p>
             <p className="text-sm text-ink/60">{created.name}</p>
             <p className="text-xs font-mono text-ink/40">{created.id}</p>
-            <Button className="mt-2 bg-moss text-white hover:bg-moss/80" onClick={() => window.location.href = `/projects/${created.id}`}>
+            <Button className="mt-2 bg-moss text-white hover:bg-moss/80" onClick={() => router.push(`/projects/${created.id}`)}>
               Open Project
             </Button>
           </CardContent>
@@ -128,6 +135,7 @@ export function ProjectIntakeForm({ workspaceId, onCreated }: ProjectIntakeFormP
                   onChange={(e) => setCreatedBy(e.target.value)}
                   placeholder="UUID of project creator"
                   required
+                  disabled={!!defaultCreatedBy}
                 />
               </div>
             </div>

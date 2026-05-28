@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { Loader2, AlertCircle, Users, FolderOpen, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -13,6 +13,7 @@ import type { WorkspaceState } from "@/lib/types";
 
 export default function WorkspaceDashboardPage() {
   const params = useParams();
+  const router = useRouter();
   const workspaceId = params.workspaceId as string;
 
   const [state, setState] = useState<WorkspaceState | null>(null);
@@ -132,7 +133,7 @@ export default function WorkspaceDashboardPage() {
               ))
             )}
             <Separator className="my-2" />
-            <Button variant="outline" className="w-full gap-2" onClick={() => window.location.href = `/projects/new?workspaceId=${workspaceId}`}>
+            <Button variant="outline" className="w-full gap-2" onClick={() => router.push(`/projects/new?workspaceId=${workspaceId}&createdBy=${state.workspace.owner_user_id}`)}>
               <Plus className="h-4 w-4" />
               Create Project
             </Button>

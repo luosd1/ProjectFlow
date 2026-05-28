@@ -6,37 +6,35 @@ import { Loader2, AlertTriangle } from "lucide-react";
 import { MemberProfileWizard } from "@/components/onboarding/member-profile-wizard";
 
 interface ProfilePageProps {
-  searchParams: Promise<{ userId?: string }>;
+  searchParams: Promise<{ userId?: string; workspaceId?: string }>;
 }
 
 function ProfileContent({ searchParams }: ProfilePageProps) {
   const params = use(searchParams);
   const userId = params.userId;
+  const workspaceId = params.workspaceId;
 
-  if (!userId) {
+  if (!userId || !workspaceId) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-paper text-ink">
         <div className="flex flex-col items-center gap-3 rounded-xl border border-coral/30 bg-coral/5 px-8 py-6">
           <AlertTriangle className="h-8 w-8 text-coral" />
-          <h2 className="font-display text-xl font-black text-coral">Missing User ID</h2>
+          <h2 className="font-display text-xl font-black text-coral">Missing Information</h2>
           <p className="text-center text-sm text-ink/70">
-            Please complete account setup first.
+            {!userId
+              ? "Please complete account setup first."
+              : "Please create a workspace first before setting up your profile."}
           </p>
           <a
-            href="/onboarding"
+            href={!userId ? "/onboarding" : "/workspaces/new"}
             className="mt-2 inline-flex items-center gap-1 rounded-lg bg-ink px-4 py-2 text-sm font-semibold text-white transition hover:bg-moss"
           >
-            Go to Account Setup
+            {!userId ? "Go to Account Setup" : "Create Workspace"}
           </a>
         </div>
       </div>
     );
   }
-
-  // MVP: single workspace, use a default workspace ID
-  // The workspace will be created after profile setup, but we need a placeholder
-  // for the API call. The backend will handle this gracefully.
-  const workspaceId = "default";
 
   return (
     <main className="min-h-screen bg-paper text-ink">

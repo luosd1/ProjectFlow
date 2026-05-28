@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useRouter } from "next/navigation";
 import { createWorkspace } from "@/lib/api";
 import type { Workspace } from "@/lib/types";
 
@@ -17,6 +18,7 @@ interface WorkspaceCreateFormProps {
 }
 
 export function WorkspaceCreateForm({ ownerUserId, onCreated }: WorkspaceCreateFormProps) {
+  const router = useRouter();
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [ownerId, setOwnerId] = useState(ownerUserId ?? "");
@@ -53,8 +55,8 @@ export function WorkspaceCreateForm({ ownerUserId, onCreated }: WorkspaceCreateF
             <p className="text-lg font-bold">Workspace Created</p>
             <p className="text-sm text-ink/60">{created.name}</p>
             <p className="text-xs font-mono text-ink/40">{created.workspace_id}</p>
-            <Button className="mt-2 bg-moss text-white hover:bg-moss/80" onClick={() => window.location.href = `/workspaces/${created.workspace_id}`}>
-              Open Workspace
+            <Button className="mt-2 bg-moss text-white hover:bg-moss/80" onClick={() => router.push(`/onboarding/profile?userId=${ownerId}&workspaceId=${created.workspace_id}`)}>
+              Fill Member Profile
             </Button>
           </CardContent>
         </Card>

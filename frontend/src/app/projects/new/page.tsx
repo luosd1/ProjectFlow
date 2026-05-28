@@ -7,7 +7,8 @@ import { ProjectIntakeForm } from "@/components/project/project-intake-form";
 
 function ProjectNewContent() {
   const searchParams = useSearchParams();
-  const workspaceId = searchParams.get("workspaceId") ?? "default";
+  const workspaceId = searchParams.get("workspaceId") ?? "";
+  const createdBy = searchParams.get("createdBy") ?? "";
 
   return (
     <div className="mx-auto max-w-lg px-5 py-12">
@@ -18,7 +19,7 @@ function ProjectNewContent() {
           Describe your project idea, deadline, and deliverables.
         </p>
       </header>
-      <ProjectIntakeForm workspaceId={workspaceId} />
+      <ProjectIntakeForm workspaceId={workspaceId} defaultCreatedBy={createdBy} />
     </div>
   );
 }
