@@ -1,10 +1,11 @@
 # ProjectFlow Handoff
 
-Status: current as of 2026-05-28.
+Status: current as of 2026-05-29.
 
 ## Completed
 
 Phase 0 / GitHub issue #2 is complete and closed.
+Phase 1 (models) / GitHub issue #3 is complete and closed.
 
 Implemented scope:
 
@@ -17,6 +18,9 @@ Implemented scope:
 - Frontend API helper and type placeholders.
 - Frontend test, lint, and production build setup.
 - Runtime ignore rules for secrets, local databases, dependency folders, and generated caches.
+- All 18 domain models in `backend/app/models/` with full enum alignment.
+- Database auto-creates tables on FastAPI startup via lifespan.
+- 12 model smoke tests covering insert/read for every model.
 
 ## Verification Baseline
 
@@ -37,7 +41,7 @@ npm audit --omit=dev
 
 Results:
 
-- Backend: 1 test passed.
+- Backend: 13 tests passed.
 - Frontend: 1 test passed.
 - Frontend lint passed.
 - Frontend build passed.
@@ -49,7 +53,8 @@ Backend:
 
 - Implemented route: `GET /api/health`.
 - Current response: `{"status":"ok","service":"projectflow-backend"}`.
-- Domain models and service layer are not implemented yet.
+- Domain models implemented (18 models, all enums).
+- Service layer and API routes are not implemented yet.
 
 Frontend:
 
@@ -61,15 +66,14 @@ Frontend:
 
 Recommended next implementation target:
 
-1. Add backend domain models for User, Workspace, WorkspaceMembership, Invitation, and MemberProfile.
-2. Add matching Pydantic schemas and service functions.
-3. Add route-level smoke tests for account/workspace/member profile flow.
-4. Keep `docs/api-contract.md` updated as each endpoint lands.
+1. Core Workspace and Project APIs (issue #4) — schemas, services, routes for workspace/account/member/project/resource/stage/task.
+2. Agent Infrastructure and Structured Outputs (issue #5) — can run in parallel with #4.
+3. Frontend Shell, Onboarding, Workspace, and Intake (issue #6) — can run in parallel with #4.
 
 Dependency note:
 
-- Project and resource APIs should wait until workspace/member profile persistence exists.
-- Frontend workflow screens can start in parallel only after stable backend contracts or explicit mocks are defined.
+- #4 and #5 depend on #3 (domain models) which is now complete.
+- #6 (frontend) can run in parallel with backend work.
 
 ## Local Cleanup Notes
 
