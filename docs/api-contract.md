@@ -27,52 +27,86 @@ Response:
 }
 ```
 
-Verification:
-
-```bash
-curl http://localhost:8000/api/health
-```
-
-Notes:
-
-- No authentication.
-- No request body.
-- Used by backend smoke tests and frontend health checks.
-
-## Planned MVP Endpoints
-
-These routes come from the MVP technical design and are not implemented as of 2026-05-28.
-
 ### Users
 
 ```http
 POST /api/users
+GET /api/users
 GET /api/users/{user_id}
 ```
 
 ### Workspaces
 
 ```http
-POST /api/workspaces
-POST /api/workspaces/{workspace_id}/invitations
-POST /api/invitations/{token}/accept
-GET /api/workspaces/{workspace_id}/state
+POST /api/workspaces?owner_user_id=...
+GET /api/workspaces
+GET /api/workspaces/{workspace_id}
+POST /api/workspaces/{workspace_id}/members
+```
+
+### Invitations
+
+```http
+POST /api/invitations
+POST /api/invitations/accept
 ```
 
 ### Member Profiles
 
 ```http
-POST /api/workspaces/{workspace_id}/members/{user_id}/profile
-GET /api/workspaces/{workspace_id}/members
+POST /api/member-profiles
+GET /api/member-profiles/{profile_id}
+PATCH /api/member-profiles/{profile_id}
+GET /api/workspaces/{workspace_id}/profiles
 ```
 
-### Projects And Resources
+### Projects
 
 ```http
-POST /api/workspaces/{workspace_id}/projects
-GET /api/projects/{project_id}/state
-POST /api/projects/{project_id}/resources
+POST /api/projects
+GET /api/projects/{project_id}
+GET /api/workspaces/{workspace_id}/projects
+PATCH /api/projects/{project_id}
 ```
+
+### Resources
+
+```http
+POST /api/resources
+GET /api/projects/{project_id}/resources
+```
+
+### Stages
+
+```http
+POST /api/stages
+GET /api/stages/{stage_id}
+GET /api/projects/{project_id}/stages
+PATCH /api/stages/{stage_id}
+```
+
+### Tasks
+
+```http
+POST /api/tasks
+GET /api/tasks/{task_id}
+GET /api/stages/{stage_id}/tasks
+GET /api/projects/{project_id}/tasks
+PATCH /api/tasks/{task_id}
+POST /api/tasks/{task_id}/status-updates
+```
+
+### Workspace State
+
+```http
+GET /api/workspaces/{workspace_id}/state
+```
+
+Returns the full workspace state (members, project, stages, tasks) needed by the Coordinator Agent.
+
+## Planned MVP Endpoints
+
+These routes come from the MVP technical design and are not implemented as of 2026-05-29.
 
 ### Agent
 
@@ -104,12 +138,11 @@ POST /api/assignment-negotiations/{negotiation_id}/resolve
 POST /api/stages/{stage_id}/assignments/finalize
 ```
 
-### Check-ins And Tasks
+### Check-ins
 
 ```http
 POST /api/projects/{project_id}/checkin-cycles
 POST /api/checkin-cycles/{cycle_id}/responses
-POST /api/tasks/{task_id}/status
 ```
 
 ### Export

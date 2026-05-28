@@ -2,8 +2,8 @@
 name: projectflow-mvp
 status: in-progress
 created: 2026-05-28T13:58:36Z
-updated: 2026-05-28T15:44:50Z
-progress: 20%
+updated: 2026-05-29T10:30:00Z
+progress: 36%
 prd: .claude/prds/projectflow-mvp.md
 github: https://github.com/wubq511/ProjectFlow/issues/1
 ---

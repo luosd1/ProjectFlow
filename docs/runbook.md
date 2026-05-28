@@ -92,7 +92,7 @@ npm audit --omit=dev
 
 Expected baseline as of 2026-05-29:
 
-- Backend tests pass (13 tests: 1 health + 12 model smoke).
+- Backend tests pass (21 tests: 1 health + 5 issue4 smoke + 3 workspace/project smoke + 12 model smoke).
 - Frontend tests pass.
 - Frontend lint passes.
 - Frontend production build passes.

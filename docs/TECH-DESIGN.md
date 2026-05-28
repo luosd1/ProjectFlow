@@ -19,9 +19,10 @@ Snapshot date: 2026-05-29.
 
 - Phase 0 / GitHub issue #2 is completed and closed.
 - Phase 1 (models) / GitHub issue #3 is completed and closed.
-- Implemented: FastAPI scaffold, SQLite configuration skeleton, `GET /api/health`, all 18 domain models (User, Workspace, WorkspaceMembership, Invitation, MemberProfile, Project, ProjectResource, Stage, Task, TaskStatusUpdate, AssignmentProposal, AssignmentResponse, AssignmentNegotiation, CheckInCycle, CheckInResponse, Risk, ActionCard, AgentEvent) with full enum alignment and auto table creation on startup, Next.js first screen, frontend API helper, smoke tests, lint/build/test scripts, README, and runtime ignore rules.
-- Not implemented yet: service layer, core workspace/project APIs, Agent modules, seed data, and complete demo flow.
-- Current verification baseline: backend pytest (13 tests), frontend test, frontend lint, frontend build, and frontend production dependency audit.
+- Phase 2 (core APIs) / GitHub issue #4 is completed and closed.
+- Implemented: FastAPI scaffold, SQLite configuration skeleton, `GET /api/health`, all 18 domain models with full enum alignment and auto table creation on startup, full CRUD APIs (users, workspaces, invitations, member-profiles, projects, resources, stages, tasks), WorkspaceState assembly endpoint (`GET /api/workspaces/{id}/state`), service layer, Pydantic schemas, Next.js first screen, frontend API helper, smoke tests, lint/build/test scripts, README, and runtime ignore rules.
+- Not implemented yet: Agent modules, assignment/checkin/risk/replan service flows, seed data, and complete demo flow.
+- Current verification baseline: backend pytest (21 tests), frontend test, frontend lint, frontend build, and frontend production dependency audit.
 
 ---
 
@@ -1881,6 +1882,7 @@ Acceptance:
 Current status:
 
 - Domain models (User, Workspace, WorkspaceMembership, Invitation, MemberProfile, Project, ProjectResource, Stage, Task, AssignmentProposal, AssignmentResponse, AssignmentNegotiation, CheckInCycle, CheckInResponse, TaskStatusUpdate, Risk, ActionCard, AgentEvent) completed on 2026-05-29 via GitHub issue #3.
+- Core CRUD APIs and WorkspaceState endpoint completed on 2026-05-29 via GitHub issue #4.
 - UI components not yet implemented.
 
 ---
@@ -2149,10 +2151,10 @@ http://localhost:3000
 
 ## 21. Immediate Next Steps
 
-1. 初始化 / 修正数据模型：User、Workspace、Membership、Invitation、MemberProfile。
-2. 实现对应 schema、service、route 和 SQLite 初始化。
-3. 实现 Project + Resource + WorkspaceState API。
-4. 实现 Agent 输出 schema。
+1. ~~初始化 / 修正数据模型：User、Workspace、Membership、Invitation、MemberProfile。~~ (done #3)
+2. ~~实现对应 schema、service、route 和 SQLite 初始化。~~ (done #4)
+3. ~~实现 Project + Resource + WorkspaceState API。~~ (done #4)
+4. 实现 Agent 输出 schema 和 LLM client。
 5. 先用 seed data/mock LLM 跑通前端主路径。
 6. 再接真实 LLM。
 7. 优先完成 Assignment Flow 和 Check-in Flow，因为这是新版 PRD 的核心增量。
