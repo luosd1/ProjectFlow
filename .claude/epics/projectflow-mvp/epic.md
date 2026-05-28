@@ -1,9 +1,9 @@
 ---
 name: projectflow-mvp
-status: backlog
+status: in-progress
 created: 2026-05-28T13:58:36Z
-updated: 2026-05-28T14:51:24Z
-progress: 0%
+updated: 2026-05-28T15:44:50Z
+progress: 10%
 prd: .claude/prds/projectflow-mvp.md
 github: https://github.com/wubq511/ProjectFlow/issues/1
 ---
@@ -138,7 +138,7 @@ Parallelization:
 
 ## Tasks Created
 
-- [ ] 2.md - Guardrails, Monorepo Bootstrap, and Health Checks (parallel: false)
+- [x] 2.md - Guardrails, Monorepo Bootstrap, and Health Checks (parallel: false)
 - [ ] 3.md - Backend Domain Models and SQLite Persistence (parallel: true)
 - [ ] 4.md - Core Workspace and Project APIs (parallel: true)
 - [ ] 5.md - Agent Infrastructure and Structured Outputs (parallel: true)
