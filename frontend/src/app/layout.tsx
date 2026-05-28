@@ -1,7 +1,11 @@
 import type { Metadata } from "next";
-import { Merriweather, Source_Sans_3 } from "next/font/google";
+import { Merriweather, Source_Sans_3, Geist } from "next/font/google";
 
 import "../styles/globals.css";
+import { cn } from "@/lib/utils";
+import { AppShell } from "@/components/app-shell";
+
+const geist = Geist({subsets:['latin'],variable:'--font-sans'});
 
 const display = Merriweather({
   subsets: ["latin"],
@@ -25,8 +29,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="zh-CN">
-      <body className={`${display.variable} ${body.variable}`}>{children}</body>
+    <html lang="zh-CN" className={cn("font-sans", geist.variable)}>
+      <body className={`${display.variable} ${body.variable}`}>
+        <AppShell>{children}</AppShell>
+      </body>
     </html>
   );
 }

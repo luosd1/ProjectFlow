@@ -15,12 +15,14 @@
 
 ## 1.1 Current Implementation Snapshot
 
-Snapshot date: 2026-05-28.
+Snapshot date: 2026-05-29.
 
 - Phase 0 / GitHub issue #2 is completed and closed.
-- Implemented: FastAPI scaffold, SQLite configuration skeleton, `GET /api/health`, Next.js first screen, frontend API helper, smoke tests, lint/build/test scripts, README, and runtime ignore rules.
-- Not implemented yet: domain database models, service layer, core workspace/project APIs, Agent modules, seed data, and complete demo flow.
-- Current verification baseline: backend pytest, frontend test, frontend lint, frontend build, and frontend production dependency audit.
+- GitHub issue #6 (Frontend Shell, Onboarding, Workspace, and Intake) is implemented.
+- Implemented: FastAPI scaffold, SQLite configuration skeleton, `GET /api/health`, Next.js app shell with navigation, onboarding flow (account setup + member profile wizard), workspace creation + invite panel, project intake + resource input, full domain types and API layer, shadcn/ui components, smoke tests, lint/build/test scripts, README, and runtime ignore rules.
+- Frontend routes: `/`, `/onboarding`, `/onboarding/profile`, `/workspaces/new`, `/workspaces/[workspaceId]`, `/projects/new`, `/projects/[projectId]`.
+- Not implemented yet: backend domain database models, service layer, core workspace/project APIs, Agent modules, seed data, and complete demo flow.
+- Current verification baseline: frontend test, frontend lint, frontend build.
 
 ---
 

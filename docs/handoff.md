@@ -1,12 +1,10 @@
 # ProjectFlow Handoff
 
-Status: current as of 2026-05-28.
+Status: current as of 2026-05-29.
 
 ## Completed
 
-Phase 0 / GitHub issue #2 is complete and closed.
-
-Implemented scope:
+### Phase 0 / GitHub issue #2 (2026-05-28)
 
 - Repository guardrails in `AGENTS.md` and `CLAUDE.md`.
 - Root `README.md` with local setup and verification commands.
@@ -18,30 +16,33 @@ Implemented scope:
 - Frontend test, lint, and production build setup.
 - Runtime ignore rules for secrets, local databases, dependency folders, and generated caches.
 
+### GitHub issue #6 (2026-05-29)
+
+- App shell with responsive navigation (desktop links + mobile hamburger sheet).
+- Onboarding flow: account setup form (create/select demo identity) and member profile wizard (3-step: skills, availability, preferences).
+- Workspace flow: create workspace form, invite member panel with copy-link, workspace dashboard.
+- Project intake: project idea/deadline/deliverables form, resource input panel (text notes, links, file references), project dashboard.
+- Full domain types in `frontend/src/lib/types.ts` (User, Workspace, MemberProfile, Project, Stage, Task, Assignment, CheckIn, Risk, ActionCard, AgentEvent, etc.).
+- Full API layer in `frontend/src/lib/api.ts` (users, workspaces, invitations, profiles, projects, resources, agent, assignments, checkins, tasks, export).
+- shadcn/ui installed with 16 components (button, card, input, label, select, textarea, badge, separator, avatar, dialog, dropdown-menu, sheet, tabs, tooltip, progress).
+- Tailwind config updated with CSS variable colors for shadcn/ui compatibility.
+
 ## Verification Baseline
 
-Commands run successfully on 2026-05-28:
-
-```bash
-cd backend
-.venv\Scripts\python -m pytest app/tests/ -v
-```
+Commands run successfully on 2026-05-29:
 
 ```bash
 cd frontend
 npm run test
 npm run lint
 npm run build
-npm audit --omit=dev
 ```
 
 Results:
 
-- Backend: 1 test passed.
 - Frontend: 1 test passed.
 - Frontend lint passed.
-- Frontend build passed.
-- Frontend production dependency audit reported 0 vulnerabilities.
+- Frontend build passed (7 routes generated).
 
 ## Current Implementation Surface
 
@@ -53,23 +54,24 @@ Backend:
 
 Frontend:
 
-- Implemented route: `/`.
+- Implemented routes: `/`, `/onboarding`, `/onboarding/profile`, `/workspaces/new`, `/workspaces/[workspaceId]`, `/projects/new`, `/projects/[projectId]`.
 - API base URL comes from `NEXT_PUBLIC_API_BASE_URL` or defaults to `http://localhost:8000/api`.
-- Product workflow screens are not implemented yet.
+- All API calls go through `frontend/src/lib/api.ts`.
+- All types defined in `frontend/src/lib/types.ts`.
+- UI components use shadcn/ui (base-nova style) with project color tokens (ink, paper, moss, citron, coral, harbor).
 
 ## Next Work
 
 Recommended next implementation target:
 
-1. Add backend domain models for User, Workspace, WorkspaceMembership, Invitation, and MemberProfile.
-2. Add matching Pydantic schemas and service functions.
-3. Add route-level smoke tests for account/workspace/member profile flow.
-4. Keep `docs/api-contract.md` updated as each endpoint lands.
+1. Backend domain models (#3): User, Workspace, WorkspaceMembership, Invitation, MemberProfile.
+2. Core workspace/project APIs (#4): CRUD endpoints matching the frontend API layer.
+3. Agent infrastructure (#5): LLM client, coordinator, structured output schemas.
 
 Dependency note:
 
-- Project and resource APIs should wait until workspace/member profile persistence exists.
-- Frontend workflow screens can start in parallel only after stable backend contracts or explicit mocks are defined.
+- Frontend pages are built against the API contract. They will work with mock data until backend endpoints are ready.
+- Backend issue #3 is currently in progress.
 
 ## Local Cleanup Notes
 
@@ -81,4 +83,4 @@ Ignored install/build artifacts may exist locally after verification:
 - `frontend/node_modules/`
 - `frontend/.next/`
 
-They are intentionally ignored and must not be committed. Delete them only after explicit approval, because repository guidance treats file and directory deletion as a red-line operation.
+They are intentionally ignored and must not be committed.

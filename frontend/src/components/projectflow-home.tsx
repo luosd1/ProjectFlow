@@ -25,7 +25,7 @@ const statusTone = {
 
 export function ProjectFlowHome() {
   return (
-    <main className="min-h-screen bg-paper text-ink">
+    <main>
       <section className="mx-auto grid min-h-screen w-full max-w-7xl grid-cols-1 gap-6 px-5 py-5 lg:grid-cols-[1.05fr_0.95fr] lg:px-8">
         <motion.div
           initial={{ opacity: 0, y: 18 }}

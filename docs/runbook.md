@@ -1,6 +1,6 @@
 # ProjectFlow Runbook
 
-Status: current as of 2026-05-28.
+Status: current as of 2026-05-29.
 
 ## Prerequisites
 
@@ -59,6 +59,13 @@ npm install
 npm run dev
 ```
 
+shadcn/ui components are pre-installed. To add more:
+
+```bash
+cd frontend
+npx shadcn@latest add <component-name>
+```
+
 Open:
 
 ```text
@@ -90,7 +97,7 @@ npm run build
 npm audit --omit=dev
 ```
 
-Expected baseline as of 2026-05-28:
+Expected baseline as of 2026-05-29:
 
 - Backend tests pass.
 - Frontend tests pass.
