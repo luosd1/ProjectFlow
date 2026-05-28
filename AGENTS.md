@@ -58,10 +58,10 @@ projectflow/
 ```bash
 cd backend
 python -m venv .venv
-# Windows: .venv\Scripts\activate
-source .venv/bin/activate    # Linux/Mac
-pip install -e .
-uvicorn app.main:app --reload --port 8000
+# Windows PowerShell: .venv\Scripts\Activate.ps1
+# macOS/Linux: source .venv/bin/activate
+python -m pip install -e ".[dev]"
+python -m uvicorn app.main:app --reload --port 8000
 ```
 
 ### Frontend
@@ -75,15 +75,17 @@ npm run dev
 ```bash
 # Backend tests
 cd backend
-pytest app/tests/ -v
+.venv\Scripts\python -m pytest app/tests/ -v
 
 # Single test file
-pytest app/tests/test_api_smoke.py -v
+.venv\Scripts\python -m pytest app/tests/test_api_smoke.py -v
 
 # Frontend
 cd frontend
+npm run test
 npm run lint
 npm run build
+npm audit --omit=dev
 ```
 
 ### Access
@@ -142,23 +144,24 @@ Stage 完成后进入下一阶段，重新触发阶段性分工推荐。
 ## Environment Variables
 
 ```bash
-LLM_PROVIDER=openai        # 或 deepseek / 其他国产模型
-OPENAI_API_KEY=xxx
-DATABASE_URL=sqlite:///./data/projectflow.sqlite
 APP_ENV=development
+DATABASE_URL=sqlite:///./data/projectflow.sqlite
+LLM_PROVIDER=openai        # 或 deepseek / 其他国产模型
+OPENAI_API_KEY=xxx         # 真实 LLM 接入后需要；当前 scaffold 不直接读取
+NEXT_PUBLIC_API_BASE_URL=http://localhost:8000/api
 ```
 
-API key 必须放 `.env`，不能提交 Git。前端不能直接调用 LLM API。
+API key 必须放 `.env`，不能提交 Git。前端不能直接调用 LLM API。`NEXT_PUBLIC_API_BASE_URL` 是前端可选变量，不配置时默认 `http://localhost:8000/api`。
 
 ## Git Ignore
 
-必须忽略：`.env`, `*.sqlite`, `backend/data/`, `node_modules/`, `.venv/`, `__pycache__/`, `.next/`
+必须忽略：`.env`, `.env.*`, `*.sqlite`, `*.sqlite3`, `backend/data/`, `node_modules/`, `.venv/`, `__pycache__/`, `frontend/.next/`, `frontend/out/`, `frontend/dist/`, `.pytest_cache/`, `.mypy_cache/`, `.ruff_cache/`
 
 ## Development Phases
 
 | Phase | Scope | Target |
 |-------|-------|--------|
-| 0 | Guardrails & Setup: AGENTS.md, monorepo 初始化, 前后端可启动, SQLite 初始化 | - |
+| 0 | Guardrails & Setup: AGENTS.md, monorepo 初始化, 前后端可启动, SQLite 初始化 | 已完成：2026-05-28 / GitHub #2 |
 | 1 | Account / Workspace / Member Profile | - |
 | 2 | Project Intake + Resources | - |
 | 3 | Agent Core Flow: LLM client, Coordinator, Clarification, Planning, Breakdown | - |

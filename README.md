@@ -2,6 +2,12 @@
 
 ProjectFlow is a local-first active project agent MVP for college project teams. The demo target is a full loop from workspace setup through planning, assignment, active push, check-in, risk analysis, replanning, and review export.
 
+## Current Status
+
+- Phase 0 / GitHub issue #2 completed on 2026-05-28.
+- Implemented scaffold: FastAPI health API, SQLite config skeleton, Next.js first screen, tests, lint/build commands, and runtime ignore rules.
+- Next implementation target: backend domain models for account, workspace, membership, invitation, and member profile.
+
 ## Stack
 
 - Frontend: Next.js, React, TypeScript, Tailwind CSS
@@ -53,7 +59,15 @@ cd frontend
 npm run test
 npm run lint
 npm run build
+npm audit --omit=dev
 ```
+
+## Project Docs
+
+- [Technical design](docs/TECH-DESIGN.md)
+- [API contract](docs/api-contract.md)
+- [Runbook](docs/runbook.md)
+- [Current handoff](docs/handoff.md)
 
 ## Runtime Files
 
@@ -64,4 +78,4 @@ Keep secrets and local data out of git:
 - SQLite files
 - `.venv/`
 - `node_modules/`
-- `.next/`
+- `frontend/.next/`

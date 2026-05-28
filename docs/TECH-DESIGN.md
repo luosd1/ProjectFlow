@@ -13,6 +13,17 @@
 
 ---
 
+## 1.1 Current Implementation Snapshot
+
+Snapshot date: 2026-05-28.
+
+- Phase 0 / GitHub issue #2 is completed and closed.
+- Implemented: FastAPI scaffold, SQLite configuration skeleton, `GET /api/health`, Next.js first screen, frontend API helper, smoke tests, lint/build/test scripts, README, and runtime ignore rules.
+- Not implemented yet: domain database models, service layer, core workspace/project APIs, Agent modules, seed data, and complete demo flow.
+- Current verification baseline: backend pytest, frontend test, frontend lint, frontend build, and frontend production dependency audit.
+
+---
+
 ## 2. Technical Goal
 
 ProjectFlow 的技术目标不是构建完整 SaaS，也不是做一个复杂企业级项目管理平台，而是快速、稳定地实现一个可演示的 **主动推进型项目 Agent 闭环**。
@@ -169,21 +180,25 @@ flowchart TD
 ```text
 projectflow/
 ├── AGENTS.md
-├── CLAUDE.md(从AGENTS.md链接过来，两者保持一致、同步)
+├── CLAUDE.md              # 与 AGENTS.md 内容保持一致；Windows 下不依赖 symlink
 ├── README.md
 ├── docs/
 │   ├── TECH-DESIGN.md
-|   ├── PRD-ProjectFlow-MVP.md
-|   ├── PRD-ProjectFlow-Roadmap.md
-|   ├── api-contract.md
-│   ├── demo-script.md
-│   ├── runbook.md
-|   ├── seed-scenarios.md
+│   ├── PRD-ProjectFlow-MVP.md
+│   ├── PRD-ProjectFlow-Roadmap.md
+│   ├── api-contract.md    # current implemented + planned API surface
+│   ├── runbook.md         # local setup and verification
+│   ├── handoff.md         # current status and next work
+│   ├── demo-script.md     # planned
+│   ├── seed-scenarios.md  # planned
 │   └── ...
 │
 ├── frontend/
 │   ├── package.json
-│   ├── next.config.ts
+│   ├── package-lock.json
+│   ├── next.config.mjs
+│   ├── eslint.config.mjs
+│   ├── vitest.config.ts
 │   ├── tsconfig.json
 │   ├── src/
 │   │   ├── app/
@@ -1030,7 +1045,8 @@ Response:
 
 ```json
 {
-  "status": "ok"
+  "status": "ok",
+  "service": "projectflow-backend"
 }
 ```
 
@@ -1647,11 +1663,14 @@ MVP 可以使用轻量校验：
 ## 14.3 Environment Variables
 
 ```text
+APP_ENV=development
+DATABASE_URL=sqlite:///./data/projectflow.sqlite
 LLM_PROVIDER=openai
 OPENAI_API_KEY=xxx
-DATABASE_URL=sqlite:///./data/projectflow.sqlite
-APP_ENV=development
+NEXT_PUBLIC_API_BASE_URL=http://localhost:8000/api
 ```
+
+`APP_ENV`、`DATABASE_URL`、`LLM_PROVIDER` 已由后端配置读取。`OPENAI_API_KEY` 是真实 LLM 接入后需要的后端密钥，必须放 `.env`。`NEXT_PUBLIC_API_BASE_URL` 是前端可选变量，不配置时默认 `http://localhost:8000/api`。
 
 ## 14.4 Git Ignore Rules
 
@@ -1659,12 +1678,19 @@ APP_ENV=development
 
 ```text
 .env
+.env.*
 *.sqlite
+*.sqlite3
 backend/data/
 node_modules/
 .venv/
 __pycache__/
-.next/
+frontend/.next/
+frontend/out/
+frontend/dist/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
 ```
 
 ---
@@ -1824,6 +1850,12 @@ Acceptance:
 - 后端 localhost:8000 可访问。
 - Git 初始化完成。
 - AI Coding Agent 有明确目录规则。
+
+Current status:
+
+- Completed on 2026-05-28 via GitHub issue #2.
+- Verified with backend pytest, frontend test, frontend lint, frontend build, and `npm audit --omit=dev`.
+- Remaining Phase 0 cleanup is documentation maintenance only; implementation can proceed to Phase 1 domain models.
 
 ---
 
@@ -2013,9 +2045,10 @@ Backend:
 ```bash
 cd backend
 python -m venv .venv
-source .venv/bin/activate
-pip install -e .
-uvicorn app.main:app --reload --port 8000
+# Windows PowerShell: .venv\Scripts\Activate.ps1
+# macOS/Linux: source .venv/bin/activate
+python -m pip install -e ".[dev]"
+python -m uvicorn app.main:app --reload --port 8000
 ```
 
 Frontend:
@@ -2110,17 +2143,17 @@ http://localhost:3000
 
 ## 21. Immediate Next Steps
 
-1. 更新 `AGENTS.md`，先写清楚目录、模块边界、禁止事项和验收方式。
-2. 初始化 / 修正数据模型：User、Workspace、Membership、Invitation、MemberProfile。
+1. 初始化 / 修正数据模型：User、Workspace、Membership、Invitation、MemberProfile。
+2. 实现对应 schema、service、route 和 SQLite 初始化。
 3. 实现 Project + Resource + WorkspaceState API。
 4. 实现 Agent 输出 schema。
 5. 先用 seed data/mock LLM 跑通前端主路径。
 6. 再接真实 LLM。
 7. 优先完成 Assignment Flow 和 Check-in Flow，因为这是新版 PRD 的核心增量。
-8. 最后打磨 Action Cards、Risk & Replan、Agent Timeline。
+8. 保持 `docs/api-contract.md`、`docs/runbook.md`、`docs/handoff.md` 与代码同步。
+9. 最后打磨 Action Cards、Risk & Replan、Agent Timeline。
 
 ---
 
 *Created: 2026-05-28*  
-*Status: Draft — Ready for Implementation*
-
+*Status: Draft — Issue #2 implementation synchronized on 2026-05-28*
