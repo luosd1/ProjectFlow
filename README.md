@@ -5,8 +5,9 @@ ProjectFlow is a local-first active project agent MVP for college project teams.
 ## Current Status
 
 - Phase 0 / GitHub issue #2 completed on 2026-05-28.
-- Implemented scaffold: FastAPI health API, SQLite config skeleton, Next.js first screen, tests, lint/build commands, and runtime ignore rules.
-- Next implementation target: backend domain models for account, workspace, membership, invitation, and member profile.
+- Phase 1 (models) / GitHub issue #3 completed on 2026-05-29.
+- Implemented: FastAPI health API, all 18 domain models with SQLite persistence, Next.js first screen, tests (13 backend), lint/build commands, and runtime ignore rules.
+- Next implementation target: core workspace and project APIs (issue #4), agent infrastructure (issue #5), frontend shell (issue #6).
 
 ## Stack
 

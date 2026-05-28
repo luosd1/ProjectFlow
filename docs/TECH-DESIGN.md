@@ -15,12 +15,13 @@
 
 ## 1.1 Current Implementation Snapshot
 
-Snapshot date: 2026-05-28.
+Snapshot date: 2026-05-29.
 
 - Phase 0 / GitHub issue #2 is completed and closed.
-- Implemented: FastAPI scaffold, SQLite configuration skeleton, `GET /api/health`, Next.js first screen, frontend API helper, smoke tests, lint/build/test scripts, README, and runtime ignore rules.
-- Not implemented yet: domain database models, service layer, core workspace/project APIs, Agent modules, seed data, and complete demo flow.
-- Current verification baseline: backend pytest, frontend test, frontend lint, frontend build, and frontend production dependency audit.
+- Phase 1 (models) / GitHub issue #3 is completed and closed.
+- Implemented: FastAPI scaffold, SQLite configuration skeleton, `GET /api/health`, all 18 domain models (User, Workspace, WorkspaceMembership, Invitation, MemberProfile, Project, ProjectResource, Stage, Task, TaskStatusUpdate, AssignmentProposal, AssignmentResponse, AssignmentNegotiation, CheckInCycle, CheckInResponse, Risk, ActionCard, AgentEvent) with full enum alignment and auto table creation on startup, Next.js first screen, frontend API helper, smoke tests, lint/build/test scripts, README, and runtime ignore rules.
+- Not implemented yet: service layer, core workspace/project APIs, Agent modules, seed data, and complete demo flow.
+- Current verification baseline: backend pytest (13 tests), frontend test, frontend lint, frontend build, and frontend production dependency audit.
 
 ---
 
@@ -1876,6 +1877,11 @@ Acceptance:
 - 可以创建 workspace。
 - 可以邀请/加入成员。
 - 可以填写成员技能、时间、意向、限制。
+
+Current status:
+
+- Domain models (User, Workspace, WorkspaceMembership, Invitation, MemberProfile, Project, ProjectResource, Stage, Task, AssignmentProposal, AssignmentResponse, AssignmentNegotiation, CheckInCycle, CheckInResponse, TaskStatusUpdate, Risk, ActionCard, AgentEvent) completed on 2026-05-29 via GitHub issue #3.
+- UI components not yet implemented.
 
 ---
 

@@ -1,6 +1,6 @@
 # ProjectFlow Runbook
 
-Status: current as of 2026-05-28.
+Status: current as of 2026-05-29.
 
 ## Prerequisites
 
@@ -90,9 +90,9 @@ npm run build
 npm audit --omit=dev
 ```
 
-Expected baseline as of 2026-05-28:
+Expected baseline as of 2026-05-29:
 
-- Backend tests pass.
+- Backend tests pass (13 tests: 1 health + 12 model smoke).
 - Frontend tests pass.
 - Frontend lint passes.
 - Frontend production build passes.

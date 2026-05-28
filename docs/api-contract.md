@@ -1,6 +1,6 @@
 # ProjectFlow API Contract
 
-Status: current as of 2026-05-28.
+Status: current as of 2026-05-29.
 
 This document records the implemented API surface first, then the planned MVP surface. Treat planned endpoints as design targets until code and tests exist.
 
