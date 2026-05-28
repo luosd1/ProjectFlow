@@ -3,6 +3,15 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from app.api.routes_health import router as health_router
+from app.api.routes_users import router as users_router
+from app.api.routes_workspaces import router as workspaces_router
+from app.api.routes_invitations import router as invitations_router
+from app.api.routes_member_profiles import router as profiles_router
+from app.api.routes_projects import router as projects_router
+from app.api.routes_resources import router as resources_router
+from app.api.routes_stages import router as stages_router
+from app.api.routes_tasks import router as tasks_router
+from app.api.routes_workspace_state import router as workspace_state_router
 from app.core.database import create_db_and_tables
 
 
@@ -14,3 +23,12 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="ProjectFlow API", lifespan=lifespan)
 app.include_router(health_router, prefix="/api")
+app.include_router(users_router, prefix="/api")
+app.include_router(workspaces_router, prefix="/api")
+app.include_router(invitations_router, prefix="/api")
+app.include_router(profiles_router, prefix="/api")
+app.include_router(projects_router, prefix="/api")
+app.include_router(resources_router, prefix="/api")
+app.include_router(stages_router, prefix="/api")
+app.include_router(tasks_router, prefix="/api")
+app.include_router(workspace_state_router, prefix="/api")
