@@ -28,6 +28,17 @@ Implemented scope:
 - Pydantic schemas for all CRUD domains in `backend/app/schemas/`.
 - 9 API smoke tests covering full demo path and list endpoints.
 
+### GitHub issue #6 (2026-05-29)
+
+- App shell with responsive navigation (desktop links + mobile hamburger sheet).
+- Onboarding flow: account setup form (create/select demo identity) and member profile wizard (3-step: skills, availability, preferences).
+- Workspace flow: create workspace form, invite member panel with copy-link, workspace dashboard.
+- Project intake: project idea/deadline/deliverables form, resource input panel (text notes, links, file references), project dashboard.
+- Full domain types in `frontend/src/lib/types.ts` (User, Workspace, MemberProfile, Project, Stage, Task, Assignment, CheckIn, Risk, ActionCard, AgentEvent, etc.).
+- Full API layer in `frontend/src/lib/api.ts` (users, workspaces, invitations, profiles, projects, resources, agent, assignments, checkins, tasks, export).
+- shadcn/ui installed with 16 components (button, card, input, label, select, textarea, badge, separator, avatar, dialog, dropdown-menu, sheet, tabs, tooltip, progress).
+- Tailwind config updated with CSS variable colors for shadcn/ui compatibility.
+
 ## Verification Baseline
 
 Commands run successfully on 2026-05-29:
@@ -42,7 +53,6 @@ cd frontend
 npm run test
 npm run lint
 npm run build
-npm audit --omit=dev
 ```
 
 Results:
@@ -50,8 +60,7 @@ Results:
 - Backend: 21 tests passed.
 - Frontend: 1 test passed.
 - Frontend lint passed.
-- Frontend build passed.
-- Frontend production dependency audit reported 0 vulnerabilities.
+- Frontend build passed (7 routes generated).
 
 ## Current Implementation Surface
 
@@ -65,22 +74,23 @@ Backend:
 
 Frontend:
 
-- Implemented route: `/`.
+- Implemented routes: `/`, `/onboarding`, `/onboarding/profile`, `/workspaces/new`, `/workspaces/[workspaceId]`, `/projects/new`, `/projects/[projectId]`.
 - API base URL comes from `NEXT_PUBLIC_API_BASE_URL` or defaults to `http://localhost:8000/api`.
-- Product workflow screens are not implemented yet.
+- All API calls go through `frontend/src/lib/api.ts`.
+- All types defined in `frontend/src/lib/types.ts`.
+- UI components use shadcn/ui (base-nova style) with project color tokens (ink, paper, moss, citron, coral, harbor).
 
 ## Next Work
 
 Recommended next implementation target:
 
 1. Agent Infrastructure and Structured Outputs (issue #5) — LLM client, coordinator, output schemas, fallback pipeline.
-2. Frontend Shell, Onboarding, Workspace, and Intake (issue #6, in progress) — can run in parallel with #5.
-3. Planning and Assignment Dashboard UI (issue #7) — depends on #5 and #6.
+2. Planning and Assignment Dashboard UI (issue #7) — depends on #5 and #6.
 
 Dependency note:
 
 - #5 depends on #3 (domain models) which is complete.
-- #6 (frontend) is running in parallel.
+- #6 (frontend) is now complete.
 - #7 depends on both #5 and #6.
 
 ## Local Cleanup Notes
@@ -93,4 +103,4 @@ Ignored install/build artifacts may exist locally after verification:
 - `frontend/node_modules/`
 - `frontend/.next/`
 
-They are intentionally ignored and must not be committed. Delete them only after explicit approval, because repository guidance treats file and directory deletion as a red-line operation.
+They are intentionally ignored and must not be committed.

@@ -59,6 +59,13 @@ npm install
 npm run dev
 ```
 
+shadcn/ui components are pre-installed. To add more:
+
+```bash
+cd frontend
+npx shadcn@latest add <component-name>
+```
+
 Open:
 
 ```text

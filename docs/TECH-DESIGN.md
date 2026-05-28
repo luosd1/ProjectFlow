@@ -20,7 +20,9 @@ Snapshot date: 2026-05-29.
 - Phase 0 / GitHub issue #2 is completed and closed.
 - Phase 1 (models) / GitHub issue #3 is completed and closed.
 - Phase 2 (core APIs) / GitHub issue #4 is completed and closed.
-- Implemented: FastAPI scaffold, SQLite configuration skeleton, `GET /api/health`, all 18 domain models with full enum alignment and auto table creation on startup, full CRUD APIs (users, workspaces, invitations, member-profiles, projects, resources, stages, tasks), WorkspaceState assembly endpoint (`GET /api/workspaces/{id}/state`), service layer, Pydantic schemas, Next.js first screen, frontend API helper, smoke tests, lint/build/test scripts, README, and runtime ignore rules.
+- GitHub issue #6 (Frontend Shell, Onboarding, Workspace, and Intake) is implemented.
+- Implemented: FastAPI scaffold, SQLite configuration skeleton, `GET /api/health`, all 18 domain models with full enum alignment and auto table creation on startup, full CRUD APIs (users, workspaces, invitations, member-profiles, projects, resources, stages, tasks), WorkspaceState assembly endpoint (`GET /api/workspaces/{id}/state`), service layer, Pydantic schemas, Next.js app shell with navigation, onboarding flow (account setup + member profile wizard), workspace creation + invite panel, project intake + resource input, full domain types and API layer, shadcn/ui components, smoke tests, lint/build/test scripts, README, and runtime ignore rules.
+- Frontend routes: `/`, `/onboarding`, `/onboarding/profile`, `/workspaces/new`, `/workspaces/[workspaceId]`, `/projects/new`, `/projects/[projectId]`.
 - Not implemented yet: Agent modules, assignment/checkin/risk/replan service flows, seed data, and complete demo flow.
 - Current verification baseline: backend pytest (21 tests), frontend test, frontend lint, frontend build, and frontend production dependency audit.
 

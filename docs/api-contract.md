@@ -4,6 +4,8 @@ Status: current as of 2026-05-29.
 
 This document records the implemented API surface first, then the planned MVP surface. Treat planned endpoints as design targets until code and tests exist.
 
+The frontend API layer (`frontend/src/lib/api.ts`) is fully implemented against this contract as of 2026-05-29. Frontend pages will function with mock data until backend endpoints are ready.
+
 ## Base URL
 
 ```text
