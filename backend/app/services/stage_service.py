@@ -1,3 +1,5 @@
+import json
+
 from sqlmodel import Session, select
 
 from app.models.stage import Stage
@@ -5,6 +7,7 @@ from app.schemas.stage import StageCreate, StageUpdate
 
 
 def create_stage(session: Session, data: StageCreate) -> Stage:
+    criteria = data.done_criteria if data.done_criteria is not None else []
     stage = Stage(
         project_id=data.project_id,
         name=data.name,
@@ -12,7 +15,7 @@ def create_stage(session: Session, data: StageCreate) -> Stage:
         start_date=data.start_date,
         end_date=data.end_date,
         deliverable=data.deliverable,
-        done_criteria=data.done_criteria if data.done_criteria is not None else [],
+        done_criteria=json.dumps(criteria, ensure_ascii=False),
         order_index=data.order_index if data.order_index is not None else 0,
     )
     session.add(stage)
@@ -37,6 +40,8 @@ def update_stage(session: Session, stage_id: str, data: StageUpdate) -> Stage:
         raise ValueError(f"Stage {stage_id} not found")
 
     update_data = data.model_dump(exclude_unset=True)
+    if "done_criteria" in update_data and update_data["done_criteria"] is not None:
+        update_data["done_criteria"] = json.dumps(update_data["done_criteria"], ensure_ascii=False)
     for key, value in update_data.items():
         setattr(stage, key, value)
 

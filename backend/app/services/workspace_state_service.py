@@ -1,3 +1,5 @@
+import json
+
 from sqlmodel import Session, select
 
 from app.models import (
@@ -41,7 +43,7 @@ def get_workspace_state(session: Session, workspace_id: str) -> WorkspaceStateRe
         members.append(MemberState(
             user_id=user.id,
             display_name=user.display_name,
-            skills=profile.skills if profile else [],
+            skills=json.loads(profile.skills) if profile and profile.skills else [],
             available_hours_per_week=profile.available_hours_per_week if profile else 0.0,
             role_preference=profile.role_preference if profile else "",
             interests=profile.interests if profile else "",
@@ -62,21 +64,21 @@ def get_workspace_state(session: Session, workspace_id: str) -> WorkspaceStateRe
         ).all()
         stages = [StageState(
             id=s.id, name=s.name, goal=s.goal,
-            status=s.status.value, order_index=s.order_index,
+            status=s.status if isinstance(s.status, str) else s.status.value, order_index=s.order_index,
         ) for s in stage_rows]
 
         task_rows = session.exec(
             select(Task).where(Task.project_id == project_row.id)
         ).all()
         tasks = [TaskState(
-            id=t.id, title=t.title, status=t.status.value,
-            priority=t.priority.value, owner_user_id=t.owner_user_id,
+            id=t.id, title=t.title, status=t.status if isinstance(t.status, str) else t.status.value,
+            priority=t.priority if isinstance(t.priority, str) else t.priority.value, owner_user_id=t.owner_user_id,
             due_date=t.due_date, can_cut=t.can_cut,
         ) for t in task_rows]
 
         project_state = ProjectState(
             id=project_row.id, name=project_row.name, idea=project_row.idea,
-            deadline=project_row.deadline, status=project_row.status.value,
+            deadline=project_row.deadline, status=project_row.status if isinstance(project_row.status, str) else project_row.status.value,
             current_stage_id=project_row.current_stage_id,
             stages=stages, tasks=tasks,
         )

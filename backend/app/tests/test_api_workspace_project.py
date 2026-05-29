@@ -1,12 +1,8 @@
 """Full-path smoke tests: account -> workspace -> profile -> project -> stage -> task -> workspace_state."""
 from fastapi.testclient import TestClient
 
-from app.main import app
 
-client = TestClient(app)
-
-
-def test_full_demo_path():
+def test_full_demo_path(client: TestClient):
     # 1. Create user
     user_resp = client.post("/api/users", json={"display_name": "Alice", "email": "alice@test.com"})
     assert user_resp.status_code == 201
@@ -146,12 +142,12 @@ def test_full_demo_path():
     assert state["project"]["tasks"][0]["status"] == "not_started"
 
 
-def test_workspace_state_not_found():
+def test_workspace_state_not_found(client: TestClient):
     resp = client.get("/api/workspaces/nonexistent-id/state")
     assert resp.status_code == 404
 
 
-def test_list_endpoints():
+def test_list_endpoints(client: TestClient):
     """Verify list endpoints return data after creation."""
     # Create a user and workspace
     user_resp = client.post("/api/users", json={"display_name": "ListTest"})

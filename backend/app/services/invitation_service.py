@@ -28,11 +28,11 @@ def accept_invitation(session: Session, token: str) -> Invitation:
     if not invitation:
         raise ValueError("Invitation not found")
 
-    if invitation.status != InvitationStatus.pending:
-        raise ValueError(f"Invitation is already {invitation.status.value}")
+    if invitation.status != InvitationStatus.pending.value:
+        raise ValueError(f"Invitation is already {invitation.status}")
 
     # Update invitation status
-    invitation.status = InvitationStatus.accepted
+    invitation.status = InvitationStatus.accepted.value
     invitation.accepted_at = datetime.now(UTC)
     session.add(invitation)
     session.commit()

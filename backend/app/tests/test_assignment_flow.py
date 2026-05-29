@@ -1,12 +1,7 @@
 from fastapi.testclient import TestClient
 
-from app.main import app
 
-
-client = TestClient(app)
-
-
-def _create_assignment_fixture():
+def _create_assignment_fixture(client: TestClient):
     owner = client.post("/api/users", json={"display_name": "Assignment Owner"}).json()
     member = client.post("/api/users", json={"display_name": "Assignment Member"}).json()
     backup = client.post("/api/users", json={"display_name": "Assignment Backup"}).json()
@@ -60,8 +55,8 @@ def _create_assignment_fixture():
     return project, stage, task, member, backup
 
 
-def test_assignment_proposal_response_negotiation_and_finalize_updates_owner_after_confirmation():
-    project, stage, task, member, backup = _create_assignment_fixture()
+def test_assignment_proposal_response_negotiation_and_finalize_updates_owner_after_confirmation(client: TestClient):
+    project, stage, task, member, backup = _create_assignment_fixture(client)
 
     proposal_response = client.post(
         "/api/assignment-proposals",

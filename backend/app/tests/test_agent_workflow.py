@@ -1,7 +1,26 @@
 from datetime import date
 
+import json
 import pytest
 from sqlmodel import Session, SQLModel, create_engine, select
+
+from app.agent.llm_client import (
+    LLMClientSettings,
+    LLMConfigurationError,
+    MockLLMClient,
+    OpenAICompatibleLLMClient,
+    build_llm_client,
+)
+from app.agent.prompts import AGENT_SYSTEM_PROMPT
+from app.agent.workflow import AgentRunStatus, generate_structured_output
+from app.models import AgentEvent
+from app.models.enums import AgentEventStatus, AgentEventType
+from app.schemas.workspace_state import ProjectState, WorkspaceStateResponse
+
+
+def _parse_snapshot(raw: str) -> dict:
+    """Helper: AgentEvent snapshots are stored as JSON strings."""
+    return json.loads(raw)
 
 from app.agent.llm_client import (
     LLMClientSettings,
@@ -37,7 +56,12 @@ def _workspace_state() -> WorkspaceStateResponse:
 
 @pytest.fixture(name="session")
 def session_fixture():
-    engine = create_engine("sqlite://", connect_args={"check_same_thread": False})
+    engine = create_engine(
+        "sqlite://",
+        connect_args={"check_same_thread": False},
+        json_serializer=json.dumps,
+        json_deserializer=json.loads,
+    )
     SQLModel.metadata.create_all(engine)
     with Session(engine) as session:
         yield session
@@ -114,8 +138,8 @@ def test_generate_structured_output_repairs_json_and_logs_event(session: Session
     event = session.exec(select(AgentEvent)).one()
     assert event.event_type == AgentEventType.clarify
     assert event.status == AgentEventStatus.repaired
-    assert event.input_snapshot["event_type"] == "clarify"
-    assert event.output_snapshot["reason"] == "The team needs one clear question."
+    assert _parse_snapshot(event.input_snapshot)["event_type"] == "clarify"
+    assert _parse_snapshot(event.output_snapshot)["reason"] == "The team needs one clear question."
     assert event.reasoning_summary == "The team needs one clear question."
 
 
@@ -165,4 +189,4 @@ def test_generate_structured_output_uses_template_fallback_after_retry(session: 
 
     event = session.exec(select(AgentEvent)).one()
     assert event.status == AgentEventStatus.fallback
-    assert event.output_snapshot["reason"] == "Fallback gives a safe proposal."
+    assert _parse_snapshot(event.output_snapshot)["reason"] == "Fallback gives a safe proposal."
