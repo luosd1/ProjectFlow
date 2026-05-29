@@ -1885,7 +1885,7 @@ Current status:
 
 - Domain models (User, Workspace, WorkspaceMembership, Invitation, MemberProfile, Project, ProjectResource, Stage, Task, AssignmentProposal, AssignmentResponse, AssignmentNegotiation, CheckInCycle, CheckInResponse, TaskStatusUpdate, Risk, ActionCard, AgentEvent) completed on 2026-05-29 via GitHub issue #3.
 - Core CRUD APIs and WorkspaceState endpoint completed on 2026-05-29 via GitHub issue #4.
-- UI components not yet implemented.
+- Frontend shell, onboarding, workspace, and project intake UI implemented on 2026-05-29 via GitHub issue #6.
 
 ---
 

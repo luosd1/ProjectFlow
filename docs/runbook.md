@@ -103,7 +103,7 @@ Expected baseline as of 2026-05-29:
 - Frontend tests pass.
 - Frontend lint passes.
 - Frontend production build passes.
-- `npm audit --omit=dev` reports 0 vulnerabilities.
+- `npm audit --omit=dev` reports 0 critical/high vulnerabilities (moderate may exist).
 
 Known non-blocking warnings:
 
