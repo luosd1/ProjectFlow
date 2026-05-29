@@ -34,6 +34,10 @@ def create_assignment_proposal(session: Session, data: AssignmentProposalCreate)
         recommended_owner_user_id=data.recommended_owner_user_id,
         backup_owner_user_id=data.backup_owner_user_id,
         reason=data.reason,
+        skill_match=data.skill_match,
+        availability_match=data.availability_match,
+        preference_match=data.preference_match,
+        constraint_respected=data.constraint_respected,
         risk_note=data.risk_note,
         created_by_agent=data.created_by_agent,
     )

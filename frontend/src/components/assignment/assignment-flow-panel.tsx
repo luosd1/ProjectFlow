@@ -123,6 +123,14 @@ export function AssignmentFlowPanel({
                       <Badge className={statusClass(proposal.status)}>{proposal.status}</Badge>
                     </div>
                     <p className="mt-2 text-sm text-ink/70">{proposal.reason}</p>
+                    {(proposal.skill_match || proposal.availability_match || proposal.preference_match || proposal.constraint_respected) && (
+                      <div className="mt-2 grid gap-1 text-xs text-ink/55">
+                        {proposal.skill_match && <p><span className="font-semibold text-ink/70">Skill:</span> {proposal.skill_match}</p>}
+                        {proposal.availability_match && <p><span className="font-semibold text-ink/70">Availability:</span> {proposal.availability_match}</p>}
+                        {proposal.preference_match && <p><span className="font-semibold text-ink/70">Preference:</span> {proposal.preference_match}</p>}
+                        {proposal.constraint_respected && <p><span className="font-semibold text-ink/70">Constraint:</span> {proposal.constraint_respected}</p>}
+                      </div>
+                    )}
                     {proposal.risk_note && (
                       <p className="mt-2 rounded-md bg-coral/10 px-3 py-2 text-xs text-coral">{proposal.risk_note}</p>
                     )}

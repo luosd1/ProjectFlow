@@ -76,6 +76,10 @@ class AssignmentRecommendationItem(BaseModel):
     recommended_owner_user_id: str = Field(min_length=1)
     backup_owner_user_id: str | None = None
     reason: str = Field(min_length=1)
+    skill_match: str | None = Field(default=None, description="Which member skill matches the task domain")
+    availability_match: str | None = Field(default=None, description="How member available_hours fits the task estimated_hours")
+    preference_match: str | None = Field(default=None, description="How member role_preference/interests align with the task")
+    constraint_respected: str | None = Field(default=None, description="Which member constraints were checked and not violated")
     risk_note: str | None = None
 
 
@@ -110,6 +114,9 @@ class ActionCardProposal(BaseModel):
     title: str = Field(min_length=1)
     content: str = Field(min_length=1)
     reason: str = Field(min_length=1)
+    goal: str | None = Field(default=None, description="What this card achieves for the project")
+    start_suggestion: str | None = Field(default=None, description="Concrete first step to take")
+    completion_standard: str | None = Field(default=None, description="How to know the action is done")
     user_id: str | None = None
     task_id: str | None = None
     stage_id: str | None = None

@@ -1,8 +1,9 @@
 from datetime import UTC, datetime
 
-from sqlmodel import Session
+from sqlmodel import Session, select
 
-from app.models import ActionCard, Project, Stage, Task, User
+from app.models import ActionCard, AssignmentProposal, Project, Stage, Task, User
+from app.models.enums import AssignmentProposalStatus
 from app.schemas.replan import ReplanConfirmRead, ReplanConfirmRequest
 
 
@@ -30,6 +31,20 @@ def confirm_replan(session: Session, data: ReplanConfirmRequest) -> ReplanConfir
         task = _require(session, Task, change.task_id, "Task")
         if task.project_id != data.project_id:
             raise ValueError("Task does not belong to project")
+        # Guard: do not change owner on a task with a finalized assignment
+        if change.owner_user_id is not None and change.owner_user_id != task.owner_user_id:
+            finalized_proposal = session.exec(
+                select(AssignmentProposal).where(
+                    AssignmentProposal.task_id == change.task_id,
+                    AssignmentProposal.status == AssignmentProposalStatus.finalized,
+                )
+            ).first()
+            if finalized_proposal:
+                raise ValueError(
+                    f"Cannot change owner of task {change.task_id}: "
+                    f"it has a finalized assignment (proposal {finalized_proposal.id}). "
+                    f"Reject the assignment first before reassigning."
+                )
         if change.title is not None:
             task.title = change.title
         if change.status is not None:
@@ -57,6 +72,9 @@ def confirm_replan(session: Session, data: ReplanConfirmRequest) -> ReplanConfir
             title=card_data.title,
             content=card_data.content,
             reason=card_data.reason,
+            goal=card_data.goal,
+            start_suggestion=card_data.start_suggestion,
+            completion_standard=card_data.completion_standard,
             due_date=card_data.due_date,
             created_by_agent=card_data.created_by_agent,
         )
