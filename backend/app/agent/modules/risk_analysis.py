@@ -16,7 +16,16 @@ def build_request(workspace_state: WorkspaceStateResponse) -> AgentModuleRequest
             "5. review: Stages with all tasks done but no review step. Cite the stage_id.\n"
             "6. assignment: Tasks with no owner that are past their due_date. Cite the task_id.\n"
             "7. checkin: Members who have not updated task status recently. Cite the member and their task.\n\n"
-            "Every risk MUST have evidence — a list of dicts citing specific WorkspaceState data (task_id, member_id, dates, status). Do not raise risks without evidence."
+            "Every risk MUST have evidence — a list of dicts citing specific WorkspaceState data.\n"
+            "Each evidence dict must include at least one of these keys:\n"
+            "  - task_id: reference to a specific task\n"
+            "  - user_id: reference to a specific member\n"
+            "  - stage_id: reference to a specific stage\n"
+            "  - status: the current status value\n"
+            "  - due_date: the relevant deadline\n"
+            "  - available_hours_per_week: member availability figure\n"
+            "  - detail: one-sentence explanation of what this evidence shows\n\n"
+            "Do not raise risks without evidence. Do not fabricate task_id, user_id, or stage_id values."
         ),
         fallback_payload={
             "risks": [],

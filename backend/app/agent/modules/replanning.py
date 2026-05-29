@@ -13,9 +13,16 @@ def build_request(workspace_state: WorkspaceStateResponse) -> AgentModuleRequest
             "2. Propose specific adjustments:\n"
             "   - stage_adjustments: move stage dates only if tasks in that stage are consistently late. Cite the task evidence.\n"
             "   - task_changes: reassign tasks only to members who exist in WorkspaceState and have matching skills. Cite the skill match.\n"
+            "     IMPORTANT: Do NOT change owner_user_id for any task that already has a finalized assignment.\n"
             "   - action_cards: create follow-up cards for any change that needs team confirmation.\n"
-            "3. Describe before/after state clearly so the team can compare.\n"
-            "4. If no replan is needed (all tasks on track, no blockers), return minimal changes with a reason explaining why the current plan is sound.\n\n"
+            "     Each action card must include goal, start_suggestion, and completion_standard.\n"
+            "3. Describe before/after state clearly so the team can compare:\n"
+            "   - before: dict summarizing current state of affected items (e.g. task due dates, owner assignments)\n"
+            "   - after: dict summarizing proposed state\n"
+            "4. impact: one sentence describing the overall effect of this replan on the project timeline/scope\n"
+            "5. reason: why this replan is necessary, citing specific evidence from WorkspaceState\n"
+            "6. requires_confirmation: MUST be true — replans never auto-apply\n"
+            "7. If no replan is needed (all tasks on track, no blockers), return minimal changes with a reason explaining why the current plan is sound.\n\n"
             "Do not change the plan without evidence from WorkspaceState. Every adjustment must cite specific task_id, member_id, or deadline data."
         ),
         fallback_payload={

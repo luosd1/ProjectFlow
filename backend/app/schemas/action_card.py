@@ -14,6 +14,9 @@ class ActionCardCreate(BaseModel):
     title: str
     content: str
     reason: str
+    goal: str | None = None
+    start_suggestion: str | None = None
+    completion_standard: str | None = None
     due_date: date | None = None
     created_by_agent: bool = False
 
@@ -28,6 +31,9 @@ class ActionCardRead(BaseModel):
     title: str
     content: str
     reason: str
+    goal: str | None
+    start_suggestion: str | None
+    completion_standard: str | None
     due_date: date | None
     status: ActionCardStatus
     created_by_agent: bool

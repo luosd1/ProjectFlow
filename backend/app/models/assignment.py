@@ -14,6 +14,10 @@ class AssignmentProposal(SQLModel, table=True):
     recommended_owner_user_id: str = Field(foreign_key="users.id")
     backup_owner_user_id: str | None = Field(default=None, foreign_key="users.id")
     reason: str
+    skill_match: str | None = Field(default=None)
+    availability_match: str | None = Field(default=None)
+    preference_match: str | None = Field(default=None)
+    constraint_respected: str | None = Field(default=None)
     risk_note: str | None = Field(default=None)
     status: str = Field(default="proposed")  # "proposed" | "owner_confirmed" | "owner_rejected" | "negotiating" | "finalized"
     created_by_agent: bool = Field(default=False)

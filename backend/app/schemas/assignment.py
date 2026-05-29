@@ -16,6 +16,10 @@ class AssignmentProposalCreate(BaseModel):
     recommended_owner_user_id: str
     backup_owner_user_id: str | None = None
     reason: str
+    skill_match: str | None = None
+    availability_match: str | None = None
+    preference_match: str | None = None
+    constraint_respected: str | None = None
     risk_note: str | None = None
     created_by_agent: bool = False
 
@@ -28,6 +32,10 @@ class AssignmentProposalRead(BaseModel):
     recommended_owner_user_id: str
     backup_owner_user_id: str | None
     reason: str
+    skill_match: str | None
+    availability_match: str | None
+    preference_match: str | None
+    constraint_respected: str | None
     risk_note: str | None
     status: AssignmentProposalStatus
     created_by_agent: bool
