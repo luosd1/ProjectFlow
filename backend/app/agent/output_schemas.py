@@ -24,10 +24,13 @@ class AgentOutputBase(BaseModel):
 
 
 class DirectionCardOutput(AgentOutputBase):
-    summary: str = Field(min_length=1)
-    target_outcome: str = Field(min_length=1)
-    constraints: list[str] = Field(default_factory=list)
-    suggested_questions: list[str] = Field(default_factory=list)
+    problem: str = Field(min_length=1, description="The core problem this project solves")
+    users: str = Field(min_length=1, description="Who the project serves")
+    value: str = Field(min_length=1, description="What value the project delivers")
+    deliverables: list[str] = Field(min_length=1, description="Concrete outputs the project must produce")
+    boundaries: list[str] = Field(default_factory=list, description="Explicit scope boundaries — what is out of scope")
+    risks: list[str] = Field(default_factory=list, description="Known risks grounded in project context")
+    suggested_questions: list[str] = Field(default_factory=list, description="High-value clarification questions only")
 
 
 class StagePlanItem(BaseModel):
@@ -296,3 +299,23 @@ def _validate_risk_references(
             errors.append(f"stage_id references unknown id: {risk.stage_id}")
         if risk.task_id and risk.task_id not in task_ids:
             errors.append(f"task_id references unknown id: {risk.task_id}")
+        _validate_evidence_ids(risk.evidence, stage_ids, task_ids, errors)
+
+
+def _validate_evidence_ids(
+    evidence: list[dict[str, Any]],
+    stage_ids: set[str],
+    task_ids: set[str],
+    errors: list[str],
+) -> None:
+    """Check that task_id / stage_id values inside evidence dicts reference known entities."""
+    for item in evidence:
+        if not isinstance(item, dict):
+            continue
+        for key, valid_set, label in [
+            ("task_id", task_ids, "evidence.task_id"),
+            ("stage_id", stage_ids, "evidence.stage_id"),
+        ]:
+            value = item.get(key)
+            if isinstance(value, str) and value and value not in valid_set:
+                errors.append(f"{label} references unknown id: {value}")
