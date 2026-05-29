@@ -277,3 +277,278 @@ Generated local files must not be committed:
 - `frontend/.next/`
 - Python cache directories
 - test and build cache directories
+
+---
+
+## LLM Provider Modes
+
+ProjectFlow supports two LLM provider modes: **mock** (default, offline) and **real-provider** (online, requires API credentials). All Agent endpoints work in both modes. In mock mode, the Agent returns deterministic fallback payloads. In real-provider mode, the Agent calls an OpenAI-compatible chat-completions API and validates the structured output.
+
+### Mock Mode (Default)
+
+Mock mode is the default and requires no API key. It is suitable for:
+
+- Local development and UI testing
+- Deterministic demo runs
+- CI/CD pipelines
+- Offline work
+
+**Configuration** (`backend/.env`):
+
+```bash
+LLM_PROVIDER=mock
+```
+
+Or simply omit `LLM_PROVIDER` — it defaults to `mock`.
+
+**Behavior**:
+
+- All Agent endpoints (`/api/agent/clarify`, `/api/agent/plan`, `/api/agent/breakdown`, `/api/agent/assign`, `/api/agent/active-push`, `/api/agent/check-in-analysis`, `/api/agent/risk-analysis`, `/api/agent/replan`) return structured fallback payloads.
+- Fallback payloads cite real member data from the workspace state when available.
+- Agent responses include `"status": "fallback"` and `"used_fallback": true`.
+- No network calls are made to any LLM API.
+- The `GET /api/llm/diagnostic` endpoint returns `{"status": "mock"}`.
+
+**Verification**:
+
+```bash
+curl http://localhost:8000/api/llm/diagnostic
+# Expected: {"provider":"mock","model":"mock","base_url":"","status":"mock","detail":"Mock provider active"}
+```
+
+### Real-Provider Mode
+
+Real-provider mode connects to an OpenAI-compatible chat-completions API. It is suitable for:
+
+- Testing Agent output quality with real LLM responses
+- Evaluating prompt effectiveness
+- Demonstrating the full Agent intelligence
+
+**Supported providers**: `openai` (official OpenAI API) and `openai-compatible` (any OpenAI-compatible endpoint such as Azure OpenAI, local proxies, DeepSeek, etc.).
+
+**Configuration** (`backend/.env`):
+
+```bash
+LLM_PROVIDER=openai
+LLM_API_KEY=sk-...your-key-here...
+LLM_BASE_URL=https://api.openai.com/v1
+LLM_MODEL=gpt-4o-mini
+LLM_TIMEOUT_SECONDS=30.0
+```
+
+For OpenAI-compatible providers:
+
+```bash
+LLM_PROVIDER=openai-compatible
+LLM_API_KEY=your-provider-key
+LLM_BASE_URL=https://your-provider.example.com/v1
+LLM_MODEL=your-model-name
+LLM_TIMEOUT_SECONDS=30.0
+```
+
+**Security rules**:
+
+- API keys must stay in `.env` (which is Git-ignored).
+- Never commit `.env` or paste real keys into docs, logs, or code.
+- Diagnostic responses never include the API key value.
+
+**Behavior**:
+
+- Agent endpoints call the configured LLM API with structured output prompts.
+- If the LLM call succeeds and the output passes Pydantic validation, the response includes `"status": "success"`.
+- If the LLM call fails (timeout, auth error, invalid JSON, schema mismatch), the system retries up to 2 times, then falls back to a template payload with `"status": "fallback"` or `"status": "repaired"`.
+- High-impact outputs (clarify, plan, breakdown) create `AgentProposal` records that require human confirmation before persisting to project state.
+
+**Diagnostic check** (before running real-provider mode):
+
+```bash
+curl http://localhost:8000/api/llm/diagnostic
+# Expected: {"provider":"openai","model":"gpt-4o-mini","base_url":"...","status":"ok","detail":"Provider responded successfully"}
+```
+
+**One-off diagnostic** (test a provider without changing `.env`):
+
+```bash
+curl -X POST http://localhost:8000/api/llm/diagnostic \
+  -H "Content-Type: application/json" \
+  -d '{"provider":"openai-compatible","api_key":"sk-...","base_url":"https://api.openai.com/v1","model":"gpt-4o-mini","timeout_seconds":30.0}'
+```
+
+---
+
+## Manual Verification Checklist
+
+Use this checklist to manually verify the full MVP flow. It covers both mock mode and real-provider mode.
+
+### Prerequisites
+
+- [ ] Backend is running on `http://localhost:8000`
+- [ ] Frontend is running on `http://localhost:3000`
+- [ ] `GET /api/health` returns `{"status":"ok"}`
+- [ ] LLM diagnostic returns expected status (`mock` or `ok`)
+
+### Account and Workspace Setup
+
+- [ ] Navigate to `http://localhost:3000` — landing page shows with "开始使用" and "加载演示数据" buttons
+- [ ] Click "开始使用" — redirects to onboarding page
+- [ ] Fill in account setup form (display name) — form validates and submits
+- [ ] Complete member profile wizard (3 steps: basic info / skills & experience / availability)
+- [ ] Create a workspace — 2-step wizard (basic info + team context)
+- [ ] Invite a member — copy-link feedback works
+
+### Project Intake
+
+- [ ] Navigate to "新建项目" — project intake form loads
+- [ ] Select project type (coursework/competition/startup/research)
+- [ ] Fill in project idea, deadline, deliverables
+- [ ] Add deliverable tags
+- [ ] Add resources (text input)
+- [ ] Submit — project is created and dashboard loads
+
+### Agent: Clarification (Direction Card)
+
+- [ ] On project dashboard, the "规划" phase is highlighted as current
+- [ ] Click "澄清方向" button — Agent runs
+- [ ] Response includes `proposal_id` (confirm-to-persist flow)
+- [ ] Direction card panel shows the proposal with problem, users, value, deliverables, boundaries, risks
+- [ ] Confirm the proposal — direction card is persisted to project state
+- [ ] Reject the proposal — direction card is not persisted
+
+### Agent: Stage Planning
+
+- [ ] Click "生成阶段计划" button — Agent runs
+- [ ] Response includes `proposal_id`
+- [ ] Stage plan board shows proposed stages with goals, dates, deliverables
+- [ ] Confirm the proposal — stages are persisted
+
+### Agent: Task Breakdown
+
+- [ ] Click "分解任务" button — Agent runs
+- [ ] Response includes `proposal_id`
+- [ ] Task breakdown board shows tasks with priorities, dependencies, acceptance criteria
+- [ ] Confirm the proposal — tasks are persisted
+
+### Agent: Assignment Recommendation
+
+- [ ] Dashboard moves to "分工" phase
+- [ ] Click "推荐分工" button — Agent runs
+- [ ] Assignment proposals appear with recommended owner, backup owner, reason, and citation fields (skill/availability/preference/constraint)
+- [ ] Accept a proposal — owner status changes
+- [ ] Reject a proposal — rejection form shows "偏好任务" and "原因" fields
+- [ ] Submit rejection with preferred task — negotiation is created
+- [ ] Negotiation panel shows the swap proposal
+- [ ] Finalize assignments — task owners are locked
+
+### Agent: Active Push
+
+- [ ] Dashboard moves to "执行" phase
+- [ ] Click "主动推进" button — Agent runs
+- [ ] Action cards appear with title, content, reason, goal, start_suggestion, completion_standard
+- [ ] Personal action cards section shows cards assigned to current user
+- [ ] Dismiss an action card — card status changes
+- [ ] Complete an action card — card status changes
+
+### Check-in
+
+- [ ] Navigate to "签到与状态" tab
+- [ ] Submit a check-in (what_done, optional blocker, available hours, mood)
+- [ ] Check-in response is recorded
+- [ ] Update task status (not_started/in_progress/done/blocked with progress note)
+
+### Agent: Check-in Analysis
+
+- [ ] Click "分析签到" button — Agent runs
+- [ ] Analysis output is persisted
+
+### Agent: Risk Analysis
+
+- [ ] Navigate to "风险与调整" tab
+- [ ] Click "风险分析" button — Agent runs
+- [ ] Risks appear with type, evidence (structured with detail), and status
+- [ ] Accept a risk — risk status changes
+- [ ] Ignore a risk — risk status changes
+- [ ] Resolve a risk — risk status changes
+
+### Agent: Replan
+
+- [ ] Click "调整计划" button — Agent runs
+- [ ] Replan diff shows before/after comparison with impact and reason
+- [ ] "Needs confirmation" badge appears for high-impact changes
+- [ ] Confirm replan — changes are applied
+- [ ] Attempting to change owner on a finalized assignment is rejected
+
+### Timeline and Export
+
+- [ ] Navigate to "时间线与导出" tab
+- [ ] Agent timeline shows events with status (success/fallback/repaired/failed)
+- [ ] Click export — review summary Markdown is generated
+- [ ] Export includes product positioning, current state, stages, tasks, team, risks, action cards, check-ins, timeline
+
+### Demo Reset
+
+- [ ] Click "重置演示" button on dashboard — data is reset and re-seeded
+- [ ] Or use `curl -X POST http://localhost:8000/api/demo/reset`
+- [ ] Dashboard navigates to the seeded project
+
+### Real-Provider Mode Verification (if credentials available)
+
+- [ ] Set `LLM_PROVIDER=openai` (or `openai-compatible`) in `backend/.env`
+- [ ] Set `LLM_API_KEY` in `backend/.env`
+- [ ] Restart the backend
+- [ ] Run `curl http://localhost:8000/api/llm/diagnostic` — returns `{"status":"ok"}`
+- [ ] Run through the full checklist above with real LLM responses
+- [ ] Verify that Agent responses include `"status": "success"` (not fallback)
+- [ ] Verify that structured output passes Pydantic validation
+- [ ] Verify that fallback still works if LLM call fails (e.g., set invalid API key temporarily)
+- [ ] Switch back to `LLM_PROVIDER=mock` after testing
+
+---
+
+## Final Status Report
+
+### What Is Truly Usable
+
+| Feature | Status | Notes |
+|---|---|---|
+| Account setup | ✅ Usable | Display name, no auth |
+| Member profile wizard | ✅ Usable | 3-step: basic / skills / availability |
+| Workspace creation | ✅ Usable | 2-step wizard with invite |
+| Project intake | ✅ Usable | Type selector, deliverable tags, resource input |
+| Agent: Clarification | ✅ Usable | Confirm-to-persist, mock + real provider |
+| Agent: Stage Planning | ✅ Usable | Confirm-to-persist, mock + real provider |
+| Agent: Task Breakdown | ✅ Usable | Confirm-to-persist, mock + real provider |
+| Agent: Assignment Recommendation | ✅ Usable | Citations, accept/reject/negotiate/finalize |
+| Agent: Active Push | ✅ Usable | Goal/start/done-when fields |
+| Check-in | ✅ Usable | Submit + task status updates |
+| Agent: Check-in Analysis | ✅ Usable | Mock + real provider |
+| Agent: Risk Analysis | ✅ Usable | Structured evidence, accept/ignore/resolve |
+| Agent: Replan | ✅ Usable | Before/after diff, finalized-assignment guard |
+| Timeline | ✅ Usable | Status badges (success/fallback/repaired/failed) |
+| Export | ✅ Usable | Review summary Markdown |
+| Demo seed/reset | ✅ Usable | Deterministic data, dashboard reset button |
+| LLM diagnostics | ✅ Usable | GET + POST diagnostic, no key exposure |
+| Chinese UI | ✅ Usable | All labels, forms, and navigation in Chinese |
+
+### What Remains Fallback
+
+| Area | Behavior | Impact |
+|---|---|---|
+| Mock mode Agent outputs | All Agent endpoints return template/fallback payloads in mock mode | Low — fallback payloads cite real workspace data and validate against schemas |
+| Real-provider fallback | If LLM call fails (timeout, auth, schema mismatch), system retries then falls back to template | Low — fallback is transparent via `status` and `used_fallback` fields |
+| Repaired outputs | If LLM returns valid JSON that partially matches schema, system repairs and flags as `repaired` | Low — repaired outputs are labeled in timeline |
+
+### What Is Out of Scope for MVP
+
+| Area | Reason |
+|---|---|
+| Authentication / authorization | MVP uses display-name accounts, no real auth |
+| Multi-workspace | MVP is single-workspace |
+| Multi-project | MVP is single-project per workspace |
+| Production deployment | Local demo only |
+| File upload / document parsing | Resources are text metadata only |
+| Real-time collaboration | No WebSocket or live sync |
+| Email notifications | No email integration |
+| Mobile app | Web only |
+| External integrations (calendar, Git, etc.) | Not in MVP scope |
+| Role-based permissions | All members have equal access |
+| Data migration between versions | No migration tooling |

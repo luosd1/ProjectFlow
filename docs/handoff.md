@@ -16,6 +16,7 @@ GitHub issue #10 (Demo Seed, Reset, Runbook, and Review Export) is implemented.
 GitHub issue #11 (Verification, Tests, and Demo Stability Hardening) is complete.
 GitHub issue #16 (Real LLM Provider Readiness and Diagnostics) is complete.
 GitHub issue #17 (Agent Output Persistence and Confirmation) is complete.
+GitHub issue #21 (Real-Provider Verification and MVP Usable Runbook) is complete.
 
 Implemented scope:
 
@@ -40,6 +41,15 @@ Implemented scope:
 - Backend execution-loop APIs for assignment proposals/responses/finalization/negotiation, action cards, check-in cycles/responses, risks, confirmed replans, and agent endpoints.
 - LLM diagnostic endpoints for current settings and one-off provider checks.
 - Agent proposal confirm/reject APIs for clarify, plan, and breakdown outputs.
+
+### GitHub issue #21 (2026-05-30)
+
+- Fixed 3 stale frontend test assertions (English labels → Chinese UI labels) in `project-dashboard.test.tsx` and `projectflow-home.test.tsx`.
+- Frontend test baseline: 5 tests passing across 3 files (was 3 failures).
+- Updated `docs/runbook.md` with comprehensive LLM Provider Modes section (mock mode and real-provider mode configuration, behavior, and verification).
+- Added Manual Verification Checklist covering the full MVP flow: account setup, workspace, project intake, clarification, planning, breakdown, assignment, active push, check-in, risk analysis, replan, timeline, export, demo reset, and real-provider mode verification.
+- Added Final Status Report to runbook: what is truly usable (18 features), what remains fallback (3 areas), and what is out of scope for MVP (11 areas).
+- Updated verification baseline in handoff to reflect all tests passing.
 
 ### GitHub issue #6 (2026-05-29)
 
@@ -175,19 +185,19 @@ Frontend:
 
 ## Next Work
 
-Core MVP phase scope is complete. Phase 10 (UI Structural Fix) completed 2026-05-29; MVP Usable #16/#17/#18/#20 are complete.
+Core MVP phase scope is complete. Phase 10 (UI Structural Fix) completed 2026-05-29; MVP Usable #16/#17/#18/#19/#20/#21 are complete.
 
 MVP Usable progress (see `.claude/epics/projectflow-mvp-usable-ready/`):
 - ✅ #18 Prompt and Schema Quality Hardening (completed 2026-05-29)
 - ✅ #20 Assignment, Push, Risk, and Replan Usability Pass (completed 2026-05-29)
 - ✅ #16 Real LLM Provider Readiness and Diagnostics (completed 2026-05-29)
 - ✅ #17 Agent Output Persistence and Confirmation (completed 2026-05-29)
-- ✅ #19 Polish Project Intake, Workspace, and Member Profile UX (completed 2026-05-30)
-- 🔲 #21 Real-Provider Verification and MVP Usable Runbook
+- ✅ #19 Frontend Agent Status and Review UX (completed 2026-05-30)
+- ✅ #21 Real-Provider Verification and MVP Usable Runbook (completed 2026-05-30)
+
+All MVP Usable tasks are complete. The runbook now documents mock mode, real-provider mode, a full manual verification checklist, and a final status report.
 
 Post-MVP: auth, deployment, collaboration permissions, broader UI hardening.
-
-Dependency note: all resolved.
 
 ## Local Cleanup Notes
 
