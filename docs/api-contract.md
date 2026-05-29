@@ -185,6 +185,7 @@ Rules:
 - Only the recommended owner can accept or reject a proposal.
 - Task owner and backup owner are updated only after an `owner_confirmed` proposal is finalized.
 - Negotiation records are proposals/coordination messages; they do not directly overwrite task ownership.
+- Assignment proposals include structured citation fields: `skill_match`, `availability_match`, `preference_match`, `constraint_respected` (all optional, populated by Agent when available).
 
 ### Action Cards
 
@@ -194,7 +195,7 @@ GET /api/projects/{project_id}/action-cards
 PATCH /api/action-cards/{card_id}
 ```
 
-Action cards must include `reason`. Agent-created active push cards are persisted through the agent active-push endpoint.
+Action cards must include `reason`. Agent-created active push cards include optional `goal`, `start_suggestion`, and `completion_standard` fields specifying what the card achieves, how to start, and how to know it's done. Cards are persisted through the agent active-push endpoint.
 
 ### Check-ins
 
@@ -223,7 +224,7 @@ Risk records require non-empty `evidence`. Risk types include deadline, dependen
 POST /api/replans/confirm
 ```
 
-The confirmation request includes `before`, `after`, `impact`, `reason`, `requires_confirmation`, and proposed stage/task/action-card changes. The service applies task and stage changes only when `requires_confirmation` is true.
+The confirmation request includes `before`, `after`, `impact`, `reason`, `requires_confirmation`, and proposed stage/task/action-card changes. The service applies task and stage changes only when `requires_confirmation` is true. Changing `owner_user_id` on a task with a finalized assignment proposal is rejected — the assignment must be rejected first.
 
 ### Timeline
 

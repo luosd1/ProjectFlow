@@ -30,6 +30,8 @@ Snapshot date: 2026-05-29.
 - Frontend routes: `/`, `/onboarding`, `/onboarding/profile`, `/workspaces/new`, `/workspaces/[workspaceId]`, `/projects/new`, `/projects/[projectId]`.
 - MVP implementation includes frontend wiring for execution-loop APIs, seed/reset data, review export, and a complete local demo flow.
 - All MVP phases are complete.
+- MVP Usable #18 (Prompt and Schema Quality Hardening) is complete.
+- MVP Usable #20 (Assignment, Push, Risk, and Replan Usability Pass) is complete: assignment citations, push card goal/start/done-when, risk structured evidence, replan before/after/impact/confirmation, finalized-assignment guard, 90 backend tests.
 - Current verification baseline: backend pytest, frontend tests, frontend lint, frontend build, and frontend audit.
 
 ---

@@ -90,6 +90,18 @@ Implemented scope:
 - Tests: added messy project fixture (4 members, 3 stages, 6 tasks with blocked/overdue/unassigned), 7 new test cases for representative model outputs and fabrication rejection.
 - 79 backend tests passing.
 
+### GitHub issue #20 (2026-05-29)
+
+- AssignmentRecommendationItem schema: added `skill_match`, `availability_match`, `preference_match`, `constraint_respected` for structured citation of why a member was recommended.
+- ActionCardProposal schema: added `goal`, `start_suggestion`, `completion_standard` so push cards specify what they achieve, how to start, and how to know they're done.
+- AssignmentProposal model and AssignmentProposalCreate/Read schemas updated with the 4 citation fields. ActionCard model and ActionCardCreate/Read schemas updated with the 3 new fields.
+- Agent module prompts upgraded: assignment_recommendation requires filling all citation fields; active_push requires goal/start_suggestion/completion_standard; risk_analysis requires structured evidence dicts with detail field; replanning requires action cards to include goal/start_suggestion/completion_standard and forbids owner changes on finalized assignments.
+- Fallback payloads now cite real member data from workspace_state instead of generic placeholders.
+- Replan service guard: `confirm_replan` now rejects `owner_user_id` changes for tasks that have a finalized AssignmentProposal. Non-ownership changes (due_date, can_cut, status) are still allowed.
+- Frontend: ActionCardItem displays goal, start_suggestion ("Start:"), completion_standard ("Done when:"). RiskCard renders structured evidence dicts (key:value pairs + detail). ReplanDiff shows proposal metadata section with before/after comparison, impact, reason, and "Needs confirmation" badge. AssignmentFlowPanel shows citation fields (Skill/Availability/Preference/Constraint) when present.
+- Frontend types.ts: ActionCard and AssignmentProposal types updated with new optional fields.
+- Tests: 11 new tests in `test_usability_pass_20.py` covering structured citations, push card fields, risk evidence, replan proposal, finalized-assignment guard, and fallback citations. 90 backend tests passing.
+
 ## Verification Baseline
 
 Commands run successfully on 2026-05-29:
@@ -107,7 +119,7 @@ npm run build
 
 Results:
 
-- Backend: MVP backend suite passed.
+- Backend: 90 tests passed (MVP suite + usability pass).
 - Frontend: 5 tests passed across 3 test files.
 - Frontend lint passed.
 - Frontend build passed (7 routes generated).
@@ -144,10 +156,10 @@ MVP issue scope is complete. Phase 10 (UI Structural Fix) completed 2026-05-29.
 
 MVP Usable progress (see `.claude/epics/projectflow-mvp-usable-ready/`):
 - ✅ #18 Prompt and Schema Quality Hardening (completed 2026-05-29)
+- ✅ #20 Assignment, Push, Risk, and Replan Usability Pass (completed 2026-05-29)
 - 🔲 #16 Real LLM Provider Readiness and Diagnostics (in progress)
 - 🔲 #17 Agent Output Persistence and Confirmation
 - 🔲 #19 Frontend Agent Status and Review UX
-- 🔲 #20 Assignment, Push, Risk, and Replan Usability Pass
 - 🔲 #21 Real-Provider Verification and MVP Usable Runbook
 
 Post-MVP: auth, deployment, collaboration permissions, broader UI hardening.
