@@ -12,6 +12,7 @@ GitHub issue #6 (Frontend Shell, Onboarding, Workspace, and Intake) is implement
 GitHub issue #7 (Planning and Assignment Dashboard UI) is implemented.
 GitHub issue #8 (Assignment, active push, check-in, risk, and replan backend flows) is implemented.
 GitHub issue #10 (Demo Seed, Reset, Runbook, and Review Export) is implemented.
+GitHub issue #17 (Agent Output Persistence and Confirmation) is implemented.
 
 Implemented scope:
 
@@ -73,6 +74,21 @@ Implemented scope:
 - Documentation: `docs/demo-script.md` (5-minute demo path), `docs/seed-scenarios.md` (blocker/availability-change scenario), `docs/runbook.md` updated with seed/reset/export instructions.
 - 15 new tests for seed, reset, and export endpoints.
 
+### GitHub issue #17 (2026-05-29)
+
+- AgentProposal model stores pending agent outputs (clarify/plan/breakdown) before human confirmation.
+- AgentProposalStatus enum: pending → confirmed | rejected.
+- agent_proposal_service: create_proposal, confirm_proposal, reject_proposal.
+  - Confirming clarification updates Project.direction_card.
+  - Confirming planning creates Stage records.
+  - Confirming breakdown creates Task records.
+  - Confirmation records AgentEvent timeline with source event ID.
+- API routes: GET/POST /agent-proposals, confirm, reject.
+- DirectionCardOutput, StagePlanOutput, TaskBreakdownOutput now require_confirmation=True.
+- AgentFlowRead includes proposal_id for frontend reference.
+- Python 3.14 SQLite compatibility: services JSON-encode list/dict fields, routes parse JSON strings back for schemas.
+- 16 new tests for confirm-to-persist behavior.
+
 ## Verification Baseline
 
 Commands run successfully on 2026-05-29:
@@ -91,7 +107,7 @@ npm run build
 
 Results:
 
-- Backend: 69 tests passed (54 existing + 15 new seed/reset/export).
+- Backend: 85 tests passed (69 existing + 16 new confirm-to-persist).
 - Frontend: 3 tests passed across 2 test files.
 - Frontend lint passed.
 - Frontend build passed (7 routes generated).
@@ -100,10 +116,11 @@ Results:
 
 Backend:
 
-- Implemented routes: health, users (3), workspaces (4), invitations (2), member-profiles (4), projects (4), resources (2), stages (4), tasks (6), workspace-state (1), agent (8), assignments (6), action-cards (2), check-ins (4), risks (2), replans (1), seed (2), export (1). Total: 57 endpoints.
-- Domain models implemented (18 models, all enums).
+- Implemented routes: health, users (3), workspaces (4), invitations (2), member-profiles (4), projects (4), resources (2), stages (4), tasks (6), workspace-state (1), agent (8), agent-proposals (4), assignments (6), action-cards (2), check-ins (4), risks (2), replans (1), seed (2), export (1). Total: 61 endpoints.
+- Domain models implemented (19 models including AgentProposal, all enums).
 - AgentEvent now records `status` for success, repaired, fallback, or failed agent runs.
-- Service layer implemented for all CRUD domains plus assignment, action-card, check-in, risk, replan, and agent-flow orchestration.
+- AgentProposal stores pending clarify/plan/breakdown outputs; confirmation persists to project state.
+- Service layer implemented for all CRUD domains plus assignment, action-card, check-in, risk, replan, agent-flow orchestration, and agent-proposal confirm/reject.
 - Pydantic schemas implemented for all CRUD and execution-loop domains.
 - WorkspaceState endpoint returns members, project, stages, tasks for Agent consumption.
 - Agent infrastructure can run with `LLM_PROVIDER=mock` by default, or OpenAI-compatible chat-completions settings through environment variables. Agent HTTP endpoints persist structured outputs and created entity IDs through service-layer writes.
@@ -121,8 +138,8 @@ Frontend:
 
 Recommended next implementation target:
 
-1. Demo stability hardening and animation polish.
-2. Frontend wiring for seed/reset buttons in the UI.
+1. Frontend wiring for agent proposal confirmation UI.
+2. Demo stability hardening and animation polish.
 3. Full E2E demo verification.
 
 Dependency note:

@@ -158,7 +158,42 @@ POST /api/agent/risk-analysis
 POST /api/agent/replan
 ```
 
-Agent outputs are validated before persistence. Assignment, active-push, check-in-analysis, and risk-analysis endpoints persist their validated proposals or records through services. Replan returns a proposal and does not apply changes until `/api/replans/confirm`.
+Agent outputs are validated before persistence. Clarification, stage planning, and task breakdown outputs create `AgentProposal` records (pending confirmation) instead of directly mutating project state. Assignment, active-push, check-in-analysis, and risk-analysis endpoints persist their validated proposals or records through services. Replan returns a proposal and does not apply changes until `/api/replans/confirm`.
+
+The agent response now includes `proposal_id` for clarify, plan, and breakdown outputs:
+
+```json
+{
+  "event_type": "clarify",
+  "status": "fallback",
+  "attempts": 2,
+  "used_fallback": true,
+  "output": {},
+  "created_ids": [],
+  "proposal_id": "uuid"
+}
+```
+
+### Agent Proposals (Confirm-to-Persist)
+
+```http
+GET /api/agent-proposals?project_id=...&proposal_type=...
+GET /api/agent-proposals/{proposal_id}
+POST /api/agent-proposals/{proposal_id}/confirm
+POST /api/agent-proposals/{proposal_id}/reject
+```
+
+Agent proposals store pending high-impact agent outputs before human confirmation:
+
+- `proposal_type`: `clarify` | `plan` | `breakdown`
+- `status`: `pending` → `confirmed` | `rejected`
+
+Confirming a proposal persists its payload to project state:
+- `clarify` → updates `Project.direction_card`
+- `plan` → creates `Stage` records
+- `breakdown` → creates `Task` records
+
+Confirming also marks the source `AgentEvent.user_confirmed = True` and records a confirmation timeline event with the source event ID.
 
 ### Assignments
 
