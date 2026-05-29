@@ -6,6 +6,12 @@ from app.services.llm_service import run_diagnostic
 router = APIRouter(tags=["llm"])
 
 
+@router.get("/llm/diagnostic", response_model=LLMDiagnosticResponse)
+def llm_diagnostic_from_settings() -> LLMDiagnosticResponse:
+    """Verify configured LLM provider connectivity without exposing secrets."""
+    return run_diagnostic()
+
+
 @router.post("/llm/diagnostic", response_model=LLMDiagnosticResponse)
 def llm_diagnostic(req: LLMDiagnosticRequest | None = None) -> LLMDiagnosticResponse:
     """Verify LLM provider connectivity with a safe dry-run.

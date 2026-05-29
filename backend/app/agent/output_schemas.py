@@ -31,6 +31,13 @@ class DirectionCardOutput(AgentOutputBase):
     boundaries: list[str] = Field(default_factory=list, description="Explicit scope boundaries — what is out of scope")
     risks: list[str] = Field(default_factory=list, description="Known risks grounded in project context")
     suggested_questions: list[str] = Field(default_factory=list, description="High-value clarification questions only")
+    requires_confirmation: bool = True
+
+    @model_validator(mode="after")
+    def require_confirmation(self) -> "DirectionCardOutput":
+        if not self.requires_confirmation:
+            raise ValueError("direction card output requires confirmation")
+        return self
 
 
 class StagePlanItem(BaseModel):

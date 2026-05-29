@@ -10,8 +10,6 @@ from app.agent.output_schemas import (
 )
 from app.models import AgentEvent, AgentProposal, Project, Stage, Task
 from app.models.enums import AgentEventType, AgentProposalStatus
-from app.schemas.stage import StageCreate
-from app.schemas.task import TaskCreate
 
 
 def create_proposal(
@@ -98,21 +96,24 @@ def confirm_proposal(
         session.add(agent_event)
 
     # Record confirmation timeline event
+    payload = _get_payload(proposal)
+    reason = payload.get("reason", "")
     confirmation_event = AgentEvent(
         project_id=proposal.project_id,
         workspace_id=proposal.workspace_id,
-        event_type=AgentEventType(proposal.proposal_type).value,
+        event_type=AgentEventType(proposal.proposal_type),
         input_snapshot=json.dumps({
             "action": "confirm_proposal",
             "proposal_id": proposal_id,
             "source_agent_event_id": proposal.agent_event_id,
-        }),
+        }, ensure_ascii=False),
         output_snapshot=json.dumps({
             "proposal_type": proposal.proposal_type,
             "confirmed_by": confirmed_by,
             "created_ids": created_ids,
-        }),
-        reasoning_summary=f"User confirmed {proposal.proposal_type} proposal {proposal_id}",
+            "reason": reason,
+        }, ensure_ascii=False),
+        reasoning_summary=f"User confirmed {proposal.proposal_type} proposal {proposal_id}: {reason}",
         user_confirmed=True,
     )
     session.add(confirmation_event)
@@ -148,12 +149,15 @@ def _persist_clarification(session: Session, proposal: AgentProposal) -> list[st
     payload = _get_payload(proposal)
     output = DirectionCardOutput.model_validate(payload)
     direction_card = {
-        "summary": output.summary,
-        "target_outcome": output.target_outcome,
-        "constraints": output.constraints,
+        "problem": output.problem,
+        "users": output.users,
+        "value": output.value,
+        "deliverables": output.deliverables,
+        "boundaries": output.boundaries,
+        "risks": output.risks,
         "suggested_questions": output.suggested_questions,
     }
-    project.direction_card = json.dumps(direction_card)
+    project.direction_card = json.dumps(direction_card, ensure_ascii=False)
     project.updated_at = datetime.now(UTC)
     session.add(project)
     return [project.id]
@@ -172,7 +176,7 @@ def _persist_stage_plan(session: Session, proposal: AgentProposal) -> list[str]:
             start_date=stage_item.start_date.isoformat(),
             end_date=stage_item.end_date.isoformat(),
             deliverable=stage_item.deliverable,
-            done_criteria=json.dumps(stage_item.done_criteria),
+            done_criteria=json.dumps(stage_item.done_criteria, ensure_ascii=False),
             order_index=stage_item.order_index,
         )
         session.add(stage)
@@ -195,8 +199,8 @@ def _persist_task_breakdown(session: Session, proposal: AgentProposal) -> list[s
             priority=task_item.priority.value,
             due_date=task_item.due_date.isoformat(),
             estimated_hours=task_item.estimated_hours,
-            dependency_ids=json.dumps(task_item.dependency_ids),
-            acceptance_criteria=json.dumps(task_item.acceptance_criteria),
+            dependency_ids=json.dumps(task_item.dependency_ids, ensure_ascii=False),
+            acceptance_criteria=json.dumps(task_item.acceptance_criteria, ensure_ascii=False),
             can_cut=task_item.can_cut,
             created_by_agent=True,
         )

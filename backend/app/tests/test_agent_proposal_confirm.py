@@ -134,7 +134,8 @@ def test_confirm_clarification_updates_direction_card(client: TestClient):
     # Now direction_card should be set
     project_after = client.get(f"/api/projects/{project['id']}").json()
     assert project_after["direction_card"] is not None
-    assert "summary" in project_after["direction_card"]
+    assert "problem" in project_after["direction_card"]
+    assert "deliverables" in project_after["direction_card"]
 
 
 # --- Stage Planning ---
@@ -393,8 +394,10 @@ def test_direction_card_requires_confirmation():
     with pytest.raises(ValidationError):
         DirectionCardOutput(
             reason="test",
-            summary="s",
-            target_outcome="t",
+            problem="p",
+            users="u",
+            value="v",
+            deliverables=["d"],
             requires_confirmation=False,
         )
 
