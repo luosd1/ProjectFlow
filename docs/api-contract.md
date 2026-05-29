@@ -4,7 +4,7 @@ Status: current as of 2026-05-29.
 
 This document records the implemented API surface first, then the planned MVP surface. Treat planned endpoints as design targets until code and tests exist.
 
-The frontend API layer (`frontend/src/lib/api.ts`) uses implemented backend endpoints for account/workspace/project planning flows. Backend routes now exist for agent, assignment, active push, check-in, risk, and replan flows; frontend wiring for those execution-loop routes is the next integration step. Export remains planned.
+The frontend API layer (`frontend/src/lib/api.ts`) uses implemented backend endpoints for account/workspace/project planning flows. Backend routes now exist for agent, assignment, active push, check-in, risk, replan, seed/reset, and export flows.
 
 ## Base URL
 
@@ -215,15 +215,36 @@ POST /api/replans/confirm
 
 The confirmation request includes `before`, `after`, `impact`, `reason`, `requires_confirmation`, and proposed stage/task/action-card changes. The service applies task and stage changes only when `requires_confirmation` is true.
 
-## Planned MVP Endpoints
+### Seed and Reset
 
-These routes remain design targets as of 2026-05-29.
+```http
+POST /api/seed/demo
+POST /api/seed/reset
+```
+
+`POST /api/seed/demo` loads deterministic demo seed data (6-member team, project, stages, tasks, assignments, check-ins, risks, action cards, agent events). It resets existing data first to ensure a clean state.
+
+`POST /api/seed/reset` deletes all rows from all tables. Use for a clean demo reset.
 
 ### Export
 
 ```http
 POST /api/projects/{project_id}/export/review-summary
 ```
+
+Response:
+
+```json
+{
+  "markdown": "# ProjectFlow 评审摘要\n..."
+}
+```
+
+Generates a review-ready Markdown summary covering product positioning, current state, risks, replanning, and next actions.
+
+## Planned MVP Endpoints
+
+None remaining — all planned MVP endpoints are now implemented.
 
 ## Contract Rules
 

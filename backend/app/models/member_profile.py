@@ -1,10 +1,7 @@
 import uuid
-from datetime import datetime, UTC
+from datetime import datetime, timezone
 
 from sqlmodel import SQLModel, Field
-from sqlalchemy import Column, Text, JSON
-
-from app.models.enums import WorkspaceRole
 
 
 class MemberProfile(SQLModel, table=True):
@@ -13,11 +10,15 @@ class MemberProfile(SQLModel, table=True):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
     user_id: str = Field(foreign_key="users.id")
     workspace_id: str = Field(foreign_key="workspaces.id")
-    skills: dict | list = Field(default=[], sa_column=Column(JSON, nullable=False))
-    available_hours_per_week: float = Field(default=0.0)
+    skills: str = Field(default="[]")  # JSON string: [{"name": "frontend", "level": 3}]
+    available_hours_per_week: int = Field(default=0)
     role_preference: str = Field(default="")
-    interests: str = Field(default="", sa_column=Column(Text, nullable=False))
-    constraints: str = Field(default="", sa_column=Column(Text, nullable=False))
-    collaboration_preference: str | None = Field(default=None, sa_column=Column(Text, nullable=True))
-    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    interests: str = Field(default="")
+    constraints: str = Field(default="")
+    collaboration_preference: str | None = Field(default=None)
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc)
+    )
+    updated_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc)
+    )

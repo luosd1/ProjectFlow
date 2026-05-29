@@ -1,10 +1,7 @@
 import uuid
-from datetime import date, datetime, UTC
+from datetime import datetime, timezone
 
 from sqlmodel import SQLModel, Field
-from sqlalchemy import Column, String, Text, JSON, Boolean
-
-from app.models.enums import TaskPriority, TaskStatus
 
 
 class Task(SQLModel, table=True):
@@ -14,19 +11,21 @@ class Task(SQLModel, table=True):
     project_id: str = Field(foreign_key="projects.id")
     stage_id: str = Field(foreign_key="stages.id")
     title: str
-    description: str = Field(sa_column=Column(Text, nullable=False))
-    priority: TaskPriority = Field(default=TaskPriority.P1)
-    status: TaskStatus = Field(default=TaskStatus.not_started)
-    owner_user_id: str | None = Field(default=None, sa_column=Column(String, nullable=True))
-    backup_owner_user_id: str | None = Field(default=None, sa_column=Column(String, nullable=True))
-    due_date: date
+    description: str = Field(default="")
+    priority: str = Field(default="P1")  # "P0" | "P1" | "P2"
+    status: str = Field(default="not_started")  # "not_started" | "in_progress" | "done" | "blocked"
+    owner_user_id: str | None = Field(default=None, foreign_key="users.id")
+    backup_owner_user_id: str | None = Field(default=None, foreign_key="users.id")
+    due_date: str = Field(default="")  # ISO date string
     estimated_hours: float = Field(default=0.0)
-    dependency_ids: dict | list = Field(default=[], sa_column=Column(JSON, nullable=False))
-    acceptance_criteria: dict | list = Field(default=[], sa_column=Column(JSON, nullable=False))
+    dependency_ids: str = Field(default="[]")  # JSON string: ["task_id1", ...]
+    acceptance_criteria: str = Field(default="[]")  # JSON string: ["criterion1", ...]
     can_cut: bool = Field(default=False)
-    assignment_reason: str | None = Field(default=None, sa_column=Column(Text, nullable=True))
+    assignment_reason: str | None = Field(default=None)
     created_by_agent: bool = Field(default=False)
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    updated_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc)
+    )
 
 
 class TaskStatusUpdate(SQLModel, table=True):
@@ -35,8 +34,10 @@ class TaskStatusUpdate(SQLModel, table=True):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
     task_id: str = Field(foreign_key="tasks.id")
     user_id: str = Field(foreign_key="users.id")
-    status: TaskStatus
-    progress_note: str | None = Field(default=None, sa_column=Column(Text, nullable=True))
-    blocker: str | None = Field(default=None, sa_column=Column(Text, nullable=True))
+    status: str  # "not_started" | "in_progress" | "done" | "blocked"
+    progress_note: str | None = Field(default=None)
+    blocker: str | None = Field(default=None)
     available_hours_change: float | None = Field(default=None)
-    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc)
+    )

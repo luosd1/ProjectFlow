@@ -1,10 +1,7 @@
 import uuid
-from datetime import datetime, UTC
+from datetime import datetime, timezone
 
 from sqlmodel import SQLModel, Field
-from sqlalchemy import Column, String, Text, JSON, Boolean
-
-from app.models.enums import RiskType, RiskSeverity, RiskStatus
 
 
 class Risk(SQLModel, table=True):
@@ -12,14 +9,16 @@ class Risk(SQLModel, table=True):
 
     id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
     project_id: str = Field(foreign_key="projects.id")
-    stage_id: str | None = Field(default=None, sa_column=Column(String, nullable=True))
-    task_id: str | None = Field(default=None, sa_column=Column(String, nullable=True))
-    type: RiskType
-    severity: RiskSeverity
+    stage_id: str | None = Field(default=None, foreign_key="stages.id")
+    task_id: str | None = Field(default=None, foreign_key="tasks.id")
+    type: str  # "deadline" | "dependency" | "workload" | "scope" | "review" | "assignment" | "checkin"
+    severity: str  # "low" | "medium" | "high"
     title: str
-    description: str = Field(sa_column=Column(Text, nullable=False))
-    evidence: dict | list = Field(default=[], sa_column=Column(JSON, nullable=False))
-    recommendation: str = Field(sa_column=Column(Text, nullable=False))
-    status: RiskStatus = Field(default=RiskStatus.open)
+    description: str
+    evidence: str = Field(default="[]")  # JSON string: ["evidence1", ...]
+    recommendation: str
+    status: str = Field(default="open")  # "open" | "accepted" | "ignored" | "resolved"
     created_by_agent: bool = Field(default=False)
-    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc)
+    )

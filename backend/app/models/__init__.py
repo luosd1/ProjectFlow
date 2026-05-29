@@ -10,7 +10,7 @@ from app.models.assignment import AssignmentProposal, AssignmentResponse, Assign
 from app.models.checkin import CheckInCycle, CheckInResponse
 from app.models.risk import Risk
 from app.models.action_card import ActionCard
-from app.models.agent_event import AgentEvent
+from app.models.timeline import AgentEvent
 
 __all__ = [
     "User",
