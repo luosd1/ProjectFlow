@@ -1,6 +1,6 @@
 # ProjectFlow API Contract
 
-Status: current as of 2026-05-29.
+Status: current as of 2026-05-30.
 
 This document records the implemented MVP API surface. Post-MVP ideas should be tracked in roadmap docs, not mixed into this contract.
 
@@ -28,6 +28,27 @@ Response:
   "service": "projectflow-backend"
 }
 ```
+
+### LLM Diagnostics
+
+```http
+GET /api/llm/diagnostic
+POST /api/llm/diagnostic
+```
+
+`GET` validates the currently configured provider settings. `POST` accepts an optional diagnostic override payload for checking a real provider before changing `.env`:
+
+```json
+{
+  "provider": "openai-compatible",
+  "api_key": "optional runtime secret",
+  "base_url": "https://api.openai.com/v1",
+  "model": "gpt-4o-mini",
+  "timeout_seconds": 30.0
+}
+```
+
+Responses never include the API key. The diagnostic status is `mock`, `ok`, or `error`.
 
 ### Users
 
@@ -146,7 +167,8 @@ The response shape is:
   "attempts": 2,
   "used_fallback": true,
   "output": {},
-  "created_ids": ["uuid"]
+  "created_ids": ["uuid"],
+  "proposal_id": "uuid | null"
 }
 ```
 
