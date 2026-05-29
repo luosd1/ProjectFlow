@@ -11,6 +11,7 @@ Phase 4 (agent infrastructure) / GitHub issue #5 is implemented.
 GitHub issue #6 (Frontend Shell, Onboarding, Workspace, and Intake) is implemented.
 GitHub issue #7 (Planning and Assignment Dashboard UI) is implemented.
 GitHub issue #8 (Assignment, active push, check-in, risk, and replan backend flows) is implemented.
+GitHub issue #10 (Demo Seed, Reset, Runbook, and Review Export) is implemented.
 
 Implemented scope:
 
@@ -62,6 +63,16 @@ Implemented scope:
 - Added backend tests for assignment flow, check-in/risk/replan flow, and agent endpoints.
 - Local SQLite databases created before `AgentEvent.status` may need the runbook schema drift repair before agent timeline writes.
 
+### GitHub issue #10 (2026-05-29)
+
+- Demo seed data module (`backend/app/seed/demo_projectflow.py`) creates a realistic 6-member student team with full project data: workspace, memberships, invitations, member profiles, project with direction card, resources, 4 stages, 10 tasks, 3 assignment proposals, check-in cycle with responses (including blocker), 3 risks, 5 action cards, and 5 agent timeline events.
+- Demo reset module (`backend/app/seed/reset.py`) clears all tables in dependency order.
+- Seed API endpoints: `POST /api/seed/demo` (reset + seed) and `POST /api/seed/reset`.
+- Review summary export endpoint: `POST /api/projects/{project_id}/export/review-summary` generates Markdown with product positioning, current state, stages, tasks, team, risks, action cards, check-ins, and agent timeline.
+- Frontend API functions: `loadDemoSeed()` and `resetDemoData()` added to `api.ts`.
+- Documentation: `docs/demo-script.md` (5-minute demo path), `docs/seed-scenarios.md` (blocker/availability-change scenario), `docs/runbook.md` updated with seed/reset/export instructions.
+- 15 new tests for seed, reset, and export endpoints.
+
 ## Verification Baseline
 
 Commands run successfully on 2026-05-29:
@@ -80,7 +91,7 @@ npm run build
 
 Results:
 
-- Backend: 54 tests passed.
+- Backend: 69 tests passed (54 existing + 15 new seed/reset/export).
 - Frontend: 3 tests passed across 2 test files.
 - Frontend lint passed.
 - Frontend build passed (7 routes generated).
@@ -89,7 +100,7 @@ Results:
 
 Backend:
 
-- Implemented routes: health, users (3), workspaces (4), invitations (2), member-profiles (4), projects (4), resources (2), stages (4), tasks (6), workspace-state (1), agent (8), assignments (6), action-cards (2), check-ins (4), risks (2), replans (1). Total: 54 endpoints.
+- Implemented routes: health, users (3), workspaces (4), invitations (2), member-profiles (4), projects (4), resources (2), stages (4), tasks (6), workspace-state (1), agent (8), assignments (6), action-cards (2), check-ins (4), risks (2), replans (1), seed (2), export (1). Total: 57 endpoints.
 - Domain models implemented (18 models, all enums).
 - AgentEvent now records `status` for success, repaired, fallback, or failed agent runs.
 - Service layer implemented for all CRUD domains plus assignment, action-card, check-in, risk, replan, and agent-flow orchestration.
@@ -110,9 +121,9 @@ Frontend:
 
 Recommended next implementation target:
 
-1. Add seed/reset data and demo polish flows.
-2. Implement review-summary export backend endpoint.
-3. Verification and demo stability hardening.
+1. Demo stability hardening and animation polish.
+2. Frontend wiring for seed/reset buttons in the UI.
+3. Full E2E demo verification.
 
 Dependency note:
 
@@ -120,6 +131,7 @@ Dependency note:
 - #6 (frontend) is now complete.
 - #7 depends on both #5 and #6 and is now implemented.
 - #8 depends on #5 and is now fully implemented (backend + frontend).
+- #10 depends on #7 and #8 and is now fully implemented.
 
 ## Local Cleanup Notes
 

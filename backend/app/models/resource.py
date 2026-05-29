@@ -1,10 +1,7 @@
 import uuid
-from datetime import datetime, UTC
+from datetime import datetime, timezone
 
 from sqlmodel import SQLModel, Field
-from sqlalchemy import Column, String, Text
-
-from app.models.enums import ResourceType
 
 
 class ProjectResource(SQLModel, table=True):
@@ -12,9 +9,11 @@ class ProjectResource(SQLModel, table=True):
 
     id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
     project_id: str = Field(foreign_key="projects.id")
-    type: ResourceType
+    type: str  # "text_note" | "file_stub" | "link"
     title: str
-    content_text: str | None = Field(default=None, sa_column=Column(Text, nullable=True))
-    file_name: str | None = Field(default=None, sa_column=Column(String, nullable=True))
-    url: str | None = Field(default=None, sa_column=Column(String, nullable=True))
-    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    content_text: str | None = Field(default=None)
+    file_name: str | None = Field(default=None)
+    url: str | None = Field(default=None)
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc)
+    )
