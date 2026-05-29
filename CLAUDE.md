@@ -48,6 +48,7 @@ projectflow/
 │   │   │   ├── output_schemas.py
 │   │   │   └── modules/    # clarification, planning, breakdown, assignment_recommendation, assignment_negotiation, active_push, checkin_analysis, risk_analysis, replanning
 │   │   ├── seed/            # Demo 种子数据（不混入正式服务逻辑）
+│   │   └── models/          # 含 AgentProposal: confirm-to-persist for clarify/plan/breakdown
 │   │   └── tests/
 │   └── data/                # SQLite 数据文件
 ```
@@ -148,6 +149,7 @@ Stage 完成后进入下一阶段，重新触发阶段性分工推荐。
 - **Stage**: 阶段目标、时间范围、交付物、完成标准
 - **Task**: 优先级 P0/P1/P2、状态 not_started/in_progress/done/blocked、可砍标记
 - **AssignmentProposal**: Agent 推荐分工（owner + backup owner + reason），需人工确认
+- **AgentProposal**: Agent 高影响输出暂存（clarify/plan/breakdown），确认后才持久化到项目状态
 - **Risk**: 类型 deadline/dependency/workload/scope/review/assignment/checkin，必须有 evidence
 - **ActionCard**: 任务卡、下一步行动、提醒、启动建议
 - **AgentEvent**: Agent 决策日志（输入快照、输出快照、status、reasoning_summary）

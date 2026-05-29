@@ -131,7 +131,8 @@ Backend:
 - Implemented routes: health, users, workspaces, invitations, member-profiles, projects, resources, stages, tasks, workspace-state, agent, assignments, action-cards, check-ins, risks, replans, seed/reset, timeline, export, and demo reset.
 - Domain models implemented (18 models, all enums).
 - AgentEvent now records `status` for success, repaired, fallback, or failed agent runs.
-- Service layer implemented for all CRUD domains plus assignment, action-card, check-in, risk, replan, and agent-flow orchestration.
+- AgentProposal stores pending clarify/plan/breakdown outputs; confirmation persists to project state.
+- Service layer implemented for all CRUD domains plus assignment, action-card, check-in, risk, replan, agent-flow orchestration, and agent-proposal confirm/reject.
 - Pydantic schemas implemented for all CRUD and execution-loop domains.
 - WorkspaceState endpoint returns members, project, stages, tasks for Agent consumption.
 - Agent infrastructure can run with `LLM_PROVIDER=mock` by default, or OpenAI-compatible chat-completions settings through environment variables. Agent HTTP endpoints persist structured outputs and created entity IDs through service-layer writes.

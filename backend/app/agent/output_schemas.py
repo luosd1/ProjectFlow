@@ -52,6 +52,13 @@ class StagePlanItem(BaseModel):
 
 class StagePlanOutput(AgentOutputBase):
     stages: list[StagePlanItem] = Field(min_length=1)
+    requires_confirmation: bool = True
+
+    @model_validator(mode="after")
+    def require_confirmation(self) -> "StagePlanOutput":
+        if not self.requires_confirmation:
+            raise ValueError("stage plan output requires confirmation")
+        return self
 
 
 class TaskBreakdownItem(BaseModel):
@@ -69,6 +76,13 @@ class TaskBreakdownItem(BaseModel):
 
 class TaskBreakdownOutput(AgentOutputBase):
     tasks: list[TaskBreakdownItem] = Field(min_length=1)
+    requires_confirmation: bool = True
+
+    @model_validator(mode="after")
+    def require_confirmation(self) -> "TaskBreakdownOutput":
+        if not self.requires_confirmation:
+            raise ValueError("task breakdown output requires confirmation")
+        return self
 
 
 class AssignmentRecommendationItem(BaseModel):

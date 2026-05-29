@@ -8,6 +8,9 @@ from app.schemas.member_profile import MemberProfileCreate, MemberProfileUpdate
 
 
 def create_profile(session: Session, data: MemberProfileCreate) -> MemberProfile:
+    skills = data.skills
+    if not isinstance(skills, str):
+        skills = json.dumps(skills)
     profile = MemberProfile(
         user_id=data.user_id,
         workspace_id=data.workspace_id,
@@ -37,6 +40,8 @@ def update_profile(session: Session, profile_id: str, data: MemberProfileUpdate)
     if "skills" in update_data and update_data["skills"] is not None:
         update_data["skills"] = json.dumps(update_data["skills"], ensure_ascii=False)
     for field, value in update_data.items():
+        if field == "skills" and not isinstance(value, str):
+            value = json.dumps(value)
         setattr(profile, field, value)
 
     profile.updated_at = datetime.now(UTC)

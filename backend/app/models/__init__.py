@@ -11,6 +11,7 @@ from app.models.checkin import CheckInCycle, CheckInResponse
 from app.models.risk import Risk
 from app.models.action_card import ActionCard
 from app.models.timeline import AgentEvent
+from app.models.agent_proposal import AgentProposal
 
 __all__ = [
     "User",
@@ -31,4 +32,5 @@ __all__ = [
     "Risk",
     "ActionCard",
     "AgentEvent",
+    "AgentProposal",
 ]
