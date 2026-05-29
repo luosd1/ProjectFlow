@@ -123,7 +123,7 @@ Implemented scope:
 
 ## Verification Baseline
 
-Latest verification baseline after the #16/#17 merge:
+Latest verification baseline after the #21 verification pass:
 
 ```bash
 cd backend
@@ -132,6 +132,7 @@ cd backend
 
 ```bash
 cd frontend
+npm run test
 npm run lint
 npm run build
 npm audit --omit=dev
@@ -140,7 +141,7 @@ npm audit --omit=dev
 Results:
 
 - Backend: 146 tests passed (MVP suite + usability pass + LLM diagnostics + agent proposal confirmation).
-- Frontend tests: currently 3 stale failures in pre-existing tests: App Router harness setup and English-label assertions after the Chinese UI pass.
+- Frontend tests: 5 passed across 3 files (API layer, project dashboard, home page). Previous stale English-label assertions have been fixed to match the Chinese UI.
 - Frontend lint passed.
 - Frontend build passed.
 - Frontend audit passed with 0 vulnerabilities.

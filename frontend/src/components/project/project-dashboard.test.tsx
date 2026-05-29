@@ -208,9 +208,9 @@ describe("ProjectDashboard", () => {
     );
 
     expect(screen.getByRole("heading", { name: "AI Study Planner" })).toBeTruthy();
-    expect(screen.getByText("Current stage")).toBeTruthy();
+    expect(screen.getByText("当前阶段")).toBeTruthy();
     expect(screen.getAllByText("Prototype").length).toBeGreaterThan(0);
-    expect(screen.getByText("Next recommended action")).toBeTruthy();
+    expect(screen.getByText("推荐下一步")).toBeTruthy();
     expect(screen.getAllByText("Confirm direction card").length).toBeGreaterThan(0);
 
     expect(screen.getByText("Who is the first demo user?")).toBeTruthy();
@@ -220,11 +220,11 @@ describe("ProjectDashboard", () => {
     expect(screen.getByText("Can cut")).toBeTruthy();
 
     expect(screen.getByText("Mia can ship the UI fastest, Chen can cover API wiring.")).toBeTruthy();
-    expect(screen.getByText("Owner: Mia")).toBeTruthy();
-    expect(screen.getByText("Backup: Chen")).toBeTruthy();
-    expect(screen.getByText("proposed")).toBeTruthy();
+    expect(screen.getByText("负责人: Mia")).toBeTruthy();
+    expect(screen.getByText("备选: Chen")).toBeTruthy();
+    expect(screen.getByText("待确认")).toBeTruthy();
     expect(screen.getByText("Swap proposal: Mia takes research follow-up, Lin keeps final confirmation.")).toBeTruthy();
-    expect(screen.getByText("Owner changes only after final confirmation.")).toBeTruthy();
+    expect(screen.getByText("负责人仅在最终确认后生效。")).toBeTruthy();
   });
 
   it("opens rejection controls with preferred task and reason fields", () => {
@@ -238,10 +238,10 @@ describe("ProjectDashboard", () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Reject assignment" }));
+    fireEvent.click(screen.getByRole("button", { name: "拒绝分工" }));
 
-    expect(screen.getByLabelText("Preferred task")).toBeTruthy();
-    expect(screen.getByLabelText("Reason")).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Send rejection" })).toBeTruthy();
+    expect(screen.getByText("偏好任务")).toBeTruthy();
+    expect(screen.getByText("原因")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "提交拒绝" })).toBeTruthy();
   });
 });

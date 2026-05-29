@@ -114,7 +114,7 @@ npm audit --omit=dev
 Expected baseline as of 2026-05-30:
 
 - Backend tests pass: 146 tests (MVP API/model smoke plus CORS, agent schema, module, provider, fallback, timeline logging, assignment, action-card, check-in, risk, replan, seed/reset/export, demo reset, LLM diagnostic, agent proposal, and agent endpoint tests).
-- Frontend tests currently have 3 stale assertions: App Router test harness setup and old English copy expectations after the Chinese UI pass. Treat this as a frontend test-maintenance gap, not a production build blocker.
+- Frontend tests pass: 5 tests across 3 files (API layer, project dashboard, home page).
 - Frontend lint passes.
 - Frontend production build passes.
 - `npm audit --omit=dev` reports 0 vulnerabilities.
