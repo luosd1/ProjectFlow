@@ -99,8 +99,7 @@ npm audit --omit=dev
 
 Expected baseline as of 2026-05-29:
 
-- Backend tests pass (54 tests: API/model smoke plus agent schema, module, provider, fallback, timeline logging, assignment, action-card, check-in, risk, replan, and agent endpoint tests).
-- Frontend tests pass.
+- Backend tests pass (69 tests: API/model smoke, agent schema/module/workflow, assignment, check-in/risk/replan, seed/reset/export, and agent endpoint tests).
 - Frontend lint passes.
 - Frontend production build passes.
 - `npm audit --omit=dev` reports 0 critical/high vulnerabilities (moderate may exist).

@@ -4,17 +4,18 @@ ProjectFlow is a local-first active project agent MVP for college project teams.
 
 ## Current Status
 
-- Phase 0 / GitHub issue #2 completed on 2026-05-28.
-- Phase 1 (models) / GitHub issue #3 completed on 2026-05-29.
-- Phase 2 (core APIs) / GitHub issue #4 completed on 2026-05-29.
-- Phase 4 (agent infrastructure) / GitHub issue #5 implemented on 2026-05-29.
-- GitHub issue #6 (Frontend Shell, Onboarding, Workspace, and Intake) implemented on 2026-05-29.
-- GitHub issue #7 (Planning and Assignment Dashboard UI) implemented on 2026-05-29.
-- GitHub issue #8 (Assignment, Active Push, Check-in, Risk, Replan Backend Flows) implemented on 2026-05-29.
-- GitHub issue #10 (Demo Seed, Reset, Runbook, and Review Export) implemented on 2026-05-29.
-- Implemented: FastAPI health API, all 18 domain models with SQLite persistence, full CRUD APIs for users/workspaces/invitations/member-profiles/projects/resources/stages/tasks, WorkspaceState assembly endpoint, assignment/check-in/risk/action-card/replan backend services and APIs, agent HTTP endpoints, demo seed data and reset, review summary export, service layer, Pydantic schemas, agent coordinator infrastructure, LLM provider adapter, structured agent output schemas, fallback/timeline logging, Next.js with app shell, onboarding flow, workspace creation, project intake, planning and assignment dashboard UI, shadcn/ui components, full domain types and API layer, tests (69 backend, 3 frontend), lint/build commands, and runtime ignore rules.
-- Frontend routes: `/`, `/onboarding`, `/onboarding/profile`, `/workspaces/new`, `/workspaces/[workspaceId]`, `/projects/new`, `/projects/[projectId]`
-- Next implementation target: demo stability hardening, animation polish, and frontend seed/reset buttons.
+All MVP phases complete (2026-05-29).
+
+- Phase 0 / GitHub #2 — Guardrails & Setup
+- Phase 1 / GitHub #3 — Account / Workspace / Member Profile
+- Phase 2 / GitHub #4 — Project Intake + Resources + Core APIs
+- Phase 3 / GitHub #6 — Frontend Shell, Onboarding, Workspace, and Intake
+- Phase 4 / GitHub #5 — Agent Core Flow
+- Phase 5–7 / GitHub #8 — Assignment, Active Push, Check-in, Risk, Replan
+- Phase 8 / GitHub #10 — Demo Seed, Reset, Runbook, and Review Export
+- Phase 9 / GitHub #11 — Verification, Tests, and Demo Stability Hardening
+
+Implemented: FastAPI backend (57 endpoints, 18 domain models), agent infrastructure with mock/LLM provider, seed/reset/export, Next.js frontend (7 routes), 69 backend tests passing, frontend lint+build clean.
 
 ## Stack
 
@@ -90,6 +91,7 @@ npm audit --omit=dev
 - [Demo script](docs/demo-script.md)
 - [Seed scenarios](docs/seed-scenarios.md)
 - [Current handoff](docs/handoff.md)
+- [Verification status](docs/issue-11-status-report.md)
 
 ## Runtime Files
 
