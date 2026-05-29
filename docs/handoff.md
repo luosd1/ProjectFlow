@@ -8,6 +8,8 @@ Phase 0 / GitHub issue #2 is complete and closed.
 Phase 1 (models) / GitHub issue #3 is complete and closed.
 Phase 2 (core APIs) / GitHub issue #4 is complete and closed.
 Phase 4 (agent infrastructure) / GitHub issue #5 is implemented.
+GitHub issue #6 (Frontend Shell, Onboarding, Workspace, and Intake) is implemented.
+GitHub issue #7 (Planning and Assignment Dashboard UI) is implemented.
 
 Implemented scope:
 
@@ -41,6 +43,14 @@ Implemented scope:
 - shadcn/ui installed with 16 components (button, card, input, label, select, textarea, badge, separator, avatar, dialog, dropdown-menu, sheet, tabs, tooltip, progress).
 - Tailwind config updated with CSS variable colors for shadcn/ui compatibility.
 
+### GitHub issue #7 (2026-05-29)
+
+- Project dashboard now surfaces the planning and assignment flow: current stage, next action, clarification/direction card, stage plan, task breakdown, assignment proposal, member responses, negotiation, and final confirmation sections.
+- `frontend/src/app/projects/[projectId]/page.tsx` now delegates rendering to `ProjectDashboard` and keeps page logic focused on loading state and event handlers.
+- `frontend/src/lib/api.ts` composes `getProjectState` from implemented backend endpoints instead of assuming a dedicated project-state endpoint.
+- `frontend/src/lib/types.ts` now includes assignment responses and negotiations in `ProjectState`.
+- Focused frontend tests cover empty, populated, and API-failure dashboard states.
+
 ## Verification Baseline
 
 Commands run successfully on 2026-05-29:
@@ -60,7 +70,7 @@ npm run build
 Results:
 
 - Backend: 51 tests passed.
-- Frontend: 1 test passed.
+- Frontend: 3 tests passed across 2 test files.
 - Frontend lint passed.
 - Frontend build passed (7 routes generated).
 
@@ -82,20 +92,22 @@ Frontend:
 - API base URL comes from `NEXT_PUBLIC_API_BASE_URL` or defaults to `http://localhost:8000/api`.
 - All API calls go through `frontend/src/lib/api.ts`.
 - All types defined in `frontend/src/lib/types.ts`.
+- Project dashboard composes project, workspace, resources, stages, tasks, users, and profiles from implemented endpoints; agent/assignment/check-in/risk/replan/export API calls remain typed wrappers for planned backend routes.
 - UI components use shadcn/ui (base-nova style) with project color tokens (ink, paper, moss, citron, coral, harbor).
 
 ## Next Work
 
 Recommended next implementation target:
 
-1. Planning and Assignment Dashboard UI (issue #7) — depends on #5 and #6.
-2. Assignment, active push, check-in, risk, replan backend flows (issue #8).
+1. Assignment, active push, check-in, risk, replan backend flows (issue #8).
+2. Action cards, risk, timeline, and demo polish UI flows after backend support lands.
 
 Dependency note:
 
 - #5 depends on #3 (domain models) and is now implemented.
 - #6 (frontend) is now complete.
-- #7 depends on both #5 and #6.
+- #7 depends on both #5 and #6 and is now implemented.
+- #8 should provide real persistence and service flows for assignment responses, negotiations, active push, check-in, risk, and replanning.
 
 ## Local Cleanup Notes
 

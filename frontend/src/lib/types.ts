@@ -304,6 +304,8 @@ export type ProjectState = {
   stages: Stage[];
   tasks: Task[];
   assignment_proposals: AssignmentProposal[];
+  assignment_responses: AssignmentResponse[];
+  assignment_negotiations: AssignmentNegotiation[];
   checkins: CheckInCycle[];
   risks: Risk[];
   action_cards: ActionCard[];

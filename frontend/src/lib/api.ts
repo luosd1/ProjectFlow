@@ -6,6 +6,7 @@ import type {
   WorkspaceState,
   Invitation,
   CreateInvitationRequest,
+  Skill,
   MemberProfile,
   UpsertMemberProfileRequest,
   Project,
@@ -24,6 +25,45 @@ import type {
 } from "./types";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000/api";
+
+type BackendUser = Omit<User, "user_id"> & { id: string; user_id?: string };
+type BackendWorkspace = Omit<Workspace, "workspace_id"> & { id: string; workspace_id?: string };
+type BackendInvitation = Omit<Invitation, "invitation_id"> & { id: string; invitation_id?: string };
+type BackendWorkspaceMember = {
+  user_id: string;
+  display_name: string;
+  skills?: Skill[];
+  available_hours_per_week?: number;
+  role_preference?: string;
+  interests?: string;
+  constraints?: string;
+};
+type BackendWorkspaceState = {
+  workspace_id: string;
+  workspace_name: string;
+  members: BackendWorkspaceMember[];
+};
+
+function normalizeUser(user: BackendUser): User {
+  return {
+    ...user,
+    user_id: user.user_id ?? user.id,
+  };
+}
+
+function normalizeWorkspace(workspace: BackendWorkspace): Workspace {
+  return {
+    ...workspace,
+    workspace_id: workspace.workspace_id ?? workspace.id,
+  };
+}
+
+function normalizeInvitation(invitation: BackendInvitation): Invitation {
+  return {
+    ...invitation,
+    invitation_id: invitation.invitation_id ?? invitation.id,
+  };
+}
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, {
@@ -45,11 +85,13 @@ export async function apiGet<T>(path: string): Promise<T> {
 
 // --- Users ---
 export async function createUser(data: CreateUserRequest): Promise<User> {
-  return request<User>("/users", { method: "POST", body: JSON.stringify(data) });
+  const user = await request<BackendUser>("/users", { method: "POST", body: JSON.stringify(data) });
+  return normalizeUser(user);
 }
 
 export async function listUsers(): Promise<User[]> {
-  return request<User[]>("/users");
+  const users = await request<BackendUser[]>("/users");
+  return users.map(normalizeUser);
 }
 
 export async function selectDemoUser(userId: string): Promise<void> {
@@ -61,11 +103,55 @@ export async function selectDemoUser(userId: string): Promise<void> {
 
 // --- Workspaces ---
 export async function createWorkspace(data: CreateWorkspaceRequest): Promise<Workspace> {
-  return request<Workspace>("/workspaces", { method: "POST", body: JSON.stringify(data) });
+  const workspace = await request<BackendWorkspace>(
+    `/workspaces?owner_user_id=${encodeURIComponent(data.owner_user_id)}`,
+    {
+      method: "POST",
+      body: JSON.stringify({
+        name: data.name,
+        description: data.description ?? null,
+      }),
+    },
+  );
+  return normalizeWorkspace(workspace);
 }
 
 export async function getWorkspaceState(workspaceId: string): Promise<WorkspaceState> {
-  return request<WorkspaceState>(`/workspaces/${workspaceId}/state`);
+  const [workspace, agentState, profiles, projects] = await Promise.all([
+    getWorkspace(workspaceId),
+    request<BackendWorkspaceState>(`/workspaces/${workspaceId}/state`),
+    listMemberProfilesByWorkspace(workspaceId),
+    listProjectsByWorkspace(workspaceId),
+  ]);
+
+  const members = agentState.members.map((member) => ({
+    user_id: member.user_id,
+    display_name: member.display_name,
+    email: null,
+    avatar_url: null,
+    created_at: workspace.created_at,
+  }));
+
+  const memberships = members.map((member) => ({
+    id: `${workspaceId}-${member.user_id}`,
+    workspace_id: workspaceId,
+    user_id: member.user_id,
+    role: member.user_id === workspace.owner_user_id ? "owner" as const : "member" as const,
+    joined_at: workspace.created_at,
+  }));
+
+  return {
+    workspace,
+    users: members,
+    memberships,
+    member_profiles: profiles,
+    projects,
+  };
+}
+
+export async function getWorkspace(workspaceId: string): Promise<Workspace> {
+  const workspace = await request<BackendWorkspace>(`/workspaces/${workspaceId}`);
+  return normalizeWorkspace(workspace);
 }
 
 // --- Invitations ---
@@ -73,16 +159,22 @@ export async function createInvitation(
   workspaceId: string,
   data: CreateInvitationRequest,
 ): Promise<Invitation> {
-  return request<Invitation>(`/workspaces/${workspaceId}/invitations`, {
+  const invitation = await request<BackendInvitation>("/invitations", {
     method: "POST",
-    body: JSON.stringify(data),
+    body: JSON.stringify({
+      workspace_id: workspaceId,
+      invited_name: data.invited_name,
+      invited_email: data.invited_email ?? null,
+    }),
   });
+  return normalizeInvitation(invitation);
 }
 
 export async function acceptInvitation(token: string, userId: string): Promise<void> {
-  await request(`/invitations/${token}/accept`, {
+  void userId;
+  await request("/invitations/accept", {
     method: "POST",
-    body: JSON.stringify({ user_id: userId }),
+    body: JSON.stringify({ token }),
   });
 }
 
@@ -92,10 +184,27 @@ export async function upsertMemberProfile(
   userId: string,
   data: UpsertMemberProfileRequest,
 ): Promise<MemberProfile> {
-  return request<MemberProfile>(`/workspaces/${workspaceId}/members/${userId}/profile`, {
-    method: "PUT",
-    body: JSON.stringify(data),
+  const profiles = await listMemberProfilesByWorkspace(workspaceId);
+  const existing = profiles.find((profile) => profile.user_id === userId);
+  if (existing) {
+    return request<MemberProfile>(`/member-profiles/${existing.id}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    });
+  }
+
+  return request<MemberProfile>("/member-profiles", {
+    method: "POST",
+    body: JSON.stringify({
+      ...data,
+      user_id: userId,
+      workspace_id: workspaceId,
+    }),
   });
+}
+
+export async function listMemberProfilesByWorkspace(workspaceId: string): Promise<MemberProfile[]> {
+  return request<MemberProfile[]>(`/workspaces/${workspaceId}/profiles`);
 }
 
 // --- Projects ---
@@ -103,14 +212,51 @@ export async function createProject(
   workspaceId: string,
   data: CreateProjectRequest,
 ): Promise<Project> {
-  return request<Project>(`/workspaces/${workspaceId}/projects`, {
+  return request<Project>("/projects", {
     method: "POST",
-    body: JSON.stringify(data),
+    body: JSON.stringify({
+      ...data,
+      workspace_id: workspaceId,
+    }),
   });
 }
 
 export async function getProjectState(projectId: string): Promise<ProjectState> {
-  return request<ProjectState>(`/projects/${projectId}/state`);
+  const project = await request<Project>(`/projects/${projectId}`);
+  const [workspace, resources, stages, tasks, allUsers, memberProfiles] = await Promise.all([
+    getWorkspace(project.workspace_id),
+    listResourcesByProject(projectId),
+    listStagesByProject(projectId),
+    listTasksByProject(projectId),
+    listUsers(),
+    listMemberProfilesByWorkspace(project.workspace_id),
+  ]);
+  const workspaceMemberIds = new Set([
+    workspace.owner_user_id,
+    ...memberProfiles.map((profile) => profile.user_id),
+  ]);
+  const members = allUsers.filter((user) => workspaceMemberIds.has(user.user_id));
+
+  return {
+    workspace,
+    project,
+    resources,
+    members,
+    member_profiles: memberProfiles,
+    stages,
+    tasks,
+    assignment_proposals: [],
+    assignment_responses: [],
+    assignment_negotiations: [],
+    checkins: [],
+    risks: [],
+    action_cards: [],
+    timeline: [],
+  };
+}
+
+export async function listProjectsByWorkspace(workspaceId: string): Promise<Project[]> {
+  return request<Project[]>(`/workspaces/${workspaceId}/projects`);
 }
 
 // --- Project Resources ---
@@ -118,10 +264,25 @@ export async function addResource(
   projectId: string,
   data: AddResourceRequest,
 ): Promise<ProjectResource> {
-  return request<ProjectResource>(`/projects/${projectId}/resources`, {
+  return request<ProjectResource>("/resources", {
     method: "POST",
-    body: JSON.stringify(data),
+    body: JSON.stringify({
+      ...data,
+      project_id: projectId,
+    }),
   });
+}
+
+export async function listResourcesByProject(projectId: string): Promise<ProjectResource[]> {
+  return request<ProjectResource[]>(`/projects/${projectId}/resources`);
+}
+
+export async function listStagesByProject(projectId: string): Promise<ProjectState["stages"]> {
+  return request<ProjectState["stages"]>(`/projects/${projectId}/stages`);
+}
+
+export async function listTasksByProject(projectId: string): Promise<ProjectState["tasks"]> {
+  return request<ProjectState["tasks"]>(`/projects/${projectId}/tasks`);
 }
 
 // --- Agent ---
@@ -276,9 +437,15 @@ export async function updateTaskStatus(
     available_hours_change?: number;
   },
 ): Promise<void> {
-  await request(`/tasks/${taskId}/status`, {
+  await request(`/tasks/${taskId}/status-updates`, {
     method: "POST",
-    body: JSON.stringify(data),
+    body: JSON.stringify({
+      task_id: taskId,
+      user_id: data.user_id,
+      status: data.status,
+      progress_note: data.progress_note,
+      blocker: data.blocker,
+    }),
   });
 }
 

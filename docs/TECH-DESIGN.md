@@ -22,10 +22,11 @@ Snapshot date: 2026-05-29.
 - Phase 2 (core APIs) / GitHub issue #4 is completed and closed.
 - Phase 4 (agent infrastructure) / GitHub issue #5 is implemented.
 - GitHub issue #6 (Frontend Shell, Onboarding, Workspace, and Intake) is implemented.
-- Implemented: FastAPI scaffold, SQLite configuration skeleton, `GET /api/health`, all 18 domain models with full enum alignment and auto table creation on startup, full CRUD APIs (users, workspaces, invitations, member-profiles, projects, resources, stages, tasks), WorkspaceState assembly endpoint (`GET /api/workspaces/{id}/state`), service layer, Pydantic schemas, agent coordinator infrastructure with structured output validation, mock/OpenAI-compatible LLM adapter, prompt boundaries, JSON repair/retry/template fallback, AgentEvent timeline logging with status, Next.js app shell with navigation, onboarding flow (account setup + member profile wizard), workspace creation + invite panel, project intake + resource input, full domain types and API layer, shadcn/ui components, smoke tests, lint/build/test scripts, README, and runtime ignore rules.
+- GitHub issue #7 (Planning and Assignment Dashboard UI) is implemented.
+- Implemented: FastAPI scaffold, SQLite configuration skeleton, `GET /api/health`, all 18 domain models with full enum alignment and auto table creation on startup, full CRUD APIs (users, workspaces, invitations, member-profiles, projects, resources, stages, tasks), WorkspaceState assembly endpoint (`GET /api/workspaces/{id}/state`), service layer, Pydantic schemas, agent coordinator infrastructure with structured output validation, mock/OpenAI-compatible LLM adapter, prompt boundaries, JSON repair/retry/template fallback, AgentEvent timeline logging with status, Next.js app shell with navigation, onboarding flow (account setup + member profile wizard), workspace creation + invite panel, project intake + resource input, planning and assignment dashboard UI, client-side project state composition over implemented endpoints, full domain types and API layer, shadcn/ui components, smoke tests, lint/build/test scripts, README, and runtime ignore rules.
 - Frontend routes: `/`, `/onboarding`, `/onboarding/profile`, `/workspaces/new`, `/workspaces/[workspaceId]`, `/projects/new`, `/projects/[projectId]`.
 - Not implemented yet: Agent HTTP routes, assignment/checkin/risk/replan service flows, seed data, and complete demo flow.
-- Current verification baseline: backend pytest (51 tests), frontend test, frontend lint, frontend build, and frontend production dependency audit.
+- Current verification baseline: backend pytest (51 tests), frontend tests (3 tests across 2 files), frontend lint, and frontend build.
 
 ---
 
@@ -1560,6 +1561,8 @@ Response:
 | `AgentLoadingPanel` | AI 生成过程可视化 |
 | `DemoResetButton` | 重置种子数据 |
 
+Current implementation note: GitHub issue #7 implements the first project dashboard slice with `ProjectDashboard`, `DirectionCardPanel`, `StagePlanBoard`, `TaskBreakdownBoard`, and `AssignmentFlowPanel`. This covers the current direction card, stage plan, task breakdown, assignment proposal, response, negotiation, and final confirmation UI. `ActionCardList`, `CheckInForm`, `RiskCard`, `ReplanDiff`, `AgentTimeline`, `AgentLoadingPanel`, and `DemoResetButton` remain planned.
+
 ---
 
 ## 12.3 UI / UX Requirements
@@ -1889,6 +1892,7 @@ Current status:
 - Domain models (User, Workspace, WorkspaceMembership, Invitation, MemberProfile, Project, ProjectResource, Stage, Task, AssignmentProposal, AssignmentResponse, AssignmentNegotiation, CheckInCycle, CheckInResponse, TaskStatusUpdate, Risk, ActionCard, AgentEvent) completed on 2026-05-29 via GitHub issue #3.
 - Core CRUD APIs and WorkspaceState endpoint completed on 2026-05-29 via GitHub issue #4.
 - Frontend shell, onboarding, workspace, and project intake UI implemented on 2026-05-29 via GitHub issue #6.
+- Planning and assignment dashboard UI implemented on 2026-05-29 via GitHub issue #7.
 
 ---
 
@@ -2160,13 +2164,14 @@ http://localhost:3000
 2. ~~实现对应 schema、service、route 和 SQLite 初始化。~~ (done #4)
 3. ~~实现 Project + Resource + WorkspaceState API。~~ (done #4)
 4. ~~实现 Agent 输出 schema 和 LLM client。~~ (done #5)
-5. 先用 seed data/mock LLM 跑通前端主路径。
-6. 再接真实 LLM。
-7. 优先完成 Assignment Flow 和 Check-in Flow，因为这是新版 PRD 的核心增量。
-8. 保持 `docs/api-contract.md`、`docs/runbook.md`、`docs/handoff.md` 与代码同步。
-9. 最后打磨 Action Cards、Risk & Replan、Agent Timeline。
+5. ~~实现 planning and assignment dashboard UI。~~ (done #7)
+6. 优先完成 Assignment Flow 和 Check-in Flow 的后端服务/API，因为这是新版 PRD 的核心增量。
+7. 用 seed data/mock LLM 跑通完整前端主路径。
+8. 再接真实 LLM。
+9. 保持 `docs/api-contract.md`、`docs/runbook.md`、`docs/handoff.md` 与代码同步。
+10. 最后打磨 Action Cards、Risk & Replan、Agent Timeline。
 
 ---
 
 *Created: 2026-05-28*  
-*Status: Draft — Issue #2 implementation synchronized on 2026-05-28*
+*Status: Draft — Issue #7 implementation synchronized on 2026-05-29*
