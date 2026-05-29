@@ -44,6 +44,8 @@ def update_project(session: Session, project_id: str, data: ProjectUpdate) -> Pr
             ensure_ascii=False,
         )
     for key, value in update_data.items():
+        if key == "direction_card" and value is not None and not isinstance(value, str):
+            value = json.dumps(value)
         setattr(project, key, value)
     project.updated_at = datetime.now(UTC)
 

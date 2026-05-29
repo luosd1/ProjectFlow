@@ -67,8 +67,9 @@ def run_diagnostic(req: LLMDiagnosticRequest | None = None) -> LLMDiagnosticResp
             model=model,
             timeout_seconds=timeout,
         )
-        # Send a tiny prompt to verify end-to-end connectivity
-        client.complete([{"role": "user", "content": "Reply with exactly: ok"}])
+        # The shared client requests JSON mode, so the diagnostic prompt must
+        # explicitly ask for JSON to match real OpenAI-compatible behavior.
+        client.complete([{"role": "user", "content": 'Reply with exactly this JSON object: {"status":"ok"}'}])
         return LLMDiagnosticResponse(
             provider=provider,
             model=model,

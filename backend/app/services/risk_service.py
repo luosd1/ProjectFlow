@@ -16,6 +16,9 @@ def create_risk(session: Session, data: RiskCreate) -> Risk:
     if data.task_id:
         _require(session, Task, data.task_id, "Task")
 
+    evidence = data.evidence
+    if not isinstance(evidence, str):
+        evidence = json.dumps(evidence)
     risk = Risk(
         project_id=data.project_id,
         stage_id=data.stage_id,

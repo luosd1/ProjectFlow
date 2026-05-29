@@ -147,45 +147,40 @@ class OpenAICompatibleLLMClient:
     def _raise_http_error(self, exc: urllib_error.HTTPError) -> None:
         """Translate HTTP status codes into specific LLM errors."""
         status = exc.code
-        try:
-            body = exc.read().decode("utf-8", errors="replace")
-        except Exception:
-            body = "<unreadable>"
-
         if status == 401:
             raise LLMAuthError(
                 "LLM API key was rejected (HTTP 401 Unauthorized)",
                 provider="openai-compatible",
-                detail=f"Verify LLM_API_KEY is correct. Response: {body[:200]}",
+                detail="Verify LLM_API_KEY is correct.",
             ) from exc
         if status == 403:
             raise LLMAuthError(
                 "LLM API key lacks permission (HTTP 403 Forbidden)",
                 provider="openai-compatible",
-                detail=f"Check API key scopes. Response: {body[:200]}",
+                detail="Check API key scopes and provider account access.",
             ) from exc
         if status == 404:
             raise LLMConfigurationError(
                 f"LLM model or endpoint not found (HTTP 404): model={self.model}",
                 provider="openai-compatible",
-                detail=f"Verify LLM_MODEL and LLM_BASE_URL. Response: {body[:200]}",
+                detail="Verify LLM_MODEL and LLM_BASE_URL.",
             ) from exc
         if status == 429:
             raise LLMError(
                 "LLM rate limit exceeded (HTTP 429)",
                 provider="openai-compatible",
-                detail=f"Retry after a delay. Response: {body[:200]}",
+                detail="Retry after a delay or reduce request volume.",
             ) from exc
         if status >= 500:
             raise LLMConnectionError(
                 f"LLM provider server error (HTTP {status})",
                 provider="openai-compatible",
-                detail=f"Provider may be temporarily unavailable. Response: {body[:200]}",
+                detail="Provider may be temporarily unavailable.",
             ) from exc
         raise LLMResponseError(
             f"Unexpected HTTP {status} from LLM provider",
             provider="openai-compatible",
-            detail=f"Response: {body[:200]}",
+            detail="Provider returned an unexpected HTTP status.",
         ) from exc
 
     def _raise_url_error(self, exc: urllib_error.URLError) -> None:

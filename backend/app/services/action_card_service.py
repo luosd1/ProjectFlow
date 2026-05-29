@@ -16,6 +16,9 @@ def create_action_card(session: Session, data: ActionCardCreate) -> ActionCard:
         title=data.title,
         content=data.content,
         reason=data.reason,
+        goal=data.goal,
+        start_suggestion=data.start_suggestion,
+        completion_standard=data.completion_standard,
         due_date=data.due_date,
         created_by_agent=data.created_by_agent,
     )

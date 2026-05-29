@@ -1,6 +1,6 @@
 # ProjectFlow API Contract
 
-Status: current as of 2026-05-29.
+Status: current as of 2026-05-30.
 
 This document records the implemented MVP API surface. Post-MVP ideas should be tracked in roadmap docs, not mixed into this contract.
 
@@ -28,6 +28,27 @@ Response:
   "service": "projectflow-backend"
 }
 ```
+
+### LLM Diagnostics
+
+```http
+GET /api/llm/diagnostic
+POST /api/llm/diagnostic
+```
+
+`GET` validates the currently configured provider settings. `POST` accepts an optional diagnostic override payload for checking a real provider before changing `.env`:
+
+```json
+{
+  "provider": "openai-compatible",
+  "api_key": "optional runtime secret",
+  "base_url": "https://api.openai.com/v1",
+  "model": "gpt-4o-mini",
+  "timeout_seconds": 30.0
+}
+```
+
+Responses never include the API key. The diagnostic status is `mock`, `ok`, or `error`.
 
 ### Users
 
@@ -146,7 +167,8 @@ The response shape is:
   "attempts": 2,
   "used_fallback": true,
   "output": {},
-  "created_ids": ["uuid"]
+  "created_ids": ["uuid"],
+  "proposal_id": "uuid | null"
 }
 ```
 
@@ -163,7 +185,42 @@ POST /api/agent/risk-analysis
 POST /api/agent/replan
 ```
 
-Agent outputs are validated before persistence. Assignment, active-push, check-in-analysis, and risk-analysis endpoints persist their validated proposals or records through services. Replan returns a proposal and does not apply changes until `/api/replans/confirm`.
+Agent outputs are validated before persistence. Clarification, stage planning, and task breakdown outputs create `AgentProposal` records (pending confirmation) instead of directly mutating project state. Assignment, active-push, check-in-analysis, and risk-analysis endpoints persist their validated proposals or records through services. Replan returns a proposal and does not apply changes until `/api/replans/confirm`.
+
+The agent response now includes `proposal_id` for clarify, plan, and breakdown outputs:
+
+```json
+{
+  "event_type": "clarify",
+  "status": "fallback",
+  "attempts": 2,
+  "used_fallback": true,
+  "output": {},
+  "created_ids": [],
+  "proposal_id": "uuid"
+}
+```
+
+### Agent Proposals (Confirm-to-Persist)
+
+```http
+GET /api/agent-proposals?project_id=...&proposal_type=...
+GET /api/agent-proposals/{proposal_id}
+POST /api/agent-proposals/{proposal_id}/confirm
+POST /api/agent-proposals/{proposal_id}/reject
+```
+
+Agent proposals store pending high-impact agent outputs before human confirmation:
+
+- `proposal_type`: `clarify` | `plan` | `breakdown`
+- `status`: `pending` → `confirmed` | `rejected`
+
+Confirming a proposal persists its payload to project state:
+- `clarify` → updates `Project.direction_card`
+- `plan` → creates `Stage` records
+- `breakdown` → creates `Task` records
+
+Confirming also marks the source `AgentEvent.user_confirmed = True` and records a confirmation timeline event with the source event ID.
 
 ### Assignments
 
@@ -185,6 +242,7 @@ Rules:
 - Only the recommended owner can accept or reject a proposal.
 - Task owner and backup owner are updated only after an `owner_confirmed` proposal is finalized.
 - Negotiation records are proposals/coordination messages; they do not directly overwrite task ownership.
+- Assignment proposals include structured citation fields: `skill_match`, `availability_match`, `preference_match`, `constraint_respected` (all optional, populated by Agent when available).
 
 ### Action Cards
 
@@ -194,7 +252,7 @@ GET /api/projects/{project_id}/action-cards
 PATCH /api/action-cards/{card_id}
 ```
 
-Action cards must include `reason`. Agent-created active push cards are persisted through the agent active-push endpoint.
+Action cards must include `reason`. Agent-created active push cards include optional `goal`, `start_suggestion`, and `completion_standard` fields specifying what the card achieves, how to start, and how to know it's done. Cards are persisted through the agent active-push endpoint.
 
 ### Check-ins
 
@@ -223,7 +281,7 @@ Risk records require non-empty `evidence`. Risk types include deadline, dependen
 POST /api/replans/confirm
 ```
 
-The confirmation request includes `before`, `after`, `impact`, `reason`, `requires_confirmation`, and proposed stage/task/action-card changes. The service applies task and stage changes only when `requires_confirmation` is true.
+The confirmation request includes `before`, `after`, `impact`, `reason`, `requires_confirmation`, and proposed stage/task/action-card changes. The service applies task and stage changes only when `requires_confirmation` is true. Changing `owner_user_id` on a task with a finalized assignment proposal is rejected — the assignment must be rejected first.
 
 ### Timeline
 

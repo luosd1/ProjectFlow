@@ -15,7 +15,7 @@
 
 ## 1.1 Current Implementation Snapshot
 
-Snapshot date: 2026-05-29.
+Snapshot date: 2026-05-30.
 
 - Phase 0 / GitHub issue #2 is completed and closed.
 - Phase 1 (models) / GitHub issue #3 is completed and closed.
@@ -24,13 +24,18 @@ Snapshot date: 2026-05-29.
 - GitHub issue #6 (Frontend Shell, Onboarding, Workspace, and Intake) is implemented.
 - GitHub issue #7 (Planning and Assignment Dashboard UI) is implemented.
 - GitHub issue #8 (Assignment, active push, check-in, risk, and replan backend flows) is implemented.
+- GitHub issue #9 (Action cards, check-in, risk, timeline, and export UI) is implemented.
 - GitHub issue #10 (Demo Seed, Reset, Runbook, and Review Export) is implemented.
 - GitHub issue #11 (Verification, Tests, and Demo Stability Hardening) is complete.
-- Implemented: FastAPI scaffold, SQLite configuration skeleton, `GET /api/health`, all 18 domain models with full enum alignment and auto table creation on startup, full CRUD APIs (users, workspaces, invitations, member-profiles, projects, resources, stages, tasks), WorkspaceState assembly endpoint (`GET /api/workspaces/{id}/state`), service layer, Pydantic schemas, agent coordinator infrastructure with structured output validation, mock/OpenAI-compatible LLM adapter, prompt boundaries, JSON repair/retry/template fallback, AgentEvent timeline logging with status, assignment proposal/response/finalize/negotiation APIs, action card APIs, check-in cycle/response APIs, risk APIs, confirmed replan API, agent HTTP endpoints, seed/reset/export endpoints, Next.js app shell with navigation, onboarding flow (account setup + member profile wizard), workspace creation + invite panel, project intake + resource input, planning and assignment dashboard UI, execution-loop dashboard UI, client-side project state composition over implemented endpoints, full domain types and API layer, shadcn/ui components, smoke tests, lint/build/test scripts, README, and runtime ignore rules.
+- GitHub issue #16 (Real LLM Provider Readiness and Diagnostics) is complete.
+- GitHub issue #17 (Agent Output Persistence and Confirmation) is complete.
+- Implemented: FastAPI scaffold, SQLite configuration skeleton, `GET /api/health`, all 19 persistence tables/domain models with full enum alignment and auto table creation on startup, full CRUD APIs (users, workspaces, invitations, member-profiles, projects, resources, stages, tasks), WorkspaceState assembly endpoint (`GET /api/workspaces/{id}/state`), service layer, Pydantic schemas, agent coordinator infrastructure with structured output validation, mock/OpenAI-compatible LLM adapter, LLM diagnostic endpoints, prompt boundaries, JSON repair/retry/template fallback, AgentEvent timeline logging with status, `AgentProposal` confirm-to-persist flow for clarify/plan/breakdown, assignment proposal/response/finalize/negotiation APIs, action card APIs, check-in cycle/response APIs, risk APIs, confirmed replan API, agent HTTP endpoints, seed/reset/export endpoints, Next.js app shell with navigation, onboarding flow (account setup + member profile wizard), workspace creation + invite panel, project intake + resource input, planning and assignment dashboard UI, execution-loop dashboard UI, client-side project state composition over implemented endpoints, full domain types and API layer, shadcn/ui components, smoke tests, lint/build/test scripts, README, and runtime ignore rules.
 - Frontend routes: `/`, `/onboarding`, `/onboarding/profile`, `/workspaces/new`, `/workspaces/[workspaceId]`, `/projects/new`, `/projects/[projectId]`.
 - MVP implementation includes frontend wiring for execution-loop APIs, seed/reset data, review export, and a complete local demo flow.
 - All MVP phases are complete.
-- Current verification baseline: backend pytest, frontend tests, frontend lint, frontend build, and frontend audit.
+- MVP Usable #18 (Prompt and Schema Quality Hardening) is complete.
+- MVP Usable #20 (Assignment, Push, Risk, and Replan Usability Pass) is complete: assignment citations, push card goal/start/done-when, risk structured evidence, replan before/after/impact/confirmation, finalized-assignment guard.
+- Current verification baseline: backend pytest 146 passing, frontend lint passing, frontend build passing, frontend audit 0 vulnerabilities. Frontend tests currently have 3 stale failures in pre-existing assertions after the Chinese UI pass.
 
 ---
 
@@ -112,7 +117,6 @@ flowchart TD
     API --> CK[Check-in Service]
     API --> AGS[Agent Service]
     API --> EX[Export Service]
-    API --> LLM[LLM Diagnostic Service]
 
     AGS --> CA[Coordinator Agent]
 
@@ -138,7 +142,6 @@ flowchart TD
     CK --> DB
     AGS --> DB
     EX --> DB
-    LLM --> CA
 
     CA --> TL[Agent Timeline]
     TL --> DB
@@ -363,6 +366,7 @@ erDiagram
     PROJECT ||--o{ PROJECT_RESOURCE : has
     PROJECT ||--o{ STAGE : has
     PROJECT ||--o{ TASK : has
+    PROJECT ||--o{ AGENT_PROPOSAL : has
     PROJECT ||--o{ ASSIGNMENT_PROPOSAL : has
     PROJECT ||--o{ CHECKIN_CYCLE : has
     PROJECT ||--o{ RISK : has
@@ -578,6 +582,10 @@ Stage 状态规则：
 | backup_owner_user_id | UUID nullable | 备选负责人 |
 | reason | text | 推荐理由 |
 | risk_note | text nullable | 潜在风险 |
+| skill_match | text nullable | 技能匹配依据 |
+| availability_match | text nullable | 可用时间匹配依据 |
+| preference_match | text nullable | 意向匹配依据 |
+| constraint_respected | text nullable | 已避开的限制或风险 |
 | status | enum | proposed / owner_confirmed / owner_rejected / negotiating / finalized |
 | created_by_agent | boolean | 是否由 Agent 生成 |
 | created_at | datetime | 创建时间 |
@@ -700,6 +708,9 @@ MVP 不需要做复杂多人拍卖式协调，只做一轮交换确认。
 | title | string | 卡片标题 |
 | content | text | 卡片内容 |
 | reason | text | 为什么现在推送 |
+| goal | text nullable | 这张卡要达成什么 |
+| start_suggestion | text nullable | 建议如何开始 |
+| completion_standard | text nullable | 怎样判断完成 |
 | due_date | date nullable | 建议完成时间 |
 | status | enum | active / done / dismissed |
 | created_by_agent | boolean | 是否由 Agent 生成 |
@@ -707,7 +718,34 @@ MVP 不需要做复杂多人拍卖式协调，只做一轮交换确认。
 
 ---
 
-## 8.19 AgentEvent / Timeline
+## 8.19 AgentProposal
+
+`AgentProposal` 暂存 clarify / plan / breakdown 这类高影响 Agent 输出，确认前不直接写入项目状态。
+
+| Field | Type | Description |
+|---|---|---|
+| id | UUID | proposal ID |
+| project_id | UUID | 所属项目 |
+| workspace_id | UUID | 所属 workspace |
+| proposal_type | enum | clarify / plan / breakdown |
+| status | enum | pending / confirmed / rejected |
+| agent_event_id | UUID nullable | 来源 AgentEvent |
+| payload | json | 待确认的结构化输出 |
+| confirmed_by | UUID nullable | 确认人 |
+| confirmed_at | datetime nullable | 确认时间 |
+| created_at | datetime | 创建时间 |
+
+确认后的持久化规则：
+
+- `clarify` -> 更新 `Project.direction_card`
+- `plan` -> 创建 `Stage`
+- `breakdown` -> 创建 `Task`
+
+确认同时标记来源 `AgentEvent.user_confirmed = True`，并写入 timeline evidence。
+
+---
+
+## 8.20 AgentEvent / Timeline
 
 | Field | Type | Description |
 |---|---|---|
@@ -715,6 +753,7 @@ MVP 不需要做复杂多人拍卖式协调，只做一轮交换确认。
 | project_id | UUID | 所属项目 |
 | workspace_id | UUID | 所属 workspace |
 | event_type | enum | clarify / plan / breakdown / assign / negotiate / push / checkin / risk / replan / export |
+| status | enum | success / repaired / fallback / failed |
 | input_snapshot | json | 输入状态快照 |
 | output_snapshot | json | Agent 输出快照 |
 | reasoning_summary | text | 可展示的简短判断理由 |
@@ -743,6 +782,7 @@ WorkspaceState = {
   resources,
   stages,
   tasks,
+  agent_proposals,
   assignment_proposals,
   assignment_responses,
   assignment_negotiations,
@@ -785,6 +825,7 @@ Agent 每次运行必须读取最新 WorkspaceState。
 | Project    | 创建后进入 draft，方向卡确认后进入 active                     |
 | Stage      | 同一项目同一时间只有一个 active stage                       |
 | Assignment | AI 生成 proposal，成员响应后，负责人确认 finalized            |
+| AgentProposal | clarify / plan / breakdown 输出先进入 pending，显式确认后才写入项目状态 |
 | Task Owner | 只有 finalized assignment 才能写入 task.owner_user_id |
 | Check-in   | Check-in 只收集状态，不自动改任务 owner                     |
 | Risk       | Risk 可由 Agent 生成，但是否采纳建议需用户确认                   |
@@ -869,23 +910,26 @@ stateDiagram-v2
 
 ```json
 {
-  "questions": [
-    {
-      "id": "q1",
-      "question": "string",
-      "why_it_matters": "string"
-    }
-  ],
-  "direction_card": {
-    "problem": "string",
-    "target_users": "string",
-    "core_value": "string",
-    "deliverables": ["string"],
-    "constraints": ["string"],
-    "out_of_scope": ["string"],
-    "initial_risks": ["string"]
-  }
+  "problem": "string",
+  "users": "string",
+  "value": "string",
+  "deliverables": ["string"],
+  "boundaries": ["string"],
+  "risks": ["string"],
+  "suggested_questions": ["string"],
+  "reason": "string",
+  "requires_confirmation": false
 }
+```
+
+Field descriptions:
+- `problem`: the core problem this project solves
+- `users`: who the project serves
+- `value`: what value the project delivers
+- `deliverables`: concrete outputs the project must produce (at least one required)
+- `boundaries`: explicit scope boundaries — what is out of scope
+- `risks`: known risks grounded in project context
+- `suggested_questions`: high-value clarification questions only
 ```
 
 ### Planning Output
@@ -1360,28 +1404,25 @@ All agent responses include structured persistence metadata:
   "attempts": 1,
   "used_fallback": false,
   "output": {},
-  "created_ids": ["uuid"]
+  "created_ids": ["uuid"],
+  "proposal_id": "uuid | null"
 }
 ```
+
+For `clarify`, `plan`, and `breakdown`, `proposal_id` points to a pending `AgentProposal`. These routes do not directly mutate `Project.direction_card`, `Stage`, or `Task`; mutation happens only after proposal confirmation.
 
 ---
 
-## 11.9 Planned Generic Confirmation API
+## 11.9 Agent Proposal Confirmation API
 
 ```http
-POST /api/projects/{project_id}/confirm
+GET /api/agent-proposals?project_id=...&proposal_type=...
+GET /api/agent-proposals/{proposal_id}
+POST /api/agent-proposals/{proposal_id}/confirm
+POST /api/agent-proposals/{proposal_id}/reject
 ```
 
-Request:
-
-```json
-{
-  "timeline_event_id": "uuid",
-  "confirm_type": "direction_card | plan | tasks | assignments | replan",
-  "accepted": true,
-  "confirmed_by": "uuid"
-}
-```
+Confirming a proposal persists its payload according to `proposal_type`: `clarify` updates `Project.direction_card`, `plan` creates `Stage` records, and `breakdown` creates `Task` records. Rejecting keeps the project state unchanged.
 
 ---
 
@@ -1589,34 +1630,11 @@ Response:
 ## 11.17 LLM Diagnostic API
 
 ```http
+GET /api/llm/diagnostic
 POST /api/llm/diagnostic
 ```
 
-Optional request body (overrides env settings for the check):
-
-```json
-{
-  "provider": "openai",
-  "api_key": "sk-...",
-  "base_url": "https://api.openai.com/v1",
-  "model": "gpt-4o-mini",
-  "timeout_seconds": 30.0
-}
-```
-
-Response (never includes API key):
-
-```json
-{
-  "provider": "openai",
-  "model": "gpt-4o-mini",
-  "base_url": "https://api.openai.com/v1",
-  "status": "ok",
-  "detail": "Provider responded successfully"
-}
-```
-
-Security: API key is accepted as input only and never returned in the response, logged, or persisted.
+`GET` checks the configured provider settings. `POST` accepts optional runtime overrides for `provider`, `api_key`, `base_url`, `model`, and `timeout_seconds`, allowing a real-provider readiness check without editing tracked files. Responses report `mock`, `ok`, or `error` status and never include the API key.
 
 ---
 
@@ -1669,7 +1687,7 @@ Security: API key is accepted as input only and never returned in the response, 
 | `AgentLoadingPanel` | AI 生成过程可视化 |
 | `DemoResetButton` | 重置种子数据 |
 
-Current implementation note: GitHub issues #7-#11 implement the project dashboard, assignment confirmation, action cards, check-in/status update, risk/replan, timeline, demo reset, and review export surfaces against real backend endpoints.
+Current implementation note: GitHub issues #7-#11 implement the project dashboard, assignment confirmation, action cards, check-in/status update, risk/replan, timeline, demo reset, and review export surfaces against real backend endpoints. GitHub issues #16/#17 add real-provider diagnostics and confirm-to-persist agent proposal surfaces.
 
 ---
 
@@ -1702,11 +1720,7 @@ Current implementation note: GitHub issues #7-#11 implement the project dashboar
 | NotFoundError       | project_id 不存在   | 404                            |
 | PermissionLiteError | 非 workspace 成员访问 | 403，MVP 轻量处理                   |
 | AgentOutputError    | LLM 输出无法解析       | retry + fallback + timeline 记录 |
-| LLMAuthError        | API key 缺失/被拒    | 401/403 → 明确提示检查 .env          |
-| LLMTimeoutError     | LLM 请求超时         | 返回可重试状态 + 超时秒数                 |
-| LLMConnectionError  | 端点不可达            | 网络/DNS 错误 → 检查 base_url        |
-| LLMResponseError    | 响应结构异常           | 缺少 choices → 提示模型/端点不匹配        |
-| LLMConfigurationError | 不支持的 provider  | 列出支持的 provider 列表              |
+| AgentTimeoutError   | LLM 超时           | 返回可重试状态                        |
 | ConflictError       | 确认过期 proposal    | 要求刷新状态                         |
 | DatabaseError       | SQLite 写入失败      | 500 + 错误日志                     |
 
@@ -1789,10 +1803,11 @@ LLM_PROVIDER=mock
 LLM_API_KEY=xxx
 LLM_BASE_URL=https://api.openai.com/v1
 LLM_MODEL=gpt-4o-mini
+LLM_TIMEOUT_SECONDS=30.0
 NEXT_PUBLIC_API_BASE_URL=http://localhost:8000/api
 ```
 
-`APP_ENV`、`DATABASE_URL`、`LLM_PROVIDER`、`LLM_API_KEY`、`LLM_BASE_URL`、`LLM_MODEL` 已由后端配置读取。`LLM_PROVIDER` 默认 `mock`；真实 LLM 接入时设置为 `openai` 或 `openai-compatible`，并把 `LLM_API_KEY` 放在 `.env`。`NEXT_PUBLIC_API_BASE_URL` 是前端可选变量，不配置时默认 `http://localhost:8000/api`。
+`APP_ENV`、`DATABASE_URL`、`LLM_PROVIDER`、`LLM_API_KEY`、`LLM_BASE_URL`、`LLM_MODEL`、`LLM_TIMEOUT_SECONDS` 已由后端配置读取。`LLM_PROVIDER` 默认 `mock`；真实 LLM 接入时设置为 `openai` 或 `openai-compatible`，并把 `LLM_API_KEY` 放在 `.env`。`LLM_TIMEOUT_SECONDS` 默认 `30.0`。`NEXT_PUBLIC_API_BASE_URL` 是前端可选变量，不配置时默认 `http://localhost:8000/api`。
 
 ## 14.4 Git Ignore Rules
 
@@ -2279,13 +2294,16 @@ http://localhost:3000
 4. ~~实现 Agent 输出 schema 和 LLM client。~~ (done #5)
 5. ~~实现 planning and assignment dashboard UI。~~ (done #7)
 6. ~~完成 Assignment、Active Push、Check-in、Risk、Replan 的后端服务/API。~~ (done #8)
-7. 将项目 dashboard 接入 #8 后端 API，补齐 Action Cards、Check-in、Risk & Replan、Agent Timeline 的真实交互。
-8. 用 seed data/mock LLM 跑通完整前端主路径。
-9. 再接真实 LLM。
-10. 保持 `docs/api-contract.md`、`docs/runbook.md`、`docs/handoff.md` 与代码同步。
-11. 最后打磨 demo reset、Agent loading、review summary export。
+7. ~~将项目 dashboard 接入 #8 后端 API，补齐 Action Cards、Check-in、Risk & Replan、Agent Timeline 的真实交互。~~ (done #9-#10)
+8. ~~用 seed data/mock LLM 跑通完整前端主路径。~~ (done #10-#11)
+9. ~~接入真实 LLM readiness diagnostics。~~ (done #16)
+10. ~~将 clarify/plan/breakdown 输出改为确认后持久化。~~ (done #17)
+11. 修复当前 frontend test 的 3 个过期断言：App Router harness 和中文 UI 文案。
+12. 完成 #19 Frontend Agent Status and Review UX。
+13. 完成 #21 Real-Provider Verification and MVP Usable Runbook。
+14. 持续保持 `docs/api-contract.md`、`docs/runbook.md`、`docs/handoff.md` 与代码同步。
 
 ---
 
 *Created: 2026-05-28*  
-*Status: Draft — Issue #7 implementation synchronized on 2026-05-29*
+*Status: Draft — MVP usable issues #16/#17 synchronized on 2026-05-30*

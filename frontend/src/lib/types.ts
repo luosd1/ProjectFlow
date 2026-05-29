@@ -183,6 +183,10 @@ export type AssignmentProposal = {
   recommended_owner_user_id: string;
   backup_owner_user_id?: string | null;
   reason: string;
+  skill_match?: string | null;
+  availability_match?: string | null;
+  preference_match?: string | null;
+  constraint_respected?: string | null;
   risk_note?: string | null;
   status: "proposed" | "owner_confirmed" | "owner_rejected" | "negotiating" | "finalized";
   created_by_agent: boolean;
@@ -266,6 +270,9 @@ export type ActionCard = {
   title: string;
   content: string;
   reason: string;
+  goal?: string | null;
+  start_suggestion?: string | null;
+  completion_standard?: string | null;
   due_date?: string | null;
   status: "active" | "done" | "dismissed";
   created_by_agent: boolean;

@@ -1,6 +1,6 @@
 # ProjectFlow Runbook
 
-Status: current as of 2026-05-29.
+Status: current as of 2026-05-30.
 
 ## Prerequisites
 
@@ -51,6 +51,20 @@ Expected response:
 {"status":"ok","service":"projectflow-backend"}
 ```
 
+LLM provider diagnostic:
+
+```bash
+curl http://localhost:8000/api/llm/diagnostic
+```
+
+To test a real OpenAI-compatible provider without editing tracked files, send a one-off diagnostic payload. Keep the API key in your shell or `.env`; do not commit or paste real keys into docs or logs.
+
+```bash
+curl -X POST http://localhost:8000/api/llm/diagnostic ^
+  -H "Content-Type: application/json" ^
+  -d "{\"provider\":\"openai-compatible\",\"base_url\":\"https://api.openai.com/v1\",\"model\":\"gpt-4o-mini\",\"timeout_seconds\":30.0}"
+```
+
 ## Frontend Setup
 
 ```bash
@@ -97,13 +111,13 @@ npm run build
 npm audit --omit=dev
 ```
 
-Expected baseline as of 2026-05-29:
+Expected baseline as of 2026-05-30:
 
-- Backend tests pass (MVP API/model smoke plus CORS, agent schema, module, provider, fallback, timeline logging, assignment, action-card, check-in, risk, replan, seed/reset/export, demo reset, and agent endpoint tests).
-- Frontend tests pass.
+- Backend tests pass: 146 tests (MVP API/model smoke plus CORS, agent schema, module, provider, fallback, timeline logging, assignment, action-card, check-in, risk, replan, seed/reset/export, demo reset, LLM diagnostic, agent proposal, and agent endpoint tests).
+- Frontend tests currently have 3 stale assertions: App Router test harness setup and old English copy expectations after the Chinese UI pass. Treat this as a frontend test-maintenance gap, not a production build blocker.
 - Frontend lint passes.
 - Frontend production build passes.
-- `npm audit --omit=dev` reports 0 critical/high vulnerabilities (moderate may exist).
+- `npm audit --omit=dev` reports 0 vulnerabilities.
 
 Known non-blocking warnings:
 

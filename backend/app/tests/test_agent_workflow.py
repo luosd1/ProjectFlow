@@ -1,3 +1,4 @@
+import json
 from datetime import date
 
 import json
@@ -57,12 +58,22 @@ def session_fixture():
 
 def _clarify_payload(reason: str = "The team needs one clear question.") -> dict:
     return {
-        "summary": "Scope needs clarification.",
-        "target_outcome": "Confirm the demo path.",
-        "constraints": ["Deadline is fixed"],
+        "problem": "The project scope is not yet confirmed.",
+        "users": "Student project team.",
+        "value": "A clear direction card for planning.",
+        "deliverables": ["Confirmed direction card"],
+        "boundaries": ["Deadline is fixed"],
+        "risks": ["Scope creep without boundaries."],
         "suggested_questions": ["Which path must be demo-ready?"],
         "reason": reason,
     }
+
+
+def _parse_snapshot(value):
+    """Parse a JSON string snapshot back to dict, or return as-is."""
+    if isinstance(value, str):
+        return json.loads(value)
+    return value
 
 
 def test_build_llm_client_supports_mock_and_openai_compatible_settings():
@@ -101,9 +112,9 @@ def test_generate_structured_output_repairs_json_and_logs_event(session: Session
     client = MockLLMClient(
         responses=[
             "```json\n"
-            "{'summary':'Scope needs clarification.',"
-            "'target_outcome':'Confirm the demo path.',"
-            "'constraints':['Deadline is fixed'],"
+            "{'problem':'Scope unclear','users':'Student team',"
+            "'value':'Direction card','deliverables':['Direction card'],"
+            "'boundaries':['Deadline is fixed'],"
             "'suggested_questions':['Which path must be demo-ready?'],"
             "'reason':'The team needs one clear question.',}\n"
             "```"
@@ -135,8 +146,9 @@ def test_generate_structured_output_retries_once_then_succeeds(session: Session)
     client = MockLLMClient(
         responses=[
             "not json",
-            '{"summary":"Retry worked","target_outcome":"Confirm scope",'
-            '"constraints":[],"suggested_questions":["Proceed?"],'
+            '{"problem":"Retry worked","users":"Team","value":"Direction",'
+            '"deliverables":["Card"],"boundaries":[],"risks":[],'
+            '"suggested_questions":["Proceed?"],'
             '"reason":"The retry returned valid JSON."}',
         ]
     )
@@ -155,11 +167,12 @@ def test_generate_structured_output_retries_once_then_succeeds(session: Session)
     assert client.calls == 2
 
     event = session.exec(select(AgentEvent)).one()
-    assert event.status == AgentEventStatus.success
+    # timeline AgentEvent doesn't have status field; just verify event exists
+    assert event.event_type == AgentEventType.clarify
 
 
 def test_generate_structured_output_uses_template_fallback_after_retry(session: Session):
-    client = MockLLMClient(responses=["not json", '{"summary":"missing fields"}'])
+    client = MockLLMClient(responses=["not json", '{"problem":"missing fields"}'])
 
     result = generate_structured_output(
         session=session,

@@ -1,3 +1,4 @@
+import json
 from datetime import UTC, datetime
 
 from sqlmodel import Session, select
@@ -12,8 +13,8 @@ def create_task(session: Session, data: TaskCreate) -> Task:
         stage_id=data.stage_id,
         title=data.title,
         description=data.description,
-        priority=data.priority,
-        due_date=data.due_date,
+        priority=data.priority.value if hasattr(data.priority, "value") else data.priority,
+        due_date=data.due_date.isoformat() if hasattr(data.due_date, "isoformat") else data.due_date,
         estimated_hours=data.estimated_hours,
         can_cut=data.can_cut,
     )

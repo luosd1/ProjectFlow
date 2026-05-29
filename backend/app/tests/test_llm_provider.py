@@ -309,6 +309,27 @@ class TestLLMDiagnostic:
             assert result.status == "ok"
             assert result.provider == "openai"
 
+    def test_real_provider_diagnostic_prompt_matches_json_mode(self):
+        captured = {}
+        mock_response = MagicMock()
+        mock_response.__enter__ = MagicMock(return_value=mock_response)
+        mock_response.__exit__ = MagicMock(return_value=False)
+        mock_response.read.return_value = json.dumps({
+            "choices": [{"message": {"content": '{"status":"ok"}'}}]
+        }).encode("utf-8")
+
+        def fake_urlopen(req, timeout):
+            captured["body"] = json.loads(req.data.decode("utf-8"))
+            return mock_response
+
+        with patch("app.agent.llm_client.request.urlopen", side_effect=fake_urlopen):
+            req = LLMDiagnosticRequest(provider="openai", api_key="sk-test")
+            result = run_diagnostic(req)
+
+        assert result.status == "ok"
+        assert captured["body"]["response_format"] == {"type": "json_object"}
+        assert "json" in captured["body"]["messages"][0]["content"].lower()
+
 
 # ===========================================================================
 # API key masking / non-leak tests
@@ -339,6 +360,22 @@ class TestAPIKeyMasking:
             # Serialize the response to JSON — the key must not appear
             result_json = result.model_dump_json()
             assert secret_key not in result_json, "API key leaked in diagnostic response"
+
+    def test_provider_error_body_is_not_returned_to_frontend(self):
+        """Provider error bodies can be arbitrary; do not echo them into API responses."""
+        secret_key = "sk-super-secret-key-12345"
+        mock_response = MagicMock()
+        mock_response.code = 401
+        mock_response.read.return_value = f'{{"error":"bad key {secret_key}"}}'.encode("utf-8")
+
+        with patch("app.agent.llm_client.request.urlopen", side_effect=urllib_error.HTTPError(
+            url="", code=401, msg="Unauthorized", hdrs=None, fp=mock_response
+        )):
+            req = LLMDiagnosticRequest(provider="openai", api_key=secret_key)
+            result = run_diagnostic(req)
+
+        assert result.status == "error"
+        assert secret_key not in result.model_dump_json()
 
     def test_error_messages_do_not_contain_key_value(self):
         """Error messages reference the setting name, not the actual key value."""

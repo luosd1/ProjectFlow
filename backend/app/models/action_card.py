@@ -16,6 +16,9 @@ class ActionCard(SQLModel, table=True):
     title: str
     content: str
     reason: str
+    goal: str | None = Field(default=None)
+    start_suggestion: str | None = Field(default=None)
+    completion_standard: str | None = Field(default=None)
     due_date: str | None = Field(default=None)  # ISO date string
     status: str = Field(default="active")  # "active" | "done" | "dismissed"
     created_by_agent: bool = Field(default=False)

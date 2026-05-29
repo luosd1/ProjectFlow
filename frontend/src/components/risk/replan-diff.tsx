@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRight, GitBranch, Minus, Plus, RefreshCw } from "lucide-react";
+import { ArrowRight, GitBranch, Minus, Plus, RefreshCw, ShieldCheck } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import type { Task } from "@/lib/types";
@@ -8,6 +8,14 @@ import type { Task } from "@/lib/types";
 type ReplanDiffProps = {
   before: Task[];
   after: Task[];
+  /** Replan proposal metadata — when available, show before/after/impact/reason/confirmation */
+  proposal?: {
+    before: Record<string, unknown> | unknown[];
+    after: Record<string, unknown> | unknown[];
+    impact: string;
+    reason: string;
+    requires_confirmation: boolean;
+  } | null;
 };
 
 type DiffItem = {
@@ -100,13 +108,32 @@ function kindIcon(kind: DiffItem["kind"]) {
   }
 }
 
-export function ReplanDiff({ before, after }: ReplanDiffProps) {
+/** Render a before/after summary — handles dict, list, or string */
+function renderSummary(value: Record<string, unknown> | unknown[]) {
+  if (Array.isArray(value)) {
+    return <span className="text-ink/60">{JSON.stringify(value)}</span>;
+  }
+  if (typeof value === "object" && value !== null) {
+    return (
+      <div className="space-y-1">
+        {Object.entries(value).map(([key, val]) => (
+          <div key={key} className="text-xs text-ink/60">
+            <span className="font-medium text-ink/70">{key}</span>: {String(val)}
+          </div>
+        ))}
+      </div>
+    );
+  }
+  return <span className="text-ink/60">{String(value)}</span>;
+}
+
+export function ReplanDiff({ before, after, proposal }: ReplanDiffProps) {
   const diff = buildDiff(before, after);
   const added = diff.filter((d) => d.kind === "added");
   const removed = diff.filter((d) => d.kind === "removed");
   const modified = diff.filter((d) => d.kind === "modified");
 
-  if (diff.length === 0) {
+  if (diff.length === 0 && !proposal) {
     return (
       <div className="rounded-lg border border-dashed border-ink/15 bg-paper/70 p-6 text-sm text-ink/55">
         No changes to display.
@@ -142,6 +169,41 @@ export function ReplanDiff({ before, after }: ReplanDiffProps) {
           )}
         </div>
       </div>
+
+      {/* Replan proposal metadata */}
+      {proposal && (
+        <div className="mt-4 rounded-lg border border-citron/30 bg-citron/5 p-4">
+          <div className="flex flex-wrap items-center gap-2">
+            <ShieldCheck className="h-4 w-4 text-citron" />
+            <span className="font-semibold text-ink">Replan proposal</span>
+            {proposal.requires_confirmation && (
+              <Badge className="bg-citron/40 text-ink">Needs confirmation</Badge>
+            )}
+          </div>
+
+          {proposal.impact && (
+            <p className="mt-2 text-sm text-ink/70">
+              <span className="font-semibold text-ink/80">Impact:</span> {proposal.impact}
+            </p>
+          )}
+          {proposal.reason && (
+            <p className="mt-1 text-sm text-ink/70">
+              <span className="font-semibold text-ink/80">Reason:</span> {proposal.reason}
+            </p>
+          )}
+
+          <div className="mt-3 grid gap-3 md:grid-cols-2">
+            <div className="rounded-md bg-white px-3 py-2">
+              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-ink/45">Before</p>
+              <div className="mt-1">{renderSummary(proposal.before)}</div>
+            </div>
+            <div className="rounded-md bg-white px-3 py-2">
+              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-ink/45">After</p>
+              <div className="mt-1">{renderSummary(proposal.after)}</div>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="mt-5 grid gap-3">
         {diff

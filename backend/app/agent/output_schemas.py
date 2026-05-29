@@ -24,10 +24,20 @@ class AgentOutputBase(BaseModel):
 
 
 class DirectionCardOutput(AgentOutputBase):
-    summary: str = Field(min_length=1)
-    target_outcome: str = Field(min_length=1)
-    constraints: list[str] = Field(default_factory=list)
-    suggested_questions: list[str] = Field(default_factory=list)
+    problem: str = Field(min_length=1, description="The core problem this project solves")
+    users: str = Field(min_length=1, description="Who the project serves")
+    value: str = Field(min_length=1, description="What value the project delivers")
+    deliverables: list[str] = Field(min_length=1, description="Concrete outputs the project must produce")
+    boundaries: list[str] = Field(default_factory=list, description="Explicit scope boundaries — what is out of scope")
+    risks: list[str] = Field(default_factory=list, description="Known risks grounded in project context")
+    suggested_questions: list[str] = Field(default_factory=list, description="High-value clarification questions only")
+    requires_confirmation: bool = True
+
+    @model_validator(mode="after")
+    def require_confirmation(self) -> "DirectionCardOutput":
+        if not self.requires_confirmation:
+            raise ValueError("direction card output requires confirmation")
+        return self
 
 
 class StagePlanItem(BaseModel):
@@ -49,6 +59,13 @@ class StagePlanItem(BaseModel):
 
 class StagePlanOutput(AgentOutputBase):
     stages: list[StagePlanItem] = Field(min_length=1)
+    requires_confirmation: bool = True
+
+    @model_validator(mode="after")
+    def require_confirmation(self) -> "StagePlanOutput":
+        if not self.requires_confirmation:
+            raise ValueError("stage plan output requires confirmation")
+        return self
 
 
 class TaskBreakdownItem(BaseModel):
@@ -66,6 +83,13 @@ class TaskBreakdownItem(BaseModel):
 
 class TaskBreakdownOutput(AgentOutputBase):
     tasks: list[TaskBreakdownItem] = Field(min_length=1)
+    requires_confirmation: bool = True
+
+    @model_validator(mode="after")
+    def require_confirmation(self) -> "TaskBreakdownOutput":
+        if not self.requires_confirmation:
+            raise ValueError("task breakdown output requires confirmation")
+        return self
 
 
 class AssignmentRecommendationItem(BaseModel):
@@ -73,6 +97,10 @@ class AssignmentRecommendationItem(BaseModel):
     recommended_owner_user_id: str = Field(min_length=1)
     backup_owner_user_id: str | None = None
     reason: str = Field(min_length=1)
+    skill_match: str | None = Field(default=None, description="Which member skill matches the task domain")
+    availability_match: str | None = Field(default=None, description="How member available_hours fits the task estimated_hours")
+    preference_match: str | None = Field(default=None, description="How member role_preference/interests align with the task")
+    constraint_respected: str | None = Field(default=None, description="Which member constraints were checked and not violated")
     risk_note: str | None = None
 
 
@@ -107,6 +135,9 @@ class ActionCardProposal(BaseModel):
     title: str = Field(min_length=1)
     content: str = Field(min_length=1)
     reason: str = Field(min_length=1)
+    goal: str | None = Field(default=None, description="What this card achieves for the project")
+    start_suggestion: str | None = Field(default=None, description="Concrete first step to take")
+    completion_standard: str | None = Field(default=None, description="How to know the action is done")
     user_id: str | None = None
     task_id: str | None = None
     stage_id: str | None = None
@@ -296,3 +327,23 @@ def _validate_risk_references(
             errors.append(f"stage_id references unknown id: {risk.stage_id}")
         if risk.task_id and risk.task_id not in task_ids:
             errors.append(f"task_id references unknown id: {risk.task_id}")
+        _validate_evidence_ids(risk.evidence, stage_ids, task_ids, errors)
+
+
+def _validate_evidence_ids(
+    evidence: list[dict[str, Any]],
+    stage_ids: set[str],
+    task_ids: set[str],
+    errors: list[str],
+) -> None:
+    """Check that task_id / stage_id values inside evidence dicts reference known entities."""
+    for item in evidence:
+        if not isinstance(item, dict):
+            continue
+        for key, valid_set, label in [
+            ("task_id", task_ids, "evidence.task_id"),
+            ("stage_id", stage_ids, "evidence.stage_id"),
+        ]:
+            value = item.get(key)
+            if isinstance(value, str) and value and value not in valid_set:
+                errors.append(f"{label} references unknown id: {value}")

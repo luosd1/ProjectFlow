@@ -1,6 +1,6 @@
 # ProjectFlow Handoff
 
-Status: current as of 2026-05-29.
+Status: current as of 2026-05-30.
 
 ## Completed
 
@@ -14,7 +14,8 @@ GitHub issue #8 (Assignment, active push, check-in, risk, and replan backend flo
 GitHub issue #9 (Action cards, check-in, risk, timeline, and export UI) is implemented.
 GitHub issue #10 (Demo Seed, Reset, Runbook, and Review Export) is implemented.
 GitHub issue #11 (Verification, Tests, and Demo Stability Hardening) is complete.
-GitHub issue #16 (Real LLM Provider Readiness and Diagnostics) is implemented.
+GitHub issue #16 (Real LLM Provider Readiness and Diagnostics) is complete.
+GitHub issue #17 (Agent Output Persistence and Confirmation) is complete.
 
 Implemented scope:
 
@@ -27,7 +28,7 @@ Implemented scope:
 - Frontend API helper and type placeholders.
 - Frontend test, lint, and production build setup.
 - Runtime ignore rules for secrets, local databases, dependency folders, and generated caches.
-- All 18 domain models in `backend/app/models/` with full enum alignment.
+- All 19 persistence tables/domain models in `backend/app/models/` with full enum alignment, including `AgentProposal`.
 - Database auto-creates tables on FastAPI startup via lifespan.
 - 12 model smoke tests covering insert/read for every model.
 - Full CRUD APIs: users, workspaces, invitations, member-profiles, projects, resources, stages, tasks.
@@ -35,19 +36,20 @@ Implemented scope:
 - Service layer for all CRUD domains in `backend/app/services/`.
 - Pydantic schemas for all CRUD domains in `backend/app/schemas/`.
 - Agent infrastructure in `backend/app/agent/`: coordinator, workflow, prompts, LLM client, structured output schemas, module request builders, JSON repair/retry/template fallback, and AgentEvent timeline logging.
-- LLM provider readiness: specific error hierarchy (LLMAuthError, LLMTimeoutError, LLMConnectionError, LLMResponseError, LLMConfigurationError), HTTP status code mapping, provider diagnostic endpoint (`POST /api/llm/diagnostic`), API key masking, `.env.example` with documented settings.
 - 9 API smoke tests covering full demo path and list endpoints.
 - Backend execution-loop APIs for assignment proposals/responses/finalization/negotiation, action cards, check-in cycles/responses, risks, confirmed replans, and agent endpoints.
+- LLM diagnostic endpoints for current settings and one-off provider checks.
+- Agent proposal confirm/reject APIs for clarify, plan, and breakdown outputs.
 
 ### GitHub issue #6 (2026-05-29)
 
 - App shell with responsive navigation (desktop links + mobile hamburger sheet).
-- Onboarding flow: account setup form (create/select demo identity) and member profile wizard (3-step: skills, availability, preferences).
-- Workspace flow: create workspace form, invite member panel with copy-link, workspace dashboard.
-- Project intake: project idea/deadline/deliverables form, resource input panel (text notes, links, file references), project dashboard.
+- Onboarding flow: account setup form with real-time validation, member profile wizard (3-step: basic info / skills & experience / availability) with completion bar and popular skill suggestions.
+- Workspace flow: 2-step wizard create workspace form (basic info + team context), invite member panel with copy-link feedback, workspace dashboard with EmptyState.
+- Project intake: card-section layout with project type selector (coursework/competition/startup/research), deliverable tag input, real-time validation, and localStorage draft auto-save. Resource input panel with collapsible animation.
 - Full domain types in `frontend/src/lib/types.ts` (User, Workspace, MemberProfile, Project, Stage, Task, Assignment, CheckIn, Risk, ActionCard, AgentEvent, etc.).
 - Full API layer in `frontend/src/lib/api.ts` (users, workspaces, invitations, profiles, projects, resources, agent, assignments, checkins, tasks, export).
-- shadcn/ui installed with 16 components (button, card, input, label, select, textarea, badge, separator, avatar, dialog, dropdown-menu, sheet, tabs, tooltip, progress).
+- shadcn/ui installed with 16 base components + 6 custom UI components (FormSection, TagInput, FormField, StepIndicator, CompletionBar, EmptyState).
 - Tailwind config updated with CSS variable colors for shadcn/ui compatibility.
 
 ### GitHub issue #7 (2026-05-29)
@@ -67,15 +69,6 @@ Implemented scope:
 - Added backend tests for assignment flow, check-in/risk/replan flow, and agent endpoints.
 - Local SQLite databases created before `AgentEvent.status` may need the runbook schema drift repair before agent timeline writes.
 
-### GitHub issue #16 (2026-05-29)
-
-- LLM client error hierarchy: `LLMAuthError`, `LLMTimeoutError`, `LLMConnectionError`, `LLMResponseError`, `LLMConfigurationError` — all inherit from `LLMError`.
-- HTTP error mapping: 401/403→AuthError, 404→ConfigError, 429→RateLimit, 5xx→ConnectionError, timeout→TimeoutError, network→ConnectionError, malformed response→ResponseError.
-- Provider diagnostic endpoint: `POST /api/llm/diagnostic` — safe dry-run connectivity check, never exposes API key.
-- `.env.example` with documented LLM settings (provider, key, base_url, model, timeout).
-- 38 new tests for error mapping, diagnostic, API key masking, mock regression.
-- Backend test count: 110 passing.
-
 ### GitHub issues #9-#11 (2026-05-29)
 
 - Dashboard execution tabs are wired to implemented backend endpoints for action cards, check-in submission, task status updates, risks, timeline, and review export.
@@ -92,9 +85,45 @@ Implemented scope:
 - Documentation: `docs/demo-script.md` (5-minute demo path), `docs/seed-scenarios.md` (blocker/availability-change scenario), `docs/runbook.md` updated with seed/reset/export instructions.
 - 15 new tests for seed, reset, and export endpoints.
 
+### GitHub issue #18 (2026-05-29)
+
+- DirectionCardOutput schema replaced `summary`/`target_outcome`/`constraints` with `problem`/`users`/`value`/`deliverables`/`boundaries`/`risks` per acceptance criteria.
+- AGENT_SYSTEM_PROMPT expanded with WorkspaceState structure guidance and 5 state-grounding rules.
+- All 8 module user_prompts rewritten with explicit instructions to cite specific skills, availability, blockers, task status, priorities, and deadlines.
+- `_validate_references` extended with `_validate_evidence_ids` to check RiskProposal.evidence for fabricated task_id/stage_id.
+- Tests: added messy project fixture (4 members, 3 stages, 6 tasks with blocked/overdue/unassigned), 7 new test cases for representative model outputs and fabrication rejection. These tests are included in the current backend baseline.
+
+### GitHub issue #20 (2026-05-29)
+
+- AssignmentRecommendationItem schema: added `skill_match`, `availability_match`, `preference_match`, `constraint_respected` for structured citation of why a member was recommended.
+- ActionCardProposal schema: added `goal`, `start_suggestion`, `completion_standard` so push cards specify what they achieve, how to start, and how to know they're done.
+- AssignmentProposal model and AssignmentProposalCreate/Read schemas updated with the 4 citation fields. ActionCard model and ActionCardCreate/Read schemas updated with the 3 new fields.
+- Agent module prompts upgraded: assignment_recommendation requires filling all citation fields; active_push requires goal/start_suggestion/completion_standard; risk_analysis requires structured evidence dicts with detail field; replanning requires action cards to include goal/start_suggestion/completion_standard and forbids owner changes on finalized assignments.
+- Fallback payloads now cite real member data from workspace_state instead of generic placeholders.
+- Replan service guard: `confirm_replan` now rejects `owner_user_id` changes for tasks that have a finalized AssignmentProposal. Non-ownership changes (due_date, can_cut, status) are still allowed.
+- Frontend: ActionCardItem displays goal, start_suggestion ("Start:"), completion_standard ("Done when:"). RiskCard renders structured evidence dicts (key:value pairs + detail). ReplanDiff shows proposal metadata section with before/after comparison, impact, reason, and "Needs confirmation" badge. AssignmentFlowPanel shows citation fields (Skill/Availability/Preference/Constraint) when present.
+- Frontend types.ts: ActionCard and AssignmentProposal types updated with new optional fields.
+- Tests: 11 new tests in `test_usability_pass_20.py` covering structured citations, push card fields, risk evidence, replan proposal, finalized-assignment guard, and fallback citations. These tests are included in the current backend baseline.
+
+### GitHub issue #16 (2026-05-29)
+
+- Added `GET /api/llm/diagnostic` for checking the configured provider without exposing secrets.
+- Added `POST /api/llm/diagnostic` for one-off provider diagnostics using runtime payload overrides.
+- Added `LLM_TIMEOUT_SECONDS` support in backend configuration and documentation.
+- Diagnostic responses report `mock`, `ok`, or `error` status and never return the API key.
+- Backend provider tests are part of the current 146-test baseline.
+
+### GitHub issue #17 (2026-05-29)
+
+- Added `AgentProposal` persistence for high-impact clarify, plan, and breakdown outputs.
+- Clarify/plan/breakdown agent endpoints now return `proposal_id` and do not directly mutate project state.
+- Added `GET /api/agent-proposals`, `GET /api/agent-proposals/{proposal_id}`, `POST /api/agent-proposals/{proposal_id}/confirm`, and `POST /api/agent-proposals/{proposal_id}/reject`.
+- Confirming an agent proposal persists the payload to `Project.direction_card`, `Stage`, or `Task` records depending on proposal type.
+- Confirmation updates the source `AgentEvent.user_confirmed` and creates timeline evidence.
+
 ## Verification Baseline
 
-Commands run successfully on 2026-05-29:
+Latest verification baseline after the #16/#17 merge:
 
 ```bash
 cd backend
@@ -105,26 +134,29 @@ cd backend
 cd frontend
 npm run lint
 npm run build
+npm audit --omit=dev
 ```
 
 Results:
 
-- Backend: 110 tests passed.
-- Frontend: 5 tests passed across 3 test files.
+- Backend: 146 tests passed (MVP suite + usability pass + LLM diagnostics + agent proposal confirmation).
+- Frontend tests: currently 3 stale failures in pre-existing tests: App Router harness setup and English-label assertions after the Chinese UI pass.
 - Frontend lint passed.
-- Frontend build passed (7 routes generated).
+- Frontend build passed.
+- Frontend audit passed with 0 vulnerabilities.
 
 ## Current Implementation Surface
 
 Backend:
 
-- Implemented routes: health, users, workspaces, invitations, member-profiles, projects, resources, stages, tasks, workspace-state, agent, assignments, action-cards, check-ins, risks, replans, seed/reset, timeline, export, demo reset, and llm diagnostic.
-- Domain models implemented (18 models, all enums).
+- Implemented routes: 70 endpoint method/path pairs covering health, LLM diagnostics, users, workspaces, invitations, member-profiles, projects, resources, stages, tasks, workspace-state, agent, agent-proposals, assignments, action-cards, check-ins, risks, replans, seed/reset, timeline, export, and demo reset.
+- Domain models/persistence tables implemented (19 tables, all enums).
 - AgentEvent now records `status` for success, repaired, fallback, or failed agent runs.
-- Service layer implemented for all CRUD domains plus assignment, action-card, check-in, risk, replan, and agent-flow orchestration.
+- AgentProposal stores pending clarify/plan/breakdown outputs; confirmation persists to project state.
+- Service layer implemented for all CRUD domains plus assignment, action-card, check-in, risk, replan, agent-flow orchestration, and agent-proposal confirm/reject.
 - Pydantic schemas implemented for all CRUD and execution-loop domains.
 - WorkspaceState endpoint returns members, project, stages, tasks for Agent consumption.
-- Agent infrastructure can run with `LLM_PROVIDER=mock` by default, or OpenAI-compatible chat-completions settings through environment variables. Agent HTTP endpoints persist structured outputs and created entity IDs through service-layer writes. LLM provider errors are mapped to specific exception types (LLMAuthError, LLMTimeoutError, LLMConnectionError, LLMResponseError) with clear messages and recovery hints.
+- Agent infrastructure can run with `LLM_PROVIDER=mock` by default, or OpenAI-compatible chat-completions settings through environment variables. Agent HTTP endpoints persist structured outputs and created entity IDs through service-layer writes.
 
 Frontend:
 
@@ -138,18 +170,19 @@ Frontend:
 - UI 语言统一中文。表单组件统一使用 shadcn/ui（Input、Select、Textarea）。
 - RiskPanel 支持状态过滤（全部/待处理/已接受/已忽略/已解决）。
 - localStorage 读取使用 `useSyncExternalStore` 避免 hydration mismatch。
-- UI components use shadcn/ui (base-nova style) with project color tokens (ink, paper, moss, citron, coral, harbor).
+- UI components use shadcn/ui with project color tokens. Form components unified through FormField wrapper (label + input + error + hint).
 
 ## Next Work
 
-MVP issue scope is complete. Phase 10 (UI Structural Fix) completed 2026-05-29.
+Core MVP phase scope is complete. Phase 10 (UI Structural Fix) completed 2026-05-29; MVP Usable #16/#17/#18/#20 are complete.
 
-Remaining work for MVP Usable (see `.claude/epics/projectflow-mvp-usable-ready/`):
-- Real LLM integration testing (provider readiness infrastructure done via #16, need live key testing)
-- Confirm-to-persist (Agent outputs only persisted after human confirmation)
-- Prompt quality (structured output reliability — #18 in progress)
-- Agent status transparency (show Agent thinking/reasoning in UI)
-- Demo stability and polish
+MVP Usable progress (see `.claude/epics/projectflow-mvp-usable-ready/`):
+- ✅ #18 Prompt and Schema Quality Hardening (completed 2026-05-29)
+- ✅ #20 Assignment, Push, Risk, and Replan Usability Pass (completed 2026-05-29)
+- ✅ #16 Real LLM Provider Readiness and Diagnostics (completed 2026-05-29)
+- ✅ #17 Agent Output Persistence and Confirmation (completed 2026-05-29)
+- ✅ #19 Polish Project Intake, Workspace, and Member Profile UX (completed 2026-05-30)
+- 🔲 #21 Real-Provider Verification and MVP Usable Runbook
 
 Post-MVP: auth, deployment, collaboration permissions, broader UI hardening.
 

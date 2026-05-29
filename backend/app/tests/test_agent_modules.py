@@ -118,8 +118,9 @@ def test_agent_modules_return_valid_generation_requests(module, event_type):
 def test_coordinator_delegates_direction_card_generation_and_logs_event(session: Session):
     client = MockLLMClient(
         responses=[
-            '{"summary":"Need direction","target_outcome":"Pick the demo path",'
-            '"constraints":["Deadline is fixed"],'
+            '{"problem":"Scope unclear","users":"Student team",'
+            '"value":"Direction card for planning","deliverables":["Direction card"],'
+            '"boundaries":["Deadline fixed"],"risks":["Scope creep"],'
             '"suggested_questions":["Which scope is required?"],'
             '"reason":"Direction must be explicit."}'
         ]
@@ -134,7 +135,7 @@ def test_coordinator_delegates_direction_card_generation_and_logs_event(session:
 
     event = session.exec(select(AgentEvent)).one()
     assert event.event_type == AgentEventType.clarify
-    assert json.loads(event.output_snapshot)["summary"] == "Need direction"
+    assert json.loads(event.output_snapshot)["problem"] == "Scope unclear"
 
 
 def test_coordinator_exposes_all_agent_flow_methods():

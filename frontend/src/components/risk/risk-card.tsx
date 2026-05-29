@@ -48,6 +48,33 @@ function typeClass(type: Risk["type"]) {
   }
 }
 
+/** Render a single evidence item — handles both string and dict formats */
+function renderEvidenceItem(item: string | Record<string, unknown>, index: number) {
+  if (typeof item === "string") {
+    return (
+      <li key={index} className="text-xs text-ink/60">
+        • {item}
+      </li>
+    );
+  }
+  // Structured evidence dict
+  const entries = Object.entries(item);
+  const detail = item.detail as string | undefined;
+  const dataEntries = detail !== undefined ? entries.filter(([k]) => k !== "detail") : entries;
+
+  return (
+    <li key={index} className="text-xs text-ink/60">
+      {dataEntries.map(([key, value], i) => (
+        <span key={i}>
+          {i > 0 && ", "}
+          <span className="font-medium text-ink/70">{key}</span>: {String(value)}
+        </span>
+      ))}
+      {detail && <span className="ml-1 text-ink/50">— {detail}</span>}
+    </li>
+  );
+}
+
 export function RiskCard({ risk, onAccept, onIgnore, onResolve, pending }: RiskCardProps) {
   return (
     <article className="rounded-lg border border-ink/10 bg-paper/60 p-4">
@@ -76,11 +103,7 @@ export function RiskCard({ risk, onAccept, onIgnore, onResolve, pending }: RiskC
             <div className="mt-3">
               <p className="text-xs font-semibold uppercase tracking-[0.14em] text-ink/45">Evidence</p>
               <ul className="mt-1 space-y-1">
-                {risk.evidence.map((item, index) => (
-                  <li key={index} className="text-xs text-ink/60">
-                    • {item}
-                  </li>
-                ))}
+                {risk.evidence.map((item, index) => renderEvidenceItem(item, index))}
               </ul>
             </div>
           )}

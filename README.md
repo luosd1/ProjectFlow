@@ -14,8 +14,12 @@ All MVP phases complete (2026-05-29).
 - Phase 5–7 / GitHub #8 — Assignment, Active Push, Check-in, Risk, Replan
 - Phase 8 / GitHub #10 — Demo Seed, Reset, Runbook, and Review Export
 - Phase 9 / GitHub #11 — Verification, Tests, and Demo Stability Hardening
+- MVP Usable / GitHub #18 — Prompt and Schema Quality Hardening
+- MVP Usable / GitHub #20 — Assignment, Push, Risk, and Replan Usability Pass
+- MVP Usable / GitHub #16 — Real LLM Provider Readiness and Diagnostics
+- MVP Usable / GitHub #17 — Agent Output Persistence and Confirmation
 
-Implemented: FastAPI backend (58 endpoints, 18 domain models), agent infrastructure with mock/LLM provider and diagnostics, seed/reset/export, Next.js frontend (7 routes), 110 backend tests passing, frontend lint+build clean.
+Implemented: FastAPI backend (70 endpoint method/path pairs, 19 persistence tables/domain models), agent infrastructure with mock/OpenAI-compatible provider diagnostics, confirm-to-persist `AgentProposal` flow, seed/reset/export, Next.js frontend (7 routes), 146 backend tests passing, frontend lint+build clean.
 
 ## Stack
 
@@ -38,12 +42,6 @@ Health check:
 
 ```bash
 curl http://localhost:8000/api/health
-```
-
-LLM provider diagnostic:
-
-```bash
-curl -X POST http://localhost:8000/api/llm/diagnostic
 ```
 
 Load demo seed data:
@@ -97,7 +95,7 @@ npm audit --omit=dev
 - [Demo script](docs/demo-script.md)
 - [Seed scenarios](docs/seed-scenarios.md)
 - [Current handoff](docs/handoff.md)
-- [Verification status](docs/issue-11-status-report.md)
+- [Issue #11 verification report](docs/issue-11-status-report.md)
 
 ## Runtime Files
 

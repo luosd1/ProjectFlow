@@ -78,6 +78,23 @@ export function ActionCardItem({ card, onDismiss, onComplete, pending }: ActionC
             </Badge>
           </div>
           <p className="mt-2 text-sm text-ink/70">{card.content}</p>
+
+          {card.goal && (
+            <p className="mt-2 text-sm text-ink/70">
+              <span className="font-semibold text-ink/80">Goal:</span> {card.goal}
+            </p>
+          )}
+          {card.start_suggestion && (
+            <p className="mt-1 text-sm text-ink/70">
+              <span className="font-semibold text-ink/80">Start:</span> {card.start_suggestion}
+            </p>
+          )}
+          {card.completion_standard && (
+            <p className="mt-1 text-sm text-ink/70">
+              <span className="font-semibold text-ink/80">Done when:</span> {card.completion_standard}
+            </p>
+          )}
+
           {card.reason && (
             <p className="mt-2 flex items-center gap-1 text-xs text-ink/50">
               <Lightbulb className="h-3 w-3" />
