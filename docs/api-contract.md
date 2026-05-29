@@ -4,7 +4,7 @@ Status: current as of 2026-05-29.
 
 This document records the implemented API surface first, then the planned MVP surface. Treat planned endpoints as design targets until code and tests exist.
 
-The frontend API layer (`frontend/src/lib/api.ts`) is fully implemented against this contract as of 2026-05-29. Frontend pages will function with mock data until backend endpoints are ready.
+The frontend API layer (`frontend/src/lib/api.ts`) uses implemented backend endpoints where they exist. Agent, assignment, check-in, risk, replan, and export methods remain typed design-target wrappers until the matching backend routes and tests exist.
 
 ## Base URL
 
@@ -105,6 +105,20 @@ GET /api/workspaces/{workspace_id}/state
 ```
 
 Returns the full workspace state (members, project, stages, tasks) needed by the Coordinator Agent.
+
+### Frontend Project State Composition
+
+The project dashboard currently composes its `ProjectState` from implemented endpoints instead of relying on a dedicated project-state route:
+
+- `GET /api/projects/{project_id}`
+- `GET /api/workspaces/{workspace_id}`
+- `GET /api/projects/{project_id}/resources`
+- `GET /api/projects/{project_id}/stages`
+- `GET /api/projects/{project_id}/tasks`
+- `GET /api/users`
+- `GET /api/workspaces/{workspace_id}/profiles`
+
+Assignment responses and negotiations are represented in frontend types and UI, but their backend persistence routes are still planned.
 
 ## Planned MVP Endpoints
 
