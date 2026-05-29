@@ -32,3 +32,7 @@ class RiskRead(BaseModel):
     status: RiskStatus
     created_by_agent: bool
     created_at: datetime
+
+
+class RiskUpdate(BaseModel):
+    status: RiskStatus

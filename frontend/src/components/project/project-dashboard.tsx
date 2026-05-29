@@ -49,10 +49,12 @@ type ProjectDashboardProps = {
     mood_or_confidence?: "low" | "medium" | "high";
   }) => void | Promise<void>;
   onUpdateTaskStatus?: (data: {
+    task_id: string;
     user_id: string;
     status: "not_started" | "in_progress" | "done" | "blocked";
     progress_note?: string;
     blocker?: string;
+    available_hours_change?: number;
   }) => void | Promise<void>;
   onResolveRisk?: (riskId: string) => void | Promise<void>;
   onAcceptRisk?: (riskId: string) => void | Promise<void>;

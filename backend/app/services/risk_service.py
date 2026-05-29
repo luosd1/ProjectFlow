@@ -1,6 +1,7 @@
 from sqlmodel import Session, select
 
 from app.models import Project, Risk, Stage, Task
+from app.models.enums import RiskStatus
 from app.schemas.risk import RiskCreate
 
 
@@ -33,6 +34,17 @@ def create_risk(session: Session, data: RiskCreate) -> Risk:
 
 def list_risks_by_project(session: Session, project_id: str) -> list[Risk]:
     return list(session.exec(select(Risk).where(Risk.project_id == project_id)).all())
+
+
+def update_risk_status(session: Session, risk_id: str, status: RiskStatus) -> Risk:
+    risk = session.get(Risk, risk_id)
+    if risk is None:
+        raise ValueError("Risk not found")
+    risk.status = status
+    session.add(risk)
+    session.commit()
+    session.refresh(risk)
+    return risk
 
 
 def _require(session: Session, model: type, row_id: str, label: str):

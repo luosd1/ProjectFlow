@@ -19,6 +19,7 @@ import type { Task } from "@/lib/types";
 type TaskStatusUpdateProps = {
   task: Task;
   onUpdate: (data: {
+    task_id: string;
     user_id: string;
     status: "not_started" | "in_progress" | "done" | "blocked";
     progress_note?: string;
@@ -48,6 +49,7 @@ export function TaskStatusUpdate({ task, onUpdate, userId, pending }: TaskStatus
 
     try {
       await onUpdate({
+        task_id: task.id,
         user_id: userId,
         status,
         progress_note: progressNote.trim() || undefined,

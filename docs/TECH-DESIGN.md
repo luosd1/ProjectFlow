@@ -26,7 +26,7 @@ Snapshot date: 2026-05-29.
 - GitHub issue #8 (Assignment, active push, check-in, risk, and replan backend flows) is implemented.
 - Implemented: FastAPI scaffold, SQLite configuration skeleton, `GET /api/health`, all 18 domain models with full enum alignment and auto table creation on startup, full CRUD APIs (users, workspaces, invitations, member-profiles, projects, resources, stages, tasks), WorkspaceState assembly endpoint (`GET /api/workspaces/{id}/state`), service layer, Pydantic schemas, agent coordinator infrastructure with structured output validation, mock/OpenAI-compatible LLM adapter, prompt boundaries, JSON repair/retry/template fallback, AgentEvent timeline logging with status, assignment proposal/response/finalize/negotiation APIs, action card APIs, check-in cycle/response APIs, risk APIs, confirmed replan API, agent HTTP endpoints, Next.js app shell with navigation, onboarding flow (account setup + member profile wizard), workspace creation + invite panel, project intake + resource input, planning and assignment dashboard UI, client-side project state composition over implemented endpoints, full domain types and API layer, shadcn/ui components, smoke tests, lint/build/test scripts, README, and runtime ignore rules.
 - Frontend routes: `/`, `/onboarding`, `/onboarding/profile`, `/workspaces/new`, `/workspaces/[workspaceId]`, `/projects/new`, `/projects/[projectId]`.
-- Not implemented yet: frontend wiring for the issue #8 execution-loop APIs, seed/reset data, export, and complete demo flow.
+- MVP implementation includes frontend wiring for execution-loop APIs, seed/reset data, review export, and a complete local demo flow.
 - Current verification baseline: backend pytest (54 tests), frontend tests (3 tests across 2 files), frontend lint, and frontend build.
 
 ---
@@ -196,8 +196,8 @@ projectflow/
 │   ├── api-contract.md    # current implemented + planned API surface
 │   ├── runbook.md         # local setup and verification
 │   ├── handoff.md         # current status and next work
-│   ├── demo-script.md     # planned
-│   ├── seed-scenarios.md  # planned
+│   ├── demo-script.md
+│   ├── seed-scenarios.md
 │   └── ...
 │
 ├── frontend/
@@ -1565,7 +1565,7 @@ The confirm endpoint applies accepted task changes only after explicit confirmat
 
 ---
 
-## 11.16 Planned Export API
+## 11.16 Export API
 
 ```http
 POST /api/projects/{project_id}/export/review-summary
@@ -1630,7 +1630,7 @@ Response:
 | `AgentLoadingPanel` | AI 生成过程可视化 |
 | `DemoResetButton` | 重置种子数据 |
 
-Current implementation note: GitHub issue #7 implements the first project dashboard slice with `ProjectDashboard`, `DirectionCardPanel`, `StagePlanBoard`, `TaskBreakdownBoard`, and `AssignmentFlowPanel`. GitHub issue #8 implements the backend routes and services for agent execution, assignment responses/finalization/negotiation, action cards, check-ins, risks, and confirmed replans. The dashboard still needs frontend wiring for `ActionCardList`, `CheckInForm`, `RiskCard`, `ReplanDiff`, `AgentTimeline`, `AgentLoadingPanel`, and `DemoResetButton`.
+Current implementation note: GitHub issues #7-#11 implement the project dashboard, assignment confirmation, action cards, check-in/status update, risk/replan, timeline, demo reset, and review export surfaces against real backend endpoints.
 
 ---
 

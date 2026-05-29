@@ -285,6 +285,23 @@ export type AgentEvent = {
   created_at: string;
 };
 
+export type AgentFlowResult = {
+  event_type: AgentEvent["event_type"];
+  status: "success" | "repaired" | "fallback" | "failed";
+  attempts: number;
+  used_fallback: boolean;
+  output: Record<string, unknown>;
+  created_ids: string[];
+};
+
+export type DemoResetResult = {
+  workspace_id: string;
+  project_id: string;
+  user_ids: string[];
+  stage_ids: string[];
+  task_ids: string[];
+};
+
 // --- Workspace State (aggregated) ---
 export type WorkspaceState = {
   workspace: Workspace;

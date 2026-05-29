@@ -99,7 +99,7 @@ npm audit --omit=dev
 
 Expected baseline as of 2026-05-29:
 
-- Backend tests pass (54 tests: API/model smoke plus agent schema, module, provider, fallback, timeline logging, assignment, action-card, check-in, risk, replan, and agent endpoint tests).
+- Backend tests pass (57 tests: API/model smoke plus CORS, agent schema, module, provider, fallback, timeline logging, assignment, action-card, check-in, risk, replan, export, demo reset, and agent endpoint tests).
 - Frontend tests pass.
 - Frontend lint passes.
 - Frontend production build passes.
@@ -109,6 +109,26 @@ Known non-blocking warnings:
 
 - Backend pytest may show a FastAPI/Starlette `TestClient` deprecation warning.
 - Vitest may show a Vite CJS Node API deprecation warning.
+
+## Demo Reset
+
+With the backend running, reset the local demo data:
+
+```bash
+curl -X POST http://localhost:8000/api/demo/reset
+```
+
+The response includes `workspace_id` and `project_id`. Open the returned project in the frontend:
+
+```text
+http://localhost:3000/projects/<project_id>
+```
+
+The dashboard also exposes a Reset demo button. It calls the same endpoint and navigates to the seeded project.
+
+## Demo Path
+
+Use `docs/demo-script.md` for the 5-minute manual path and `docs/seed-scenarios.md` for the seeded blocker/risk/replan scenario.
 
 ## Local SQLite Schema Drift
 

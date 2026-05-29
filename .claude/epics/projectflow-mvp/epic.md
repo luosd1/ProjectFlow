@@ -1,9 +1,9 @@
 ---
 name: projectflow-mvp
-status: in-progress
+status: completed
 created: 2026-05-28T13:58:36Z
-updated: 2026-05-29T00:36:48Z
-progress: 50%
+updated: 2026-05-29T10:52:38Z
+progress: 100%
 prd: .claude/prds/projectflow-mvp.md
 github: https://github.com/wubq511/ProjectFlow/issues/1
 ---
@@ -143,11 +143,11 @@ Parallelization:
 - [x] 4.md - Core Workspace and Project APIs (parallel: true)
 - [x] 5.md - Agent Infrastructure and Structured Outputs (parallel: true)
 - [x] 6.md - Frontend Shell, Onboarding, Workspace, and Intake (parallel: true)
-- [ ] 7.md - Planning and Assignment Dashboard UI (parallel: true)
-- [ ] 8.md - Assignment, Active Push, Check-in, Risk, Replan Backend Flows (parallel: true)
-- [ ] 9.md - Action Cards, Check-in, Risk, Timeline, and Export UI (parallel: true)
-- [ ] 10.md - Demo Seed, Reset, Runbook, and Review Export (parallel: false)
-- [ ] 11.md - Verification, Tests, and Demo Stability Hardening (parallel: false)
+- [x] 7.md - Planning and Assignment Dashboard UI (parallel: true)
+- [x] 8.md - Assignment, Active Push, Check-in, Risk, Replan Backend Flows (parallel: true)
+- [x] 9.md - Action Cards, Check-in, Risk, Timeline, and Export UI (parallel: true)
+- [x] 10.md - Demo Seed, Reset, Runbook, and Review Export (parallel: false)
+- [x] 11.md - Verification, Tests, and Demo Stability Hardening (parallel: false)
 
 Total tasks: 10
 Parallel tasks: 7

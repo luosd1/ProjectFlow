@@ -11,6 +11,9 @@ Phase 4 (agent infrastructure) / GitHub issue #5 is implemented.
 GitHub issue #6 (Frontend Shell, Onboarding, Workspace, and Intake) is implemented.
 GitHub issue #7 (Planning and Assignment Dashboard UI) is implemented.
 GitHub issue #8 (Assignment, active push, check-in, risk, and replan backend flows) is implemented.
+GitHub issue #9 (Action cards, check-in, risk, timeline, and export UI) is implemented.
+GitHub issue #10 (Demo seed, reset, runbook, and review export) is implemented.
+GitHub issue #11 (Verification, tests, and demo stability hardening) is implemented.
 
 Implemented scope:
 
@@ -62,6 +65,15 @@ Implemented scope:
 - Added backend tests for assignment flow, check-in/risk/replan flow, and agent endpoints.
 - Local SQLite databases created before `AgentEvent.status` may need the runbook schema drift repair before agent timeline writes.
 
+### GitHub issues #9-#11 (2026-05-29)
+
+- Dashboard execution tabs are wired to implemented backend endpoints for action cards, check-in submission, task status updates, risks, timeline, and review export.
+- Frontend API paths now use the actual workspace-scoped agent routes and flat assignment/check-in/action/risk routes.
+- Added backend review-summary export endpoint and timeline listing endpoint.
+- Added `POST /api/demo/reset` with deterministic 5-member demo data, stages, tasks, assignments, check-ins, risks, action cards, and timeline seed.
+- Added `docs/demo-script.md` and `docs/seed-scenarios.md`.
+- Added regression tests for demo reset/export and frontend API route alignment.
+
 ## Verification Baseline
 
 Commands run successfully on 2026-05-29:
@@ -80,8 +92,8 @@ npm run build
 
 Results:
 
-- Backend: 54 tests passed.
-- Frontend: 3 tests passed across 2 test files.
+- Backend: 57 tests passed.
+- Frontend: 5 tests passed across 3 test files.
 - Frontend lint passed.
 - Frontend build passed (7 routes generated).
 
@@ -90,6 +102,7 @@ Results:
 Backend:
 
 - Implemented routes: health, users (3), workspaces (4), invitations (2), member-profiles (4), projects (4), resources (2), stages (4), tasks (6), workspace-state (1), agent (8), assignments (6), action-cards (2), check-ins (4), risks (2), replans (1). Total: 54 endpoints.
+- Added implemented routes: export review summary (1), timeline (1), demo reset (1), assignment response/negotiation listing (2), stage assignment finalize (1), action-card status update (1), risk status update (1).
 - Domain models implemented (18 models, all enums).
 - AgentEvent now records `status` for success, repaired, fallback, or failed agent runs.
 - Service layer implemented for all CRUD domains plus assignment, action-card, check-in, risk, replan, and agent-flow orchestration.
@@ -108,11 +121,7 @@ Frontend:
 
 ## Next Work
 
-Recommended next implementation target:
-
-1. Add seed/reset data and demo polish flows.
-2. Implement review-summary export backend endpoint.
-3. Verification and demo stability hardening.
+MVP issue scope is complete. Remaining work should be treated as post-MVP polish: richer real-LLM prompts, auth, deployment, collaboration permissions, and broader UI hardening.
 
 Dependency note:
 

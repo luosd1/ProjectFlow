@@ -32,3 +32,7 @@ class ActionCardRead(BaseModel):
     status: ActionCardStatus
     created_by_agent: bool
     created_at: datetime
+
+
+class ActionCardUpdate(BaseModel):
+    status: ActionCardStatus
