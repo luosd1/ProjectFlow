@@ -103,23 +103,23 @@ Frontend:
 - API base URL comes from `NEXT_PUBLIC_API_BASE_URL` or defaults to `http://localhost:8000/api`.
 - All API calls go through `frontend/src/lib/api.ts`.
 - All types defined in `frontend/src/lib/types.ts`.
-- Project dashboard composes project, workspace, resources, stages, tasks, users, and profiles from implemented endpoints. The backend now provides agent/assignment/check-in/risk/replan routes, but dashboard wiring for action cards, check-ins, risks, replans, and timeline views remains pending. Export remains planned.
+- Project dashboard composes project, workspace, resources, stages, tasks, users, profiles, action cards, check-ins, risks, replan diff, agent timeline, and export from implemented endpoints. All frontend wiring for issue #8 backend APIs is complete.
 - UI components use shadcn/ui (base-nova style) with project color tokens (ink, paper, moss, citron, coral, harbor).
 
 ## Next Work
 
 Recommended next implementation target:
 
-1. Wire the project dashboard to the issue #8 backend APIs for action cards, check-ins, risks, replans, and agent timeline.
-2. Add seed/reset data and demo polish flows.
-3. Implement review-summary export.
+1. Add seed/reset data and demo polish flows.
+2. Implement review-summary export backend endpoint.
+3. Verification and demo stability hardening.
 
 Dependency note:
 
 - #5 depends on #3 (domain models) and is now implemented.
 - #6 (frontend) is now complete.
 - #7 depends on both #5 and #6 and is now implemented.
-- #8 depends on #5 and is now implemented on the backend. Frontend wiring remains a follow-up.
+- #8 depends on #5 and is now fully implemented (backend + frontend).
 
 ## Local Cleanup Notes
 
