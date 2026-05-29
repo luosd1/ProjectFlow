@@ -81,6 +81,15 @@ Implemented scope:
 - Documentation: `docs/demo-script.md` (5-minute demo path), `docs/seed-scenarios.md` (blocker/availability-change scenario), `docs/runbook.md` updated with seed/reset/export instructions.
 - 15 new tests for seed, reset, and export endpoints.
 
+### GitHub issue #18 (2026-05-29)
+
+- DirectionCardOutput schema replaced `summary`/`target_outcome`/`constraints` with `problem`/`users`/`value`/`deliverables`/`boundaries`/`risks` per acceptance criteria.
+- AGENT_SYSTEM_PROMPT expanded with WorkspaceState structure guidance and 5 state-grounding rules.
+- All 8 module user_prompts rewritten with explicit instructions to cite specific skills, availability, blockers, task status, priorities, and deadlines.
+- `_validate_references` extended with `_validate_evidence_ids` to check RiskProposal.evidence for fabricated task_id/stage_id.
+- Tests: added messy project fixture (4 members, 3 stages, 6 tasks with blocked/overdue/unassigned), 7 new test cases for representative model outputs and fabrication rejection.
+- 79 backend tests passing.
+
 ## Verification Baseline
 
 Commands run successfully on 2026-05-29:
@@ -133,12 +142,13 @@ Frontend:
 
 MVP issue scope is complete. Phase 10 (UI Structural Fix) completed 2026-05-29.
 
-Remaining work for MVP Usable (see `.claude/epics/projectflow-mvp-usable-ready/`):
-- Real LLM integration (replace mock provider)
-- Confirm-to-persist (Agent outputs only persisted after human confirmation)
-- Prompt quality (structured output reliability)
-- Agent status transparency (show Agent thinking/reasoning in UI)
-- Demo stability and polish
+MVP Usable progress (see `.claude/epics/projectflow-mvp-usable-ready/`):
+- ✅ #18 Prompt and Schema Quality Hardening (completed 2026-05-29)
+- 🔲 #16 Real LLM Provider Readiness and Diagnostics (in progress)
+- 🔲 #17 Agent Output Persistence and Confirmation
+- 🔲 #19 Frontend Agent Status and Review UX
+- 🔲 #20 Assignment, Push, Risk, and Replan Usability Pass
+- 🔲 #21 Real-Provider Verification and MVP Usable Runbook
 
 Post-MVP: auth, deployment, collaboration permissions, broader UI hardening.
 

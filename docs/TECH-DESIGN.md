@@ -867,23 +867,26 @@ stateDiagram-v2
 
 ```json
 {
-  "questions": [
-    {
-      "id": "q1",
-      "question": "string",
-      "why_it_matters": "string"
-    }
-  ],
-  "direction_card": {
-    "problem": "string",
-    "target_users": "string",
-    "core_value": "string",
-    "deliverables": ["string"],
-    "constraints": ["string"],
-    "out_of_scope": ["string"],
-    "initial_risks": ["string"]
-  }
+  "problem": "string",
+  "users": "string",
+  "value": "string",
+  "deliverables": ["string"],
+  "boundaries": ["string"],
+  "risks": ["string"],
+  "suggested_questions": ["string"],
+  "reason": "string",
+  "requires_confirmation": false
 }
+```
+
+Field descriptions:
+- `problem`: the core problem this project solves
+- `users`: who the project serves
+- `value`: what value the project delivers
+- `deliverables`: concrete outputs the project must produce (at least one required)
+- `boundaries`: explicit scope boundaries — what is out of scope
+- `risks`: known risks grounded in project context
+- `suggested_questions`: high-value clarification questions only
 ```
 
 ### Planning Output
