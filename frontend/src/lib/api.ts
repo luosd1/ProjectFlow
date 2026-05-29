@@ -22,6 +22,8 @@ import type {
   Risk,
   ActionCard,
   AgentEvent,
+  AgentFlowResult,
+  DemoResetResult,
 } from "./types";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000/api";
@@ -43,6 +45,7 @@ type BackendWorkspaceState = {
   workspace_name: string;
   members: BackendWorkspaceMember[];
 };
+type BackendRisk = Omit<Risk, "evidence"> & { evidence: unknown[] | Record<string, unknown> };
 
 function normalizeUser(user: BackendUser): User {
   return {
@@ -62,6 +65,18 @@ function normalizeInvitation(invitation: BackendInvitation): Invitation {
   return {
     ...invitation,
     invitation_id: invitation.invitation_id ?? invitation.id,
+  };
+}
+
+function normalizeRisk(risk: BackendRisk): Risk {
+  const evidenceItems = Array.isArray(risk.evidence)
+    ? risk.evidence
+    : Object.entries(risk.evidence).map(([key, value]) => `${key}: ${String(value)}`);
+  return {
+    ...risk,
+    evidence: evidenceItems.map((item) =>
+      typeof item === "string" ? item : JSON.stringify(item),
+    ),
   };
 }
 
@@ -221,15 +236,40 @@ export async function createProject(
   });
 }
 
+export async function getProject(projectId: string): Promise<Project> {
+  return request<Project>(`/projects/${projectId}`);
+}
+
 export async function getProjectState(projectId: string): Promise<ProjectState> {
-  const project = await request<Project>(`/projects/${projectId}`);
-  const [workspace, resources, stages, tasks, allUsers, memberProfiles] = await Promise.all([
+  const project = await getProject(projectId);
+  const [
+    workspace,
+    resources,
+    stages,
+    tasks,
+    allUsers,
+    memberProfiles,
+    assignmentProposals,
+    assignmentResponses,
+    assignmentNegotiations,
+    checkins,
+    risks,
+    actionCards,
+    timeline,
+  ] = await Promise.all([
     getWorkspace(project.workspace_id),
     listResourcesByProject(projectId),
     listStagesByProject(projectId),
     listTasksByProject(projectId),
     listUsers(),
     listMemberProfilesByWorkspace(project.workspace_id),
+    listAssignmentProposalsByProject(projectId),
+    listAssignmentResponsesByProject(projectId),
+    listAssignmentNegotiationsByProject(projectId),
+    listCheckinCyclesByProject(projectId),
+    listRisksByProject(projectId),
+    listActionCardsByProject(projectId),
+    listTimelineByProject(projectId),
   ]);
   const workspaceMemberIds = new Set([
     workspace.owner_user_id,
@@ -245,13 +285,13 @@ export async function getProjectState(projectId: string): Promise<ProjectState> 
     member_profiles: memberProfiles,
     stages,
     tasks,
-    assignment_proposals: [],
-    assignment_responses: [],
-    assignment_negotiations: [],
-    checkins: [],
-    risks: [],
-    action_cards: [],
-    timeline: [],
+    assignment_proposals: assignmentProposals,
+    assignment_responses: assignmentResponses,
+    assignment_negotiations: assignmentNegotiations,
+    checkins,
+    risks,
+    action_cards: actionCards,
+    timeline,
   };
 }
 
@@ -285,37 +325,74 @@ export async function listTasksByProject(projectId: string): Promise<ProjectStat
   return request<ProjectState["tasks"]>(`/projects/${projectId}/tasks`);
 }
 
+export async function listAssignmentProposalsByProject(projectId: string): Promise<AssignmentProposal[]> {
+  return request<AssignmentProposal[]>(`/projects/${projectId}/assignment-proposals`);
+}
+
+export async function listAssignmentResponsesByProject(projectId: string): Promise<AssignmentResponse[]> {
+  return request<AssignmentResponse[]>(`/projects/${projectId}/assignment-responses`);
+}
+
+export async function listAssignmentNegotiationsByProject(projectId: string): Promise<AssignmentNegotiation[]> {
+  return request<AssignmentNegotiation[]>(`/projects/${projectId}/assignment-negotiations`);
+}
+
+export async function listCheckinCyclesByProject(projectId: string): Promise<CheckInCycle[]> {
+  return request<CheckInCycle[]>(`/projects/${projectId}/checkin-cycles`);
+}
+
+export async function listRisksByProject(projectId: string): Promise<Risk[]> {
+  const risks = await request<BackendRisk[]>(`/projects/${projectId}/risks`);
+  return risks.map(normalizeRisk);
+}
+
+export async function listActionCardsByProject(projectId: string): Promise<ActionCard[]> {
+  return request<ActionCard[]>(`/projects/${projectId}/action-cards`);
+}
+
+export async function listTimelineByProject(projectId: string): Promise<AgentEvent[]> {
+  return request<AgentEvent[]>(`/projects/${projectId}/timeline`);
+}
+
 // --- Agent ---
-export async function runClarification(projectId: string): Promise<AgentEvent> {
-  return request<AgentEvent>(`/projects/${projectId}/agent/clarify`, { method: "POST" });
+async function runAgentFlow(projectId: string, endpoint: string): Promise<AgentFlowResult> {
+  const project = await getProject(projectId);
+  return request<AgentFlowResult>(`/agent/${endpoint}`, {
+    method: "POST",
+    body: JSON.stringify({ workspace_id: project.workspace_id }),
+  });
 }
 
-export async function runPlanning(projectId: string): Promise<AgentEvent> {
-  return request<AgentEvent>(`/projects/${projectId}/agent/plan`, { method: "POST" });
+export async function runClarification(projectId: string): Promise<AgentFlowResult> {
+  return runAgentFlow(projectId, "clarify");
 }
 
-export async function runBreakdown(projectId: string): Promise<AgentEvent> {
-  return request<AgentEvent>(`/projects/${projectId}/agent/breakdown`, { method: "POST" });
+export async function runPlanning(projectId: string): Promise<AgentFlowResult> {
+  return runAgentFlow(projectId, "plan");
 }
 
-export async function runAssignment(projectId: string): Promise<AgentEvent> {
-  return request<AgentEvent>(`/projects/${projectId}/agent/assign`, { method: "POST" });
+export async function runBreakdown(projectId: string): Promise<AgentFlowResult> {
+  return runAgentFlow(projectId, "breakdown");
 }
 
-export async function runActivePush(projectId: string): Promise<AgentEvent> {
-  return request<AgentEvent>(`/projects/${projectId}/agent/push`, { method: "POST" });
+export async function runAssignment(projectId: string): Promise<AgentFlowResult> {
+  return runAgentFlow(projectId, "assign");
 }
 
-export async function runCheckinAnalysis(projectId: string): Promise<AgentEvent> {
-  return request<AgentEvent>(`/projects/${projectId}/agent/analyze-checkins`, { method: "POST" });
+export async function runActivePush(projectId: string): Promise<AgentFlowResult> {
+  return runAgentFlow(projectId, "active-push");
 }
 
-export async function runRiskAnalysis(projectId: string): Promise<AgentEvent> {
-  return request<AgentEvent>(`/projects/${projectId}/agent/risk-analysis`, { method: "POST" });
+export async function runCheckinAnalysis(projectId: string): Promise<AgentFlowResult> {
+  return runAgentFlow(projectId, "check-in-analysis");
 }
 
-export async function runReplan(projectId: string): Promise<AgentEvent> {
-  return request<AgentEvent>(`/projects/${projectId}/agent/replan`, { method: "POST" });
+export async function runRiskAnalysis(projectId: string): Promise<AgentFlowResult> {
+  return runAgentFlow(projectId, "risk-analysis");
+}
+
+export async function runReplan(projectId: string): Promise<AgentFlowResult> {
+  return runAgentFlow(projectId, "replan");
 }
 
 // --- Confirmation ---
@@ -345,7 +422,7 @@ export async function respondToAssignment(
   preferredTaskId?: string,
   reason?: string,
 ): Promise<AssignmentResponse> {
-  return request<AssignmentResponse>(`/assignment-proposals/${proposalId}/response`, {
+  return request<AssignmentResponse>(`/assignment-proposals/${proposalId}/responses`, {
     method: "POST",
     body: JSON.stringify({
       user_id: userId,
@@ -362,12 +439,16 @@ export async function startNegotiation(
   fromUserId: string,
   desiredTaskId: string,
 ): Promise<AssignmentNegotiation> {
-  return request<AssignmentNegotiation>(`/projects/${projectId}/assignments/negotiate`, {
+  const proposal = await request<AssignmentProposal>(`/assignment-proposals/${proposalId}`);
+  return request<AssignmentNegotiation>("/assignment-negotiations", {
     method: "POST",
     body: JSON.stringify({
-      proposal_id: proposalId,
+      project_id: projectId,
+      stage_id: proposal.stage_id,
       from_user_id: fromUserId,
       desired_task_id: desiredTaskId,
+      current_owner_user_id: proposal.recommended_owner_user_id,
+      agent_message: `Swap request from ${fromUserId}: prefers ${desiredTaskId} after rejecting ${proposalId}.`,
     }),
   });
 }
@@ -384,9 +465,9 @@ export async function resolveNegotiation(
 }
 
 export async function finalizeAssignments(stageId: string, finalizedBy: string): Promise<void> {
+  void finalizedBy;
   await request(`/stages/${stageId}/assignments/finalize`, {
     method: "POST",
-    body: JSON.stringify({ finalized_by: finalizedBy }),
   });
 }
 
@@ -398,9 +479,10 @@ export async function createCheckinCycle(
   startDate: string,
   createdByUserId: string,
 ): Promise<CheckInCycle> {
-  return request<CheckInCycle>(`/projects/${projectId}/checkin-cycles`, {
+  return request<CheckInCycle>("/checkin-cycles", {
     method: "POST",
     body: JSON.stringify({
+      project_id: projectId,
       stage_id: stageId,
       cadence_days: cadenceDays,
       start_date: startDate,
@@ -412,6 +494,8 @@ export async function createCheckinCycle(
 export async function submitCheckinResponse(
   cycleId: string,
   data: {
+    project_id: string;
+    stage_id: string;
     user_id: string;
     task_id?: string;
     what_done: string;
@@ -445,8 +529,30 @@ export async function updateTaskStatus(
       status: data.status,
       progress_note: data.progress_note,
       blocker: data.blocker,
+      available_hours_change: data.available_hours_change,
     }),
   });
+}
+
+export async function updateActionCardStatus(
+  cardId: string,
+  status: "done" | "dismissed",
+): Promise<ActionCard> {
+  return request<ActionCard>(`/action-cards/${cardId}`, {
+    method: "PATCH",
+    body: JSON.stringify({ status }),
+  });
+}
+
+export async function updateRiskStatus(
+  riskId: string,
+  status: "accepted" | "ignored" | "resolved",
+): Promise<Risk> {
+  const risk = await request<BackendRisk>(`/risks/${riskId}`, {
+    method: "PATCH",
+    body: JSON.stringify({ status }),
+  });
+  return normalizeRisk(risk);
 }
 
 // --- Seed / Reset ---
@@ -467,4 +573,9 @@ export async function exportReviewSummary(projectId: string): Promise<{ markdown
   return request<{ markdown: string }>(`/projects/${projectId}/export/review-summary`, {
     method: "POST",
   });
+}
+
+// --- Demo ---
+export async function resetDemo(): Promise<DemoResetResult> {
+  return request<DemoResetResult>("/demo/reset", { method: "POST" });
 }

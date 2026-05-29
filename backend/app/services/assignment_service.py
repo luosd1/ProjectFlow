@@ -55,6 +55,30 @@ def list_assignment_proposals_by_project(session: Session, project_id: str) -> l
     )
 
 
+def list_assignment_responses_by_project(session: Session, project_id: str) -> list[AssignmentResponse]:
+    proposal_ids = [
+        proposal.id for proposal in list_assignment_proposals_by_project(session, project_id)
+    ]
+    if not proposal_ids:
+        return []
+    return list(
+        session.exec(
+            select(AssignmentResponse).where(AssignmentResponse.proposal_id.in_(proposal_ids))
+        ).all()
+    )
+
+
+def list_assignment_negotiations_by_project(
+    session: Session,
+    project_id: str,
+) -> list[AssignmentNegotiation]:
+    return list(
+        session.exec(
+            select(AssignmentNegotiation).where(AssignmentNegotiation.project_id == project_id)
+        ).all()
+    )
+
+
 def create_assignment_response(
     session: Session,
     proposal_id: str,
@@ -103,6 +127,22 @@ def finalize_assignment_proposal(session: Session, proposal_id: str) -> Assignme
     session.commit()
     session.refresh(proposal)
     return proposal
+
+
+def finalize_assignment_proposals_by_stage(session: Session, stage_id: str) -> list[AssignmentProposal]:
+    _require(session, Stage, stage_id, "Stage")
+    proposals = list(
+        session.exec(
+            select(AssignmentProposal).where(
+                AssignmentProposal.stage_id == stage_id,
+                AssignmentProposal.status == AssignmentProposalStatus.owner_confirmed,
+            )
+        ).all()
+    )
+    finalized: list[AssignmentProposal] = []
+    for proposal in proposals:
+        finalized.append(finalize_assignment_proposal(session, proposal.id))
+    return finalized
 
 
 def create_assignment_negotiation(

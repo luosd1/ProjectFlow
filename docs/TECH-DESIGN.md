@@ -26,8 +26,11 @@ Snapshot date: 2026-05-29.
 - GitHub issue #8 (Assignment, active push, check-in, risk, and replan backend flows) is implemented.
 - GitHub issue #10 (Demo Seed, Reset, Runbook, and Review Export) is implemented.
 - GitHub issue #11 (Verification, Tests, and Demo Stability Hardening) is complete.
-- All MVP phases complete. Backend: 69 tests passing, 57 endpoints, 18 domain models. Frontend: lint+build clean, 7 routes.
-- Current verification baseline: backend pytest (69 tests), frontend lint, and frontend build.
+- Implemented: FastAPI scaffold, SQLite configuration skeleton, `GET /api/health`, all 18 domain models with full enum alignment and auto table creation on startup, full CRUD APIs (users, workspaces, invitations, member-profiles, projects, resources, stages, tasks), WorkspaceState assembly endpoint (`GET /api/workspaces/{id}/state`), service layer, Pydantic schemas, agent coordinator infrastructure with structured output validation, mock/OpenAI-compatible LLM adapter, prompt boundaries, JSON repair/retry/template fallback, AgentEvent timeline logging with status, assignment proposal/response/finalize/negotiation APIs, action card APIs, check-in cycle/response APIs, risk APIs, confirmed replan API, agent HTTP endpoints, seed/reset/export endpoints, Next.js app shell with navigation, onboarding flow (account setup + member profile wizard), workspace creation + invite panel, project intake + resource input, planning and assignment dashboard UI, execution-loop dashboard UI, client-side project state composition over implemented endpoints, full domain types and API layer, shadcn/ui components, smoke tests, lint/build/test scripts, README, and runtime ignore rules.
+- Frontend routes: `/`, `/onboarding`, `/onboarding/profile`, `/workspaces/new`, `/workspaces/[workspaceId]`, `/projects/new`, `/projects/[projectId]`.
+- MVP implementation includes frontend wiring for execution-loop APIs, seed/reset data, review export, and a complete local demo flow.
+- All MVP phases are complete.
+- Current verification baseline: backend pytest, frontend tests, frontend lint, frontend build, and frontend audit.
 
 ---
 
@@ -109,6 +112,7 @@ flowchart TD
     API --> CK[Check-in Service]
     API --> AGS[Agent Service]
     API --> EX[Export Service]
+    API --> LLM[LLM Diagnostic Service]
 
     AGS --> CA[Coordinator Agent]
 
@@ -134,6 +138,7 @@ flowchart TD
     CK --> DB
     AGS --> DB
     EX --> DB
+    LLM --> CA
 
     CA --> TL[Agent Timeline]
     TL --> DB
@@ -196,8 +201,8 @@ projectflow/
 │   ├── api-contract.md    # current implemented + planned API surface
 │   ├── runbook.md         # local setup and verification
 │   ├── handoff.md         # current status and next work
-│   ├── demo-script.md     # planned
-│   ├── seed-scenarios.md  # planned
+│   ├── demo-script.md
+│   ├── seed-scenarios.md
 │   └── ...
 │
 ├── frontend/
@@ -1565,7 +1570,7 @@ The confirm endpoint applies accepted task changes only after explicit confirmat
 
 ---
 
-## 11.16 Planned Export API
+## 11.16 Export API
 
 ```http
 POST /api/projects/{project_id}/export/review-summary
@@ -1578,6 +1583,40 @@ Response:
   "markdown": "# ProjectFlow 中期评审摘要..."
 }
 ```
+
+---
+
+## 11.17 LLM Diagnostic API
+
+```http
+POST /api/llm/diagnostic
+```
+
+Optional request body (overrides env settings for the check):
+
+```json
+{
+  "provider": "openai",
+  "api_key": "sk-...",
+  "base_url": "https://api.openai.com/v1",
+  "model": "gpt-4o-mini",
+  "timeout_seconds": 30.0
+}
+```
+
+Response (never includes API key):
+
+```json
+{
+  "provider": "openai",
+  "model": "gpt-4o-mini",
+  "base_url": "https://api.openai.com/v1",
+  "status": "ok",
+  "detail": "Provider responded successfully"
+}
+```
+
+Security: API key is accepted as input only and never returned in the response, logged, or persisted.
 
 ---
 
@@ -1630,7 +1669,7 @@ Response:
 | `AgentLoadingPanel` | AI 生成过程可视化 |
 | `DemoResetButton` | 重置种子数据 |
 
-Current implementation note: GitHub issue #7 implements the first project dashboard slice with `ProjectDashboard`, `DirectionCardPanel`, `StagePlanBoard`, `TaskBreakdownBoard`, and `AssignmentFlowPanel`. GitHub issue #8 implements the backend routes and services for agent execution, assignment responses/finalization/negotiation, action cards, check-ins, risks, and confirmed replans. The dashboard still needs frontend wiring for `ActionCardList`, `CheckInForm`, `RiskCard`, `ReplanDiff`, `AgentTimeline`, `AgentLoadingPanel`, and `DemoResetButton`.
+Current implementation note: GitHub issues #7-#11 implement the project dashboard, assignment confirmation, action cards, check-in/status update, risk/replan, timeline, demo reset, and review export surfaces against real backend endpoints.
 
 ---
 
@@ -1663,7 +1702,11 @@ Current implementation note: GitHub issue #7 implements the first project dashbo
 | NotFoundError       | project_id 不存在   | 404                            |
 | PermissionLiteError | 非 workspace 成员访问 | 403，MVP 轻量处理                   |
 | AgentOutputError    | LLM 输出无法解析       | retry + fallback + timeline 记录 |
-| AgentTimeoutError   | LLM 超时           | 返回可重试状态                        |
+| LLMAuthError        | API key 缺失/被拒    | 401/403 → 明确提示检查 .env          |
+| LLMTimeoutError     | LLM 请求超时         | 返回可重试状态 + 超时秒数                 |
+| LLMConnectionError  | 端点不可达            | 网络/DNS 错误 → 检查 base_url        |
+| LLMResponseError    | 响应结构异常           | 缺少 choices → 提示模型/端点不匹配        |
+| LLMConfigurationError | 不支持的 provider  | 列出支持的 provider 列表              |
 | ConflictError       | 确认过期 proposal    | 要求刷新状态                         |
 | DatabaseError       | SQLite 写入失败      | 500 + 错误日志                     |
 

@@ -1,109 +1,115 @@
 # ProjectFlow Demo Script
 
+Status: current as of 2026-05-29.
+
 A 5-minute path through the core loop. Designed for review presentation.
 
 ## Pre-Demo Setup (1 minute)
 
 1. Start backend:
-   ```bash
-   cd backend
-   .venv\Scripts\python -m uvicorn app.main:app --reload --port 8000
-   ```
+
+```bash
+cd backend
+.venv\Scripts\python -m uvicorn app.main:app --reload --port 8000
+```
 
 2. Start frontend:
-   ```bash
-   cd frontend
-   npm run dev
-   ```
+
+```bash
+cd frontend
+npm run dev
+```
 
 3. Load demo seed data:
-   ```bash
-   curl -X POST http://localhost:8000/api/seed/demo
-   ```
 
-4. Open http://localhost:3000
+```bash
+curl -X POST http://localhost:8000/api/seed/demo
+```
+
+4. Open:
+
+```text
+http://localhost:3000/projects/demo-project-001
+```
+
+If port 3000 is occupied, start the frontend on another port and use that base URL.
 
 ## Demo Flow (4 minutes)
 
 ### Step 1: Team Overview (30 seconds)
 
-- Show the workspace dashboard at `/workspaces/demo-workspace-001`
-- Highlight the 6-member team: 小林(负责人), 小王(前端), 小张(后端), 小李(测试), 小赵(AI), 小刘(设计)
-- Each member has skills, availability, interests, and constraints
+- Show the workspace dashboard at `/workspaces/demo-workspace-001`.
+- Highlight the 6-member team: 小林(负责人), 小王(前端), 小张(后端), 小李(测试), 小赵(AI), 小刘(设计).
+- Each member has skills, availability, interests, and constraints.
 
 ### Step 2: Project Dashboard (30 seconds)
 
-- Navigate to `/projects/demo-project-001`
-- Show the project is in "核心实现" stage (active)
-- Point out the direction card: problem, target users, core value
+- Navigate to `/projects/demo-project-001`.
+- Show the project is in "核心实现" stage (active).
+- Point out the direction card: problem, target users, core value.
 
 ### Step 3: Stage and Task View (45 seconds)
 
-- Show 4 stages: 调研与方向(completed), 设计与规划(completed), 核心实现(active), 测试与打磨(pending)
-- Show current stage tasks: 3 P0 tasks in progress
-  - 前端 Shell → 小王
-  - 后端 API → 小张
-  - Agent 核心 → 小赵
-- Emphasize: **Agent recommended assignments based on skills and preferences**
+- Show 4 stages: 调研与方向(completed), 设计与规划(completed), 核心实现(active), 测试与打磨(pending).
+- Show current stage tasks: 3 P0 tasks in progress.
+- Emphasize: Agent recommended assignments based on skills and preferences.
 
 ### Step 4: Assignment Recommendations (30 seconds)
 
-- Show the 3 finalized assignment proposals
-- Each has: recommended owner, backup owner, reason, risk note
-- Key insight: **Agent considers skills, preferences, availability, and constraints**
+- Show the 3 finalized assignment proposals.
+- Each has recommended owner, backup owner, reason, and risk note.
+- Key insight: Agent considers skills, preferences, availability, and constraints.
 
 ### Step 5: Check-in Results (30 seconds)
 
-- Show the active check-in cycle (2-day cadence)
-- 3 responses:
-  - 小王: "完成了 App Shell 和导航组件" ✅
-  - 小张: "完成了 User 和 Workspace 的 CRUD API" ⚠️ Blocker: "SQLite 外键约束报错"
-  - 小赵: "完成了 LLM client 和 Coordinator 骨架" ✅
-- Highlight: **小张 has a blocker and reduced availability**
+- Show the active check-in cycle (2-day cadence).
+- Show 小张's blocker: "SQLite 外键约束报错".
+- Highlight that the blocker and availability change feed risk detection.
 
 ### Step 6: Risk Detection (45 seconds)
 
 - Show 3 risks detected by Agent:
-  1. **dependency** (medium): 后端 API 外键约束问题
-  2. **workload** (high): 小张可用时间下降
-  3. **deadline** (medium): 核心实现阶段时间紧张
-- Each risk has: type, severity, title, description, evidence, recommendation
-- Key insight: **Agent detected risks from check-in data, not just task status**
+  - dependency (medium): 后端 API 外键约束问题
+  - workload (high): 小张可用时间下降
+  - deadline (medium): 核心实现阶段时间紧张
+- Each risk has type, severity, title, description, evidence, and recommendation.
+- Key insight: Agent detected risks from check-in data, not just task status.
 
 ### Step 7: Action Cards (30 seconds)
 
-- Show 5 active action cards:
-  - Personal tasks for each member
-  - Risk action: "小林协助小张排查外键问题"
-  - Team next step: "前后端联调准备"
-- Key insight: **Agent actively pushes next actions, not just records**
+- Show 5 active action cards.
+- Highlight the risk action "小林协助小张排查外键问题" and the team next step "前后端联调准备".
+- Key insight: Agent actively pushes next actions, not just records.
 
 ### Step 8: Agent Timeline (15 seconds)
 
-- Show 5 Agent events: clarify → plan → breakdown → assign → push
-- Each has: event type, reasoning summary, confirmation status
-- Key insight: **All Agent decisions are traceable and require confirmation**
+- Show Agent events: clarify, plan, breakdown, assign, push.
+- Each has event type, reasoning summary, and confirmation status.
+- Key insight: Agent decisions are traceable.
 
 ### Step 9: Review Summary Export (15 seconds)
 
-- Click "导出评审摘要" or call:
-  ```bash
-  curl -X POST http://localhost:8000/api/projects/demo-project-001/export/review-summary
-  ```
-- Show the generated Markdown summary
-- Key insight: **One-click export for review readiness**
+- Click the export action or call:
 
-## Key Demo Messages
+```bash
+curl -X POST http://localhost:8000/api/projects/demo-project-001/export/review-summary
+```
 
-1. **不只是记录任务** — Agent 主动推进项目
-2. **分工有依据** — 基于技能、意向、可用时间推荐
-3. **风险有证据** — 从 check-in 数据检测，不是凭空判断
-4. **建议可追溯** — 所有 Agent 决策有 Timeline
-5. **状态可重置** — Demo 可随时回到已知状态
+- Show the generated Markdown summary.
+- Key insight: one-click export supports review readiness.
+
+## Manual Acceptance
+
+- The app should never require a real LLM key in the MVP path.
+- Agent and export actions should persist timeline records.
+- Assignment ownership changes should only happen after explicit confirmation/finalization.
+- Risk cards must show evidence and a recommendation.
+- Demo reset must return the app to a known project state.
 
 ## Reset Demo
 
+From the dashboard, use the Reset demo button, or run:
+
 ```bash
-curl -X POST http://localhost:8000/api/seed/reset
 curl -X POST http://localhost:8000/api/seed/demo
 ```

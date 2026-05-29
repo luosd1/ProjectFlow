@@ -11,8 +11,10 @@ Phase 4 (agent infrastructure) / GitHub issue #5 is implemented.
 GitHub issue #6 (Frontend Shell, Onboarding, Workspace, and Intake) is implemented.
 GitHub issue #7 (Planning and Assignment Dashboard UI) is implemented.
 GitHub issue #8 (Assignment, active push, check-in, risk, and replan backend flows) is implemented.
+GitHub issue #9 (Action cards, check-in, risk, timeline, and export UI) is implemented.
 GitHub issue #10 (Demo Seed, Reset, Runbook, and Review Export) is implemented.
 GitHub issue #11 (Verification, Tests, and Demo Stability Hardening) is complete.
+GitHub issue #16 (Real LLM Provider Readiness and Diagnostics) is implemented.
 
 Implemented scope:
 
@@ -33,6 +35,7 @@ Implemented scope:
 - Service layer for all CRUD domains in `backend/app/services/`.
 - Pydantic schemas for all CRUD domains in `backend/app/schemas/`.
 - Agent infrastructure in `backend/app/agent/`: coordinator, workflow, prompts, LLM client, structured output schemas, module request builders, JSON repair/retry/template fallback, and AgentEvent timeline logging.
+- LLM provider readiness: specific error hierarchy (LLMAuthError, LLMTimeoutError, LLMConnectionError, LLMResponseError, LLMConfigurationError), HTTP status code mapping, provider diagnostic endpoint (`POST /api/llm/diagnostic`), API key masking, `.env.example` with documented settings.
 - 9 API smoke tests covering full demo path and list endpoints.
 - Backend execution-loop APIs for assignment proposals/responses/finalization/negotiation, action cards, check-in cycles/responses, risks, confirmed replans, and agent endpoints.
 
@@ -64,8 +67,23 @@ Implemented scope:
 - Added backend tests for assignment flow, check-in/risk/replan flow, and agent endpoints.
 - Local SQLite databases created before `AgentEvent.status` may need the runbook schema drift repair before agent timeline writes.
 
-### GitHub issue #10 (2026-05-29)
+### GitHub issue #16 (2026-05-29)
 
+- LLM client error hierarchy: `LLMAuthError`, `LLMTimeoutError`, `LLMConnectionError`, `LLMResponseError`, `LLMConfigurationError` — all inherit from `LLMError`.
+- HTTP error mapping: 401/403→AuthError, 404→ConfigError, 429→RateLimit, 5xx→ConnectionError, timeout→TimeoutError, network→ConnectionError, malformed response→ResponseError.
+- Provider diagnostic endpoint: `POST /api/llm/diagnostic` — safe dry-run connectivity check, never exposes API key.
+- `.env.example` with documented LLM settings (provider, key, base_url, model, timeout).
+- 38 new tests for error mapping, diagnostic, API key masking, mock regression.
+- Backend test count: 110 passing.
+
+### GitHub issues #9-#11 (2026-05-29)
+
+- Dashboard execution tabs are wired to implemented backend endpoints for action cards, check-in submission, task status updates, risks, timeline, and review export.
+- Frontend API paths now use the actual workspace-scoped agent routes and flat assignment/check-in/action/risk routes.
+- Added backend review-summary export endpoint and timeline listing endpoint.
+- Added `POST /api/demo/reset` compatibility endpoint for the dashboard reset button.
+- Added `docs/demo-script.md` and `docs/seed-scenarios.md`.
+- Added regression tests for demo reset/export and frontend API route alignment.
 - Demo seed data module (`backend/app/seed/demo_projectflow.py`) creates a realistic 6-member student team with full project data: workspace, memberships, invitations, member profiles, project with direction card, resources, 4 stages, 10 tasks, 3 assignment proposals, check-in cycle with responses (including blocker), 3 risks, 5 action cards, and 5 agent timeline events.
 - Demo reset module (`backend/app/seed/reset.py`) clears all tables in dependency order.
 - Seed API endpoints: `POST /api/seed/demo` (reset + seed) and `POST /api/seed/reset`.
@@ -91,7 +109,8 @@ npm run build
 
 Results:
 
-- Backend: 69 tests passed.
+- Backend: 110 tests passed.
+- Frontend: 5 tests passed across 3 test files.
 - Frontend lint passed.
 - Frontend build passed (7 routes generated).
 
@@ -99,13 +118,13 @@ Results:
 
 Backend:
 
-- Implemented routes: health, users (3), workspaces (4), invitations (2), member-profiles (4), projects (4), resources (2), stages (4), tasks (6), workspace-state (1), agent (8), assignments (6), action-cards (2), check-ins (4), risks (2), replans (1), seed (2), export (1). Total: 57 endpoints.
+- Implemented routes: health, users, workspaces, invitations, member-profiles, projects, resources, stages, tasks, workspace-state, agent, assignments, action-cards, check-ins, risks, replans, seed/reset, timeline, export, demo reset, and llm diagnostic.
 - Domain models implemented (18 models, all enums).
 - AgentEvent now records `status` for success, repaired, fallback, or failed agent runs.
 - Service layer implemented for all CRUD domains plus assignment, action-card, check-in, risk, replan, and agent-flow orchestration.
 - Pydantic schemas implemented for all CRUD and execution-loop domains.
 - WorkspaceState endpoint returns members, project, stages, tasks for Agent consumption.
-- Agent infrastructure can run with `LLM_PROVIDER=mock` by default, or OpenAI-compatible chat-completions settings through environment variables. Agent HTTP endpoints persist structured outputs and created entity IDs through service-layer writes.
+- Agent infrastructure can run with `LLM_PROVIDER=mock` by default, or OpenAI-compatible chat-completions settings through environment variables. Agent HTTP endpoints persist structured outputs and created entity IDs through service-layer writes. LLM provider errors are mapped to specific exception types (LLMAuthError, LLMTimeoutError, LLMConnectionError, LLMResponseError) with clear messages and recovery hints.
 
 Frontend:
 
@@ -113,16 +132,26 @@ Frontend:
 - API base URL comes from `NEXT_PUBLIC_API_BASE_URL` or defaults to `http://localhost:8000/api`.
 - All API calls go through `frontend/src/lib/api.ts`.
 - All types defined in `frontend/src/lib/types.ts`.
-- Project dashboard composes project, workspace, resources, stages, tasks, users, profiles, action cards, check-ins, risks, replan diff, agent timeline, and export from implemented endpoints. All frontend wiring for issue #8 backend APIs is complete.
+- Navigation: 首页 / 工作台（自动检测 workspace ID）/ 新建项目。Onboarding 不再常驻导航。
+- 首页智能重定向：有 workspace 记录则跳转工作台，否则展示欢迎页 + "加载演示数据"按钮。
+- Project dashboard composes project, workspace, resources, stages, tasks, users, profiles, action cards, check-ins, risks, replan diff, agent timeline, and export from implemented endpoints. Agent 操作按状态机 4 阶段分组（规划/分工/执行/监控），当前阶段高亮，自动推荐下一步。
+- UI 语言统一中文。表单组件统一使用 shadcn/ui（Input、Select、Textarea）。
+- RiskPanel 支持状态过滤（全部/待处理/已接受/已忽略/已解决）。
+- localStorage 读取使用 `useSyncExternalStore` 避免 hydration mismatch。
 - UI components use shadcn/ui (base-nova style) with project color tokens (ink, paper, moss, citron, coral, harbor).
 
 ## Next Work
 
-All MVP issues (#2–#11) are complete. Remaining work:
+MVP issue scope is complete. Phase 10 (UI Structural Fix) completed 2026-05-29.
 
-1. Manual end-to-end demo walkthrough.
-2. Real LLM integration testing.
-3. Production deployment considerations.
+Remaining work for MVP Usable (see `.claude/epics/projectflow-mvp-usable-ready/`):
+- Real LLM integration testing (provider readiness infrastructure done via #16, need live key testing)
+- Confirm-to-persist (Agent outputs only persisted after human confirmation)
+- Prompt quality (structured output reliability — #18 in progress)
+- Agent status transparency (show Agent thinking/reasoning in UI)
+- Demo stability and polish
+
+Post-MVP: auth, deployment, collaboration permissions, broader UI hardening.
 
 Dependency note: all resolved.
 

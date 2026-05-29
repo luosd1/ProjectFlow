@@ -1,6 +1,7 @@
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes_health import router as health_router
 from app.api.routes_users import router as users_router
@@ -18,8 +19,11 @@ from app.api.routes_action_cards import router as action_cards_router
 from app.api.routes_replans import router as replans_router
 from app.api.routes_agent import router as agent_router
 from app.api.routes_workspace_state import router as workspace_state_router
+from app.api.routes_timeline import router as timeline_router
+from app.api.routes_demo import router as demo_router
 from app.api.routes_seed import router as seed_router
 from app.api.routes_export import router as export_router
+from app.api.routes_llm import router as llm_router
 from app.core.database import create_db_and_tables
 
 
@@ -30,6 +34,17 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="ProjectFlow API", lifespan=lifespan)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:3000",
+        "http://localhost:3001",
+        "http://127.0.0.1:3000",
+        "http://127.0.0.1:3001",
+    ],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 app.include_router(health_router, prefix="/api")
 app.include_router(users_router, prefix="/api")
 app.include_router(workspaces_router, prefix="/api")
@@ -46,5 +61,8 @@ app.include_router(action_cards_router, prefix="/api")
 app.include_router(replans_router, prefix="/api")
 app.include_router(agent_router, prefix="/api")
 app.include_router(workspace_state_router, prefix="/api")
+app.include_router(timeline_router, prefix="/api")
+app.include_router(demo_router, prefix="/api")
 app.include_router(seed_router, prefix="/api")
 app.include_router(export_router, prefix="/api")
+app.include_router(llm_router, prefix="/api")

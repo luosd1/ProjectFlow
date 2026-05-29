@@ -1,6 +1,7 @@
 from sqlmodel import Session, select
 
 from app.models import ActionCard, Project, Stage, Task, User
+from app.models.enums import ActionCardStatus
 from app.schemas.action_card import ActionCardCreate
 
 
@@ -26,6 +27,21 @@ def create_action_card(session: Session, data: ActionCardCreate) -> ActionCard:
 
 def list_action_cards_by_project(session: Session, project_id: str) -> list[ActionCard]:
     return list(session.exec(select(ActionCard).where(ActionCard.project_id == project_id)).all())
+
+
+def update_action_card_status(
+    session: Session,
+    card_id: str,
+    status: ActionCardStatus,
+) -> ActionCard:
+    card = session.get(ActionCard, card_id)
+    if card is None:
+        raise ValueError("Action card not found")
+    card.status = status
+    session.add(card)
+    session.commit()
+    session.refresh(card)
+    return card
 
 
 def _validate_action_card_refs(session: Session, data: ActionCardCreate) -> None:

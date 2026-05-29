@@ -2,9 +2,9 @@
 
 Status: current as of 2026-05-29.
 
-This document records the implemented API surface first, then the planned MVP surface. Treat planned endpoints as design targets until code and tests exist.
+This document records the implemented MVP API surface. Post-MVP ideas should be tracked in roadmap docs, not mixed into this contract.
 
-The frontend API layer (`frontend/src/lib/api.ts`) uses implemented backend endpoints for account/workspace/project planning flows. Backend routes now exist for agent, assignment, active push, check-in, risk, replan, seed/reset, and export flows.
+The frontend API layer (`frontend/src/lib/api.ts`) uses implemented backend endpoints for account/workspace/project planning, agent execution, assignment, active push, check-in, risk/replan, timeline, demo reset, and review export.
 
 ## Base URL
 
@@ -119,8 +119,13 @@ The project dashboard currently composes its `ProjectState` from implemented end
 - `GET /api/projects/{project_id}/tasks`
 - `GET /api/users`
 - `GET /api/workspaces/{workspace_id}/profiles`
-
-The dashboard planning UI currently uses composed project state and local interaction state for assignment views. It still needs to be wired to the implemented backend assignment/check-in/risk/replan routes.
+- `GET /api/projects/{project_id}/assignment-proposals`
+- `GET /api/projects/{project_id}/assignment-responses`
+- `GET /api/projects/{project_id}/assignment-negotiations`
+- `GET /api/projects/{project_id}/checkin-cycles`
+- `GET /api/projects/{project_id}/risks`
+- `GET /api/projects/{project_id}/action-cards`
+- `GET /api/projects/{project_id}/timeline`
 
 ### Agent
 
@@ -168,7 +173,10 @@ GET /api/assignment-proposals/{proposal_id}
 GET /api/projects/{project_id}/assignment-proposals
 POST /api/assignment-proposals/{proposal_id}/responses
 POST /api/assignment-proposals/{proposal_id}/finalize
+POST /api/stages/{stage_id}/assignments/finalize
 POST /api/assignment-negotiations
+GET /api/projects/{project_id}/assignment-responses
+GET /api/projects/{project_id}/assignment-negotiations
 ```
 
 Rules:
@@ -183,6 +191,7 @@ Rules:
 ```http
 POST /api/action-cards
 GET /api/projects/{project_id}/action-cards
+PATCH /api/action-cards/{card_id}
 ```
 
 Action cards must include `reason`. Agent-created active push cards are persisted through the agent active-push endpoint.
@@ -203,6 +212,7 @@ Check-in cycles store `cadence_days`, `start_date`, and computed `next_due_date`
 ```http
 POST /api/risks
 GET /api/projects/{project_id}/risks
+PATCH /api/risks/{risk_id}
 ```
 
 Risk records require non-empty `evidence`. Risk types include deadline, dependency, workload, scope, review, assignment, and check-in.
@@ -214,6 +224,14 @@ POST /api/replans/confirm
 ```
 
 The confirmation request includes `before`, `after`, `impact`, `reason`, `requires_confirmation`, and proposed stage/task/action-card changes. The service applies task and stage changes only when `requires_confirmation` is true.
+
+### Timeline
+
+```http
+GET /api/projects/{project_id}/timeline
+```
+
+Returns persisted agent events, including fallback and export events.
 
 ### Seed and Reset
 
@@ -232,6 +250,7 @@ POST /api/seed/reset
 POST /api/projects/{project_id}/export/review-summary
 ```
 
+Returns:
 Response:
 
 ```json
@@ -240,7 +259,49 @@ Response:
 }
 ```
 
-Generates a review-ready Markdown summary covering product positioning, current state, risks, replanning, and next actions.
+Generates a review-ready Markdown summary covering product positioning, current state, risks, replanning, and next actions. The export is generated from persisted project state and logs an `export` timeline event.
+
+### Demo
+
+```http
+POST /api/demo/reset
+```
+
+Compatibility endpoint for the frontend reset button. It resets and reloads the deterministic demo state, then returns the created workspace, project, user, stage, and task IDs for manual review.
+
+### LLM Diagnostic
+
+```http
+POST /api/llm/diagnostic
+```
+
+Optional request body:
+
+```json
+{
+  "provider": "openai",
+  "api_key": "sk-...",
+  "base_url": "https://api.openai.com/v1",
+  "model": "gpt-4o-mini",
+  "timeout_seconds": 30.0
+}
+```
+
+Response (never includes API key):
+
+```json
+{
+  "provider": "openai",
+  "model": "gpt-4o-mini",
+  "base_url": "https://api.openai.com/v1",
+  "status": "ok",
+  "detail": "Provider responded successfully"
+}
+```
+
+`status` values: `"ok"` (provider reachable), `"error"` (auth/timeout/connection/response failure), `"mock"` (mock provider, no connectivity check needed).
+
+Security: API key values are never returned in the response, logged, or stored in timeline snapshots.
 
 ## Planned MVP Endpoints
 

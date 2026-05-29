@@ -15,8 +15,11 @@ from app.services.assignment_service import (
     create_assignment_proposal,
     create_assignment_response,
     finalize_assignment_proposal,
+    finalize_assignment_proposals_by_stage,
     get_assignment_proposal,
+    list_assignment_negotiations_by_project,
     list_assignment_proposals_by_project,
+    list_assignment_responses_by_project,
 )
 
 router = APIRouter(tags=["assignments"])
@@ -52,6 +55,25 @@ def api_list_assignment_proposals_by_project(
     return list_assignment_proposals_by_project(session, project_id)
 
 
+@router.get("/projects/{project_id}/assignment-responses", response_model=list[AssignmentResponseRead])
+def api_list_assignment_responses_by_project(
+    project_id: str,
+    session: Session = Depends(get_session),
+):
+    return list_assignment_responses_by_project(session, project_id)
+
+
+@router.get(
+    "/projects/{project_id}/assignment-negotiations",
+    response_model=list[AssignmentNegotiationRead],
+)
+def api_list_assignment_negotiations_by_project(
+    project_id: str,
+    session: Session = Depends(get_session),
+):
+    return list_assignment_negotiations_by_project(session, project_id)
+
+
 @router.post(
     "/assignment-proposals/{proposal_id}/responses",
     response_model=AssignmentResponseRead,
@@ -75,6 +97,17 @@ def api_finalize_assignment_proposal(
 ):
     try:
         return finalize_assignment_proposal(session, proposal_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
+@router.post("/stages/{stage_id}/assignments/finalize", response_model=list[AssignmentProposalRead])
+def api_finalize_assignment_proposals_by_stage(
+    stage_id: str,
+    session: Session = Depends(get_session),
+):
+    try:
+        return finalize_assignment_proposals_by_stage(session, stage_id)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
 
