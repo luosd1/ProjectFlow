@@ -99,7 +99,7 @@ npm audit --omit=dev
 
 Expected baseline as of 2026-05-29:
 
-- Backend tests pass (57 tests: API/model smoke plus CORS, agent schema, module, provider, fallback, timeline logging, assignment, action-card, check-in, risk, replan, export, demo reset, and agent endpoint tests).
+- Backend tests pass (MVP API/model smoke plus CORS, agent schema, module, provider, fallback, timeline logging, assignment, action-card, check-in, risk, replan, seed/reset/export, demo reset, and agent endpoint tests).
 - Frontend tests pass.
 - Frontend lint passes.
 - Frontend production build passes.
@@ -152,6 +152,84 @@ ALTER TABLE agent_events ADD COLUMN status TEXT NOT NULL DEFAULT 'success';
 | `LLM_MODEL` | backend LLM | no | Defaults to `gpt-4o-mini`. |
 | `LLM_TIMEOUT_SECONDS` | backend LLM | no | Defaults to `30.0`. |
 | `NEXT_PUBLIC_API_BASE_URL` | frontend | no | Defaults to `http://localhost:8000/api`. |
+
+## Demo Seed Data and Reset
+
+### Load Demo Seed
+
+To populate the database with realistic demo data (6-member student team, project, stages, tasks, assignments, check-ins, risks, action cards):
+
+```bash
+curl -X POST http://localhost:8000/api/seed/demo
+```
+
+Response:
+
+```json
+{
+  "status": "ok",
+  "summary": {
+    "users": 6,
+    "workspace": 1,
+    "project": 1,
+    "stages": 4,
+    "tasks": 10,
+    "risks": 3,
+    "action_cards": 5,
+    "agent_events": 5
+  }
+}
+```
+
+### Reset Demo Data
+
+To clear all database tables (e.g., before re-seeding for a clean demo):
+
+```bash
+curl -X POST http://localhost:8000/api/seed/reset
+```
+
+Response:
+
+```json
+{
+  "status": "ok",
+  "deleted": {
+    "users": 6,
+    "workspaces": 1,
+    "projects": 1,
+    ...
+  }
+}
+```
+
+### Full Demo Reset
+
+To get a clean demo state:
+
+```bash
+# Reset then seed
+curl -X POST http://localhost:8000/api/seed/reset
+curl -X POST http://localhost:8000/api/seed/demo
+```
+
+The seed uses fixed IDs, so repeated `POST /api/seed/demo` calls are idempotent (they update in place).
+
+### Review Summary Export
+
+To generate a review-ready Markdown summary:
+
+```bash
+curl -X POST http://localhost:8000/api/projects/demo-project-001/export/review-summary
+```
+
+Response:
+
+```json
+{
+  "markdown": "# ProjectFlow 评审摘要\n..."
+}
+```
 
 ## Runtime Files
 

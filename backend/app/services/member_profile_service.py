@@ -1,3 +1,4 @@
+import json
 from datetime import datetime, UTC
 
 from sqlmodel import Session, select
@@ -10,7 +11,7 @@ def create_profile(session: Session, data: MemberProfileCreate) -> MemberProfile
     profile = MemberProfile(
         user_id=data.user_id,
         workspace_id=data.workspace_id,
-        skills=data.skills,
+        skills=json.dumps(data.skills, ensure_ascii=False),
         available_hours_per_week=data.available_hours_per_week,
         role_preference=data.role_preference,
         interests=data.interests,
@@ -33,6 +34,8 @@ def update_profile(session: Session, profile_id: str, data: MemberProfileUpdate)
         raise ValueError(f"MemberProfile {profile_id} not found")
 
     update_data = data.model_dump(exclude_unset=True)
+    if "skills" in update_data and update_data["skills"] is not None:
+        update_data["skills"] = json.dumps(update_data["skills"], ensure_ascii=False)
     for field, value in update_data.items():
         setattr(profile, field, value)
 

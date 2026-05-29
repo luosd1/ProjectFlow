@@ -1,12 +1,7 @@
 from fastapi.testclient import TestClient
 
-from app.main import app
 
-
-client = TestClient(app)
-
-
-def _create_execution_fixture():
+def _create_execution_fixture(client: TestClient):
     owner = client.post("/api/users", json={"display_name": "Checkin Owner"}).json()
     member = client.post("/api/users", json={"display_name": "Checkin Member"}).json()
     workspace = client.post(
@@ -55,8 +50,8 @@ def _create_execution_fixture():
     return workspace, project, stage, task, owner, member
 
 
-def test_checkin_risk_and_replan_confirmation_flow():
-    workspace, project, stage, task, owner, member = _create_execution_fixture()
+def test_checkin_risk_and_replan_confirmation_flow(client: TestClient):
+    workspace, project, stage, task, owner, member = _create_execution_fixture(client)
 
     cycle_response = client.post(
         "/api/checkin-cycles",

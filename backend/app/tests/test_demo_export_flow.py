@@ -131,7 +131,7 @@ def test_review_summary_export_returns_markdown_and_logs_timeline_event():
 
         assert response.status_code == 200
         markdown = response.json()["markdown"]
-        assert "# ProjectFlow Review Summary" in markdown
+        assert "# ProjectFlow 评审摘要" in markdown
         assert "AI Study Planner" in markdown
         assert "Build export panel" in markdown
         assert "Review date is close" in markdown

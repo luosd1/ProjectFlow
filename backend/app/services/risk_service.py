@@ -1,3 +1,5 @@
+import json
+
 from sqlmodel import Session, select
 
 from app.models import Project, Risk, Stage, Task
@@ -22,7 +24,7 @@ def create_risk(session: Session, data: RiskCreate) -> Risk:
         severity=data.severity,
         title=data.title,
         description=data.description,
-        evidence=data.evidence,
+        evidence=json.dumps(data.evidence, ensure_ascii=False),
         recommendation=data.recommendation,
         created_by_agent=data.created_by_agent,
     )

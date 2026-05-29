@@ -1,10 +1,7 @@
 import uuid
-from datetime import datetime, UTC
+from datetime import datetime, timezone
 
 from sqlmodel import SQLModel, Field
-from sqlalchemy import Column, String, Text, Boolean
-
-from app.models.enums import AssignmentProposalStatus, AssignmentResponseType, NegotiationStatus
 
 
 class AssignmentProposal(SQLModel, table=True):
@@ -15,12 +12,14 @@ class AssignmentProposal(SQLModel, table=True):
     stage_id: str = Field(foreign_key="stages.id")
     task_id: str = Field(foreign_key="tasks.id")
     recommended_owner_user_id: str = Field(foreign_key="users.id")
-    backup_owner_user_id: str | None = Field(default=None, sa_column=Column(String, nullable=True))
-    reason: str = Field(sa_column=Column(Text, nullable=False))
-    risk_note: str | None = Field(default=None, sa_column=Column(Text, nullable=True))
-    status: AssignmentProposalStatus = Field(default=AssignmentProposalStatus.proposed)
+    backup_owner_user_id: str | None = Field(default=None, foreign_key="users.id")
+    reason: str
+    risk_note: str | None = Field(default=None)
+    status: str = Field(default="proposed")  # "proposed" | "owner_confirmed" | "owner_rejected" | "negotiating" | "finalized"
     created_by_agent: bool = Field(default=False)
-    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc)
+    )
 
 
 class AssignmentResponse(SQLModel, table=True):
@@ -29,10 +28,12 @@ class AssignmentResponse(SQLModel, table=True):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
     proposal_id: str = Field(foreign_key="assignment_proposals.id")
     user_id: str = Field(foreign_key="users.id")
-    response: AssignmentResponseType
-    preferred_task_id: str | None = Field(default=None, sa_column=Column(String, nullable=True))
-    reason: str | None = Field(default=None, sa_column=Column(Text, nullable=True))
-    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    response: str  # "accept" | "reject"
+    preferred_task_id: str | None = Field(default=None, foreign_key="tasks.id")
+    reason: str | None = Field(default=None)
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc)
+    )
 
 
 class AssignmentNegotiation(SQLModel, table=True):
@@ -43,7 +44,9 @@ class AssignmentNegotiation(SQLModel, table=True):
     stage_id: str = Field(foreign_key="stages.id")
     from_user_id: str = Field(foreign_key="users.id")
     desired_task_id: str = Field(foreign_key="tasks.id")
-    current_owner_user_id: str | None = Field(default=None, sa_column=Column(String, nullable=True))
-    status: NegotiationStatus = Field(default=NegotiationStatus.pending)
-    agent_message: str = Field(sa_column=Column(Text, nullable=False))
-    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    current_owner_user_id: str | None = Field(default=None, foreign_key="users.id")
+    status: str = Field(default="pending")  # "pending" | "accepted" | "declined" | "resolved"
+    agent_message: str = Field(default="")
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc)
+    )

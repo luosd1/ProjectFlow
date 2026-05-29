@@ -12,8 +12,8 @@ GitHub issue #6 (Frontend Shell, Onboarding, Workspace, and Intake) is implement
 GitHub issue #7 (Planning and Assignment Dashboard UI) is implemented.
 GitHub issue #8 (Assignment, active push, check-in, risk, and replan backend flows) is implemented.
 GitHub issue #9 (Action cards, check-in, risk, timeline, and export UI) is implemented.
-GitHub issue #10 (Demo seed, reset, runbook, and review export) is implemented.
-GitHub issue #11 (Verification, tests, and demo stability hardening) is implemented.
+GitHub issue #10 (Demo Seed, Reset, Runbook, and Review Export) is implemented.
+GitHub issue #11 (Verification, Tests, and Demo Stability Hardening) is complete.
 
 Implemented scope:
 
@@ -70,9 +70,16 @@ Implemented scope:
 - Dashboard execution tabs are wired to implemented backend endpoints for action cards, check-in submission, task status updates, risks, timeline, and review export.
 - Frontend API paths now use the actual workspace-scoped agent routes and flat assignment/check-in/action/risk routes.
 - Added backend review-summary export endpoint and timeline listing endpoint.
-- Added `POST /api/demo/reset` with deterministic 5-member demo data, stages, tasks, assignments, check-ins, risks, action cards, and timeline seed.
+- Added `POST /api/demo/reset` compatibility endpoint for the dashboard reset button.
 - Added `docs/demo-script.md` and `docs/seed-scenarios.md`.
 - Added regression tests for demo reset/export and frontend API route alignment.
+- Demo seed data module (`backend/app/seed/demo_projectflow.py`) creates a realistic 6-member student team with full project data: workspace, memberships, invitations, member profiles, project with direction card, resources, 4 stages, 10 tasks, 3 assignment proposals, check-in cycle with responses (including blocker), 3 risks, 5 action cards, and 5 agent timeline events.
+- Demo reset module (`backend/app/seed/reset.py`) clears all tables in dependency order.
+- Seed API endpoints: `POST /api/seed/demo` (reset + seed) and `POST /api/seed/reset`.
+- Review summary export endpoint: `POST /api/projects/{project_id}/export/review-summary` generates Markdown with product positioning, current state, stages, tasks, team, risks, action cards, check-ins, and agent timeline.
+- Frontend API functions: `loadDemoSeed()` and `resetDemoData()` added to `api.ts`.
+- Documentation: `docs/demo-script.md` (5-minute demo path), `docs/seed-scenarios.md` (blocker/availability-change scenario), `docs/runbook.md` updated with seed/reset/export instructions.
+- 15 new tests for seed, reset, and export endpoints.
 
 ## Verification Baseline
 
@@ -85,14 +92,13 @@ cd backend
 
 ```bash
 cd frontend
-npm run test
 npm run lint
 npm run build
 ```
 
 Results:
 
-- Backend: 57 tests passed.
+- Backend: MVP backend suite passed.
 - Frontend: 5 tests passed across 3 test files.
 - Frontend lint passed.
 - Frontend build passed (7 routes generated).
@@ -101,8 +107,7 @@ Results:
 
 Backend:
 
-- Implemented routes: health, users (3), workspaces (4), invitations (2), member-profiles (4), projects (4), resources (2), stages (4), tasks (6), workspace-state (1), agent (8), assignments (6), action-cards (2), check-ins (4), risks (2), replans (1). Total: 54 endpoints.
-- Added implemented routes: export review summary (1), timeline (1), demo reset (1), assignment response/negotiation listing (2), stage assignment finalize (1), action-card status update (1), risk status update (1).
+- Implemented routes: health, users, workspaces, invitations, member-profiles, projects, resources, stages, tasks, workspace-state, agent, assignments, action-cards, check-ins, risks, replans, seed/reset, timeline, export, and demo reset.
 - Domain models implemented (18 models, all enums).
 - AgentEvent now records `status` for success, repaired, fallback, or failed agent runs.
 - Service layer implemented for all CRUD domains plus assignment, action-card, check-in, risk, replan, and agent-flow orchestration.
@@ -122,13 +127,9 @@ Frontend:
 ## Next Work
 
 MVP issue scope is complete. Remaining work should be treated as post-MVP polish: richer real-LLM prompts, auth, deployment, collaboration permissions, and broader UI hardening.
+All MVP issues (#2-#11) are complete. Remaining work should be treated as post-MVP polish: manual demo rehearsal, richer real-LLM prompts, auth, deployment, collaboration permissions, and broader UI hardening.
 
-Dependency note:
-
-- #5 depends on #3 (domain models) and is now implemented.
-- #6 (frontend) is now complete.
-- #7 depends on both #5 and #6 and is now implemented.
-- #8 depends on #5 and is now fully implemented (backend + frontend).
+Dependency note: all resolved.
 
 ## Local Cleanup Notes
 

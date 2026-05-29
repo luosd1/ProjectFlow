@@ -555,6 +555,19 @@ export async function updateRiskStatus(
   return normalizeRisk(risk);
 }
 
+// --- Seed / Reset ---
+export async function loadDemoSeed(): Promise<{ status: string; summary: Record<string, number> }> {
+  return request<{ status: string; summary: Record<string, number> }>("/seed/demo", {
+    method: "POST",
+  });
+}
+
+export async function resetDemoData(): Promise<{ status: string; deleted: Record<string, number> }> {
+  return request<{ status: string; deleted: Record<string, number> }>("/seed/reset", {
+    method: "POST",
+  });
+}
+
 // --- Export ---
 export async function exportReviewSummary(projectId: string): Promise<{ markdown: string }> {
   return request<{ markdown: string }>(`/projects/${projectId}/export/review-summary`, {

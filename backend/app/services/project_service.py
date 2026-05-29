@@ -1,3 +1,4 @@
+import json
 from datetime import UTC, datetime
 
 from sqlmodel import Session, select
@@ -37,6 +38,11 @@ def update_project(session: Session, project_id: str, data: ProjectUpdate) -> Pr
         raise ValueError(f"Project {project_id} not found")
 
     update_data = data.model_dump(exclude_unset=True)
+    if "direction_card" in update_data and update_data["direction_card"] is not None:
+        update_data["direction_card"] = json.dumps(
+            update_data["direction_card"],
+            ensure_ascii=False,
+        )
     for key, value in update_data.items():
         setattr(project, key, value)
     project.updated_at = datetime.now(UTC)

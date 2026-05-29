@@ -233,6 +233,17 @@ GET /api/projects/{project_id}/timeline
 
 Returns persisted agent events, including fallback and export events.
 
+### Seed and Reset
+
+```http
+POST /api/seed/demo
+POST /api/seed/reset
+```
+
+`POST /api/seed/demo` loads deterministic demo seed data (6-member team, project, stages, tasks, assignments, check-ins, risks, action cards, agent events). It resets existing data first to ensure a clean state.
+
+`POST /api/seed/reset` deletes all rows from all tables. Use for a clean demo reset.
+
 ### Export
 
 ```http
@@ -240,12 +251,15 @@ POST /api/projects/{project_id}/export/review-summary
 ```
 
 Returns:
+Response:
 
 ```json
-{"markdown":"# ProjectFlow Review Summary\n..."}
+{
+  "markdown": "# ProjectFlow 评审摘要\n..."
+}
 ```
 
-The export is generated from persisted project state and logs an `export` timeline event.
+Generates a review-ready Markdown summary covering product positioning, current state, risks, replanning, and next actions. The export is generated from persisted project state and logs an `export` timeline event.
 
 ### Demo
 
@@ -253,7 +267,11 @@ The export is generated from persisted project state and logs an `export` timeli
 POST /api/demo/reset
 ```
 
-Resets local demo data and returns the created workspace, project, user, stage, and task IDs for deterministic manual review.
+Compatibility endpoint for the frontend reset button. It resets and reloads the deterministic demo state, then returns the created workspace, project, user, stage, and task IDs for manual review.
+
+## Planned MVP Endpoints
+
+None remaining — all planned MVP endpoints are now implemented.
 
 ## Contract Rules
 
