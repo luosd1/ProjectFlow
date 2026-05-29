@@ -132,12 +132,12 @@ def _log_agent_event(
         workspace_id=workspace_state.workspace_id,
         event_type=event_type,
         status=AgentEventStatus(status.value),
-        input_snapshot={
+        input_snapshot=json.dumps({
             "event_type": event_type.value,
             "user_prompt": user_prompt,
             "workspace_state": workspace_state.model_dump(mode="json"),
-        },
-        output_snapshot=output.model_dump(mode="json"),
+        }, ensure_ascii=False),
+        output_snapshot=json.dumps(output.model_dump(mode="json"), ensure_ascii=False),
         reasoning_summary=output.reason,
     )
     session.add(event)
@@ -158,12 +158,12 @@ def _log_failed_agent_event(
         workspace_id=workspace_state.workspace_id,
         event_type=event_type,
         status=AgentEventStatus.failed,
-        input_snapshot={
+        input_snapshot=json.dumps({
             "event_type": event_type.value,
             "user_prompt": user_prompt,
             "workspace_state": workspace_state.model_dump(mode="json"),
-        },
-        output_snapshot={"error": str(error)},
+        }, ensure_ascii=False),
+        output_snapshot=json.dumps({"error": str(error)}, ensure_ascii=False),
         reasoning_summary=str(error),
     )
     session.add(event)

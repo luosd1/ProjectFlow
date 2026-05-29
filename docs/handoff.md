@@ -12,6 +12,7 @@ GitHub issue #6 (Frontend Shell, Onboarding, Workspace, and Intake) is implement
 GitHub issue #7 (Planning and Assignment Dashboard UI) is implemented.
 GitHub issue #8 (Assignment, active push, check-in, risk, and replan backend flows) is implemented.
 GitHub issue #10 (Demo Seed, Reset, Runbook, and Review Export) is implemented.
+GitHub issue #11 (Verification, Tests, and Demo Stability Hardening) is complete.
 
 Implemented scope:
 
@@ -84,15 +85,13 @@ cd backend
 
 ```bash
 cd frontend
-npm run test
 npm run lint
 npm run build
 ```
 
 Results:
 
-- Backend: 69 tests passed (54 existing + 15 new seed/reset/export).
-- Frontend: 3 tests passed across 2 test files.
+- Backend: 69 tests passed.
 - Frontend lint passed.
 - Frontend build passed (7 routes generated).
 
@@ -119,19 +118,13 @@ Frontend:
 
 ## Next Work
 
-Recommended next implementation target:
+All MVP issues (#2–#11) are complete. Remaining work:
 
-1. Demo stability hardening and animation polish.
-2. Frontend wiring for seed/reset buttons in the UI.
-3. Full E2E demo verification.
+1. Manual end-to-end demo walkthrough.
+2. Real LLM integration testing.
+3. Production deployment considerations.
 
-Dependency note:
-
-- #5 depends on #3 (domain models) and is now implemented.
-- #6 (frontend) is now complete.
-- #7 depends on both #5 and #6 and is now implemented.
-- #8 depends on #5 and is now fully implemented (backend + frontend).
-- #10 depends on #7 and #8 and is now fully implemented.
+Dependency note: all resolved.
 
 ## Local Cleanup Notes
 

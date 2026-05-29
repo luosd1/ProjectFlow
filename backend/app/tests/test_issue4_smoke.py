@@ -2,7 +2,6 @@
 import pytest
 from fastapi.testclient import TestClient
 
-from app.core.database import create_db_and_tables
 from app.main import app
 from app.api.routes_users import router as users_router
 from app.api.routes_workspaces import router as workspaces_router
@@ -15,15 +14,7 @@ app.include_router(invitations_router, prefix="/api")
 app.include_router(profiles_router, prefix="/api")
 
 
-@pytest.fixture(autouse=True)
-def _ensure_tables():
-    create_db_and_tables()
-
-
-client = TestClient(app)
-
-
-def test_user_crud():
+def test_user_crud(client: TestClient):
     # Create
     r = client.post("/api/users", json={"display_name": "Alice", "email": "alice@test.com"})
     assert r.status_code == 201
@@ -46,7 +37,7 @@ def test_user_crud():
     assert r.status_code == 404
 
 
-def test_workspace_crud():
+def test_workspace_crud(client: TestClient):
     # Create a user first
     r = client.post("/api/users", json={"display_name": "Owner"})
     owner_id = r.json()["id"]
@@ -76,7 +67,7 @@ def test_workspace_crud():
     assert r.status_code == 404
 
 
-def test_invitation_flow():
+def test_invitation_flow(client: TestClient):
     # Setup: user + workspace
     r = client.post("/api/users", json={"display_name": "Inviter"})
     owner_id = r.json()["id"]
@@ -112,7 +103,7 @@ def test_invitation_flow():
     assert r.status_code == 400
 
 
-def test_member_profile_crud():
+def test_member_profile_crud(client: TestClient):
     # Setup
     r = client.post("/api/users", json={"display_name": "ProfileUser"})
     user_id = r.json()["id"]
@@ -160,7 +151,7 @@ def test_member_profile_crud():
     assert r.status_code == 404
 
 
-def test_add_member_duplicate():
+def test_add_member_duplicate(client: TestClient):
     # Setup
     r = client.post("/api/users", json={"display_name": "MemberUser"})
     user_id = r.json()["id"]

@@ -1,4 +1,5 @@
 """Smoke tests: verify all domain model tables can be created, inserted, and read."""
+import json
 import os
 import uuid
 from datetime import date, datetime
@@ -52,7 +53,12 @@ from app.models.enums import (
 
 @pytest.fixture(name="session")
 def session_fixture():
-    engine = create_engine("sqlite://", connect_args={"check_same_thread": False})
+    engine = create_engine(
+        "sqlite://",
+        connect_args={"check_same_thread": False},
+        json_serializer=json.dumps,
+        json_deserializer=json.loads,
+    )
     SQLModel.metadata.create_all(engine)
     with Session(engine) as session:
         yield session
@@ -111,7 +117,7 @@ def test_member_profile(session: Session):
     profile = MemberProfile(
         user_id=user.id,
         workspace_id=ws.id,
-        skills=[{"name": "frontend", "level": 3}],
+        skills='[{"name": "frontend", "level": 3}]',
         available_hours_per_week=8,
         role_preference="UI",
         interests="design",
@@ -120,7 +126,7 @@ def test_member_profile(session: Session):
     session.add(profile)
     session.commit()
     session.refresh(profile)
-    assert profile.skills == [{"name": "frontend", "level": 3}]
+    assert profile.skills == '[{"name": "frontend", "level": 3}]'
 
 
 def test_project_and_resource(session: Session):
@@ -175,7 +181,7 @@ def test_stage(session: Session):
         start_date=date(2026, 5, 28),
         end_date=date(2026, 6, 1),
         deliverable="Core module",
-        done_criteria=["All P0 tasks done"],
+        done_criteria='["All P0 tasks done"]',
         order_index=0,
     )
     session.add(stage)
@@ -354,7 +360,7 @@ def test_risk(session: Session):
         severity=RiskSeverity.high,
         title="Deadline risk",
         description="May miss deadline",
-        evidence=["P0 task blocked"],
+        evidence='["P0 task blocked"]',
         recommendation="Reassign or cut scope",
         created_by_agent=True,
     )
@@ -362,7 +368,7 @@ def test_risk(session: Session):
     session.commit()
     session.refresh(risk)
     assert risk.status == RiskStatus.open
-    assert risk.evidence == ["P0 task blocked"]
+    assert risk.evidence == '["P0 task blocked"]'
 
 
 def test_action_card(session: Session):
@@ -405,8 +411,8 @@ def test_agent_event(session: Session):
         project_id=project.id,
         workspace_id=ws.id,
         event_type=AgentEventType.clarify,
-        input_snapshot={"idea": "AI agent"},
-        output_snapshot={"questions": []},
+        input_snapshot='{"idea": "AI agent"}',
+        output_snapshot='{"questions": []}',
         reasoning_summary="Generated clarification questions",
     )
     session.add(event)

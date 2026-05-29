@@ -1,5 +1,6 @@
 from datetime import date
 
+import json
 import pytest
 from sqlmodel import Session, SQLModel, create_engine, select
 
@@ -77,7 +78,12 @@ def _workspace_state() -> WorkspaceStateResponse:
 
 @pytest.fixture(name="session")
 def session_fixture():
-    engine = create_engine("sqlite://", connect_args={"check_same_thread": False})
+    engine = create_engine(
+        "sqlite://",
+        connect_args={"check_same_thread": False},
+        json_serializer=json.dumps,
+        json_deserializer=json.loads,
+    )
     SQLModel.metadata.create_all(engine)
     with Session(engine) as session:
         yield session
@@ -128,7 +134,7 @@ def test_coordinator_delegates_direction_card_generation_and_logs_event(session:
 
     event = session.exec(select(AgentEvent)).one()
     assert event.event_type == AgentEventType.clarify
-    assert event.output_snapshot["summary"] == "Need direction"
+    assert json.loads(event.output_snapshot)["summary"] == "Need direction"
 
 
 def test_coordinator_exposes_all_agent_flow_methods():
