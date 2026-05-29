@@ -29,7 +29,8 @@ def accept_invitation(session: Session, token: str) -> Invitation:
         raise ValueError("Invitation not found")
 
     if invitation.status != InvitationStatus.pending:
-        raise ValueError(f"Invitation is already {invitation.status.value}")
+        status_val = invitation.status.value if hasattr(invitation.status, "value") else invitation.status
+        raise ValueError(f"Invitation is already {status_val}")
 
     # Update invitation status
     invitation.status = InvitationStatus.accepted

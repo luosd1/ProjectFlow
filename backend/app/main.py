@@ -17,6 +17,7 @@ from app.api.routes_risks import router as risks_router
 from app.api.routes_action_cards import router as action_cards_router
 from app.api.routes_replans import router as replans_router
 from app.api.routes_agent import router as agent_router
+from app.api.routes_agent_proposals import router as agent_proposals_router
 from app.api.routes_workspace_state import router as workspace_state_router
 from app.api.routes_seed import router as seed_router
 from app.api.routes_export import router as export_router
@@ -45,6 +46,7 @@ app.include_router(risks_router, prefix="/api")
 app.include_router(action_cards_router, prefix="/api")
 app.include_router(replans_router, prefix="/api")
 app.include_router(agent_router, prefix="/api")
+app.include_router(agent_proposals_router, prefix="/api")
 app.include_router(workspace_state_router, prefix="/api")
 app.include_router(seed_router, prefix="/api")
 app.include_router(export_router, prefix="/api")

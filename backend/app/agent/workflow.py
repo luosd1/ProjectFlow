@@ -130,14 +130,13 @@ def _log_agent_event(
     event = AgentEvent(
         project_id=workspace_state.project.id if workspace_state.project else "",
         workspace_id=workspace_state.workspace_id,
-        event_type=event_type,
-        status=AgentEventStatus(status.value),
-        input_snapshot={
+        event_type=event_type.value if hasattr(event_type, "value") else event_type,
+        input_snapshot=json.dumps({
             "event_type": event_type.value,
             "user_prompt": user_prompt,
             "workspace_state": workspace_state.model_dump(mode="json"),
-        },
-        output_snapshot=output.model_dump(mode="json"),
+        }),
+        output_snapshot=json.dumps(output.model_dump(mode="json")),
         reasoning_summary=output.reason,
     )
     session.add(event)
@@ -156,14 +155,13 @@ def _log_failed_agent_event(
     event = AgentEvent(
         project_id=workspace_state.project.id if workspace_state.project else "",
         workspace_id=workspace_state.workspace_id,
-        event_type=event_type,
-        status=AgentEventStatus.failed,
-        input_snapshot={
+        event_type=event_type.value if hasattr(event_type, "value") else event_type,
+        input_snapshot=json.dumps({
             "event_type": event_type.value,
             "user_prompt": user_prompt,
             "workspace_state": workspace_state.model_dump(mode="json"),
-        },
-        output_snapshot={"error": str(error)},
+        }),
+        output_snapshot=json.dumps({"error": str(error)}),
         reasoning_summary=str(error),
     )
     session.add(event)

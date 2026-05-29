@@ -28,6 +28,13 @@ class DirectionCardOutput(AgentOutputBase):
     target_outcome: str = Field(min_length=1)
     constraints: list[str] = Field(default_factory=list)
     suggested_questions: list[str] = Field(default_factory=list)
+    requires_confirmation: bool = True
+
+    @model_validator(mode="after")
+    def require_confirmation(self) -> "DirectionCardOutput":
+        if not self.requires_confirmation:
+            raise ValueError("direction card output requires confirmation")
+        return self
 
 
 class StagePlanItem(BaseModel):
@@ -49,6 +56,13 @@ class StagePlanItem(BaseModel):
 
 class StagePlanOutput(AgentOutputBase):
     stages: list[StagePlanItem] = Field(min_length=1)
+    requires_confirmation: bool = True
+
+    @model_validator(mode="after")
+    def require_confirmation(self) -> "StagePlanOutput":
+        if not self.requires_confirmation:
+            raise ValueError("stage plan output requires confirmation")
+        return self
 
 
 class TaskBreakdownItem(BaseModel):
@@ -66,6 +80,13 @@ class TaskBreakdownItem(BaseModel):
 
 class TaskBreakdownOutput(AgentOutputBase):
     tasks: list[TaskBreakdownItem] = Field(min_length=1)
+    requires_confirmation: bool = True
+
+    @model_validator(mode="after")
+    def require_confirmation(self) -> "TaskBreakdownOutput":
+        if not self.requires_confirmation:
+            raise ValueError("task breakdown output requires confirmation")
+        return self
 
 
 class AssignmentRecommendationItem(BaseModel):

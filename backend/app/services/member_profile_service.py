@@ -1,3 +1,4 @@
+import json
 from datetime import datetime, UTC
 
 from sqlmodel import Session, select
@@ -7,10 +8,13 @@ from app.schemas.member_profile import MemberProfileCreate, MemberProfileUpdate
 
 
 def create_profile(session: Session, data: MemberProfileCreate) -> MemberProfile:
+    skills = data.skills
+    if not isinstance(skills, str):
+        skills = json.dumps(skills)
     profile = MemberProfile(
         user_id=data.user_id,
         workspace_id=data.workspace_id,
-        skills=data.skills,
+        skills=skills,
         available_hours_per_week=data.available_hours_per_week,
         role_preference=data.role_preference,
         interests=data.interests,
@@ -34,6 +38,8 @@ def update_profile(session: Session, profile_id: str, data: MemberProfileUpdate)
 
     update_data = data.model_dump(exclude_unset=True)
     for field, value in update_data.items():
+        if field == "skills" and not isinstance(value, str):
+            value = json.dumps(value)
         setattr(profile, field, value)
 
     profile.updated_at = datetime.now(UTC)

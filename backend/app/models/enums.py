@@ -134,3 +134,9 @@ class AgentEventStatus(str, Enum):
     repaired = "repaired"
     fallback = "fallback"
     failed = "failed"
+
+
+class AgentProposalStatus(str, Enum):
+    pending = "pending"
+    confirmed = "confirmed"
+    rejected = "rejected"

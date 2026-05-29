@@ -1,3 +1,5 @@
+import json
+
 from sqlmodel import Session, select
 
 from app.models import Project, Risk, Stage, Task
@@ -13,6 +15,9 @@ def create_risk(session: Session, data: RiskCreate) -> Risk:
     if data.task_id:
         _require(session, Task, data.task_id, "Task")
 
+    evidence = data.evidence
+    if not isinstance(evidence, str):
+        evidence = json.dumps(evidence)
     risk = Risk(
         project_id=data.project_id,
         stage_id=data.stage_id,
@@ -21,7 +26,7 @@ def create_risk(session: Session, data: RiskCreate) -> Risk:
         severity=data.severity,
         title=data.title,
         description=data.description,
-        evidence=data.evidence,
+        evidence=evidence,
         recommendation=data.recommendation,
         created_by_agent=data.created_by_agent,
     )

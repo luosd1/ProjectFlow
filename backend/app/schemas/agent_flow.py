@@ -14,3 +14,4 @@ class AgentFlowRead(BaseModel):
     used_fallback: bool
     output: dict[str, Any]
     created_ids: list[str] = []
+    proposal_id: str | None = None

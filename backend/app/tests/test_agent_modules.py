@@ -128,7 +128,10 @@ def test_coordinator_delegates_direction_card_generation_and_logs_event(session:
 
     event = session.exec(select(AgentEvent)).one()
     assert event.event_type == AgentEventType.clarify
-    assert event.output_snapshot["summary"] == "Need direction"
+    # output_snapshot is stored as JSON string
+    import json
+    output = json.loads(event.output_snapshot) if isinstance(event.output_snapshot, str) else event.output_snapshot
+    assert output["summary"] == "Need direction"
 
 
 def test_coordinator_exposes_all_agent_flow_methods():

@@ -1,3 +1,5 @@
+import json
+
 from sqlmodel import Session, select
 
 from app.models.stage import Stage
@@ -5,14 +7,15 @@ from app.schemas.stage import StageCreate, StageUpdate
 
 
 def create_stage(session: Session, data: StageCreate) -> Stage:
+    done_criteria = data.done_criteria if data.done_criteria is not None else []
     stage = Stage(
         project_id=data.project_id,
         name=data.name,
         goal=data.goal,
-        start_date=data.start_date,
-        end_date=data.end_date,
+        start_date=data.start_date.isoformat() if hasattr(data.start_date, "isoformat") else data.start_date,
+        end_date=data.end_date.isoformat() if hasattr(data.end_date, "isoformat") else data.end_date,
         deliverable=data.deliverable,
-        done_criteria=data.done_criteria if data.done_criteria is not None else [],
+        done_criteria=json.dumps(done_criteria) if not isinstance(done_criteria, str) else done_criteria,
         order_index=data.order_index if data.order_index is not None else 0,
     )
     session.add(stage)
