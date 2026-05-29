@@ -86,9 +86,12 @@ def _workspace_state() -> WorkspaceStateResponse:
         (
             AgentEventType.clarify,
             {
-                "summary": "Scope needs one clarification.",
-                "target_outcome": "Confirm MVP direction.",
-                "constraints": ["Deadline is fixed"],
+                "problem": "The project scope is not yet confirmed.",
+                "users": "Student project team with mixed skills.",
+                "value": "A clear direction card that enables staged planning.",
+                "deliverables": ["Confirmed direction card", "Scope boundaries"],
+                "boundaries": ["Deadline is fixed"],
+                "risks": ["Scope creep without boundaries."],
                 "suggested_questions": ["Which demo path matters most?"],
                 "reason": "The project deadline is near.",
             },
@@ -257,7 +260,7 @@ def test_validate_agent_output_accepts_expected_schema(event_type, payload, expe
 
 def test_validate_agent_output_fails_closed_when_required_fields_are_missing():
     with pytest.raises(AgentOutputValidationError):
-        validate_agent_output(AgentEventType.clarify, {"summary": "Missing reason"})
+        validate_agent_output(AgentEventType.clarify, {"problem": "Missing reason and other required fields"})
 
 
 def test_validate_agent_output_rejects_fabricated_task_or_member_references():
@@ -318,3 +321,387 @@ def test_replan_requires_confirmation():
                 "reason": "Replan changes must not auto-apply.",
             },
         )
+
+
+# ---------------------------------------------------------------------------
+# Realistic messy project fixture
+# ---------------------------------------------------------------------------
+
+def _messy_workspace_state() -> WorkspaceStateResponse:
+    """4 members, 3 stages, 6 tasks — mixed skills, blockers, overdue work."""
+    return WorkspaceStateResponse(
+        workspace_id="ws-messy",
+        workspace_name="Hackathon Team",
+        members=[
+            MemberState(
+                user_id="u-alice",
+                display_name="Alice",
+                skills=["backend", "database"],
+                available_hours_per_week=10,
+                role_preference="backend",
+                interests="APIs and data modeling",
+                constraints="Not available on weekends",
+            ),
+            MemberState(
+                user_id="u-bob",
+                display_name="Bob",
+                skills=["frontend", "design"],
+                available_hours_per_week=6,
+                role_preference="frontend",
+                interests="UI polish",
+                constraints="Exam week — reduced hours",
+            ),
+            MemberState(
+                user_id="u-carol",
+                display_name="Carol",
+                skills=["backend", "devops"],
+                available_hours_per_week=8,
+                role_preference="devops",
+                interests="CI/CD and deployment",
+                constraints="",
+            ),
+            MemberState(
+                user_id="u-dan",
+                display_name="Dan",
+                skills=["frontend", "testing"],
+                available_hours_per_week=12,
+                role_preference="testing",
+                interests="E2E testing",
+                constraints="Prefers not to do design work",
+            ),
+        ],
+        project=ProjectState(
+            id="proj-hack",
+            name="Campus Event Platform",
+            idea="A platform for students to discover and register for campus events",
+            deadline=date(2026, 6, 14),
+            status="active",
+            current_stage_id="stage-2",
+            stages=[
+                StageState(
+                    id="stage-1",
+                    name="Backend Foundation",
+                    goal="API and database schema complete",
+                    status="done",
+                    order_index=0,
+                ),
+                StageState(
+                    id="stage-2",
+                    name="Frontend Integration",
+                    goal="Connect UI to API, core user flows work",
+                    status="active",
+                    order_index=1,
+                ),
+                StageState(
+                    id="stage-3",
+                    name="Polish & Deploy",
+                    goal="Testing, bug fixes, deployment",
+                    status="not_started",
+                    order_index=2,
+                ),
+            ],
+            tasks=[
+                TaskState(
+                    id="task-api",
+                    title="Build event CRUD API",
+                    status="done",
+                    priority="P0",
+                    owner_user_id="u-alice",
+                    due_date=date(2026, 6, 1),
+                    can_cut=False,
+                ),
+                TaskState(
+                    id="task-db",
+                    title="Design database schema",
+                    status="done",
+                    priority="P0",
+                    owner_user_id="u-alice",
+                    due_date=date(2026, 5, 30),
+                    can_cut=False,
+                ),
+                TaskState(
+                    id="task-ui",
+                    title="Build event list page",
+                    status="in_progress",
+                    priority="P0",
+                    owner_user_id="u-bob",
+                    due_date=date(2026, 6, 5),
+                    can_cut=False,
+                ),
+                TaskState(
+                    id="task-auth",
+                    title="Add login flow",
+                    status="not_started",
+                    priority="P1",
+                    owner_user_id=None,
+                    due_date=date(2026, 6, 7),
+                    can_cut=False,
+                ),
+                TaskState(
+                    id="task-e2e",
+                    title="E2E test for registration",
+                    status="not_started",
+                    priority="P1",
+                    owner_user_id=None,
+                    due_date=date(2026, 6, 10),
+                    can_cut=True,
+                ),
+                TaskState(
+                    id="task-deploy",
+                    title="Set up CI/CD pipeline",
+                    status="blocked",
+                    priority="P0",
+                    owner_user_id="u-carol",
+                    due_date=date(2026, 6, 4),
+                    can_cut=False,
+                ),
+            ],
+        ),
+    )
+
+
+# ---------------------------------------------------------------------------
+# Tests using messy fixture — representative model outputs
+# ---------------------------------------------------------------------------
+
+
+class TestDirectionCardWithMessyProject:
+    def test_accepts_grounding_direction_card(self):
+        output = validate_agent_output(
+            AgentEventType.clarify,
+            {
+                "problem": "Campus events are scattered across WeChat groups and posters.",
+                "users": "Students who want to discover and register for events.",
+                "value": "One place to find and sign up for campus events.",
+                "deliverables": ["Event listing page", "Registration form", "Login system"],
+                "boundaries": ["No payment integration in MVP", "Admin panel deferred"],
+                "risks": ["Bob has exam week — reduced frontend capacity", "CI/CD task is blocked"],
+                "suggested_questions": [
+                    "Should registration require login or be anonymous?",
+                    "Is event approval needed before publishing?",
+                ],
+                "reason": "Direction card grounded in team availability and project deadline.",
+            },
+            workspace_state=_messy_workspace_state(),
+        )
+        assert isinstance(output, DirectionCardOutput)
+        assert output.problem
+        assert len(output.deliverables) >= 1
+
+
+class TestPlanningWithMessyProject:
+    def test_accepts_multi_stage_plan(self):
+        output = validate_agent_output(
+            AgentEventType.plan,
+            {
+                "stages": [
+                    {
+                        "name": "Backend Foundation",
+                        "goal": "API and database schema complete",
+                        "start_date": "2026-05-29",
+                        "end_date": "2026-06-01",
+                        "deliverable": "Working CRUD API with schema",
+                        "done_criteria": ["All API endpoints return 200", "Schema matches spec"],
+                        "order_index": 0,
+                        "reason": "Alice has backend+database skills and 10h/week.",
+                    },
+                    {
+                        "name": "Frontend Integration",
+                        "goal": "Core user flows connected to API",
+                        "start_date": "2026-06-02",
+                        "end_date": "2026-06-07",
+                        "deliverable": "Event list and registration pages",
+                        "done_criteria": ["User can browse events", "User can register"],
+                        "order_index": 1,
+                        "reason": "Bob has frontend skills but reduced hours due to exams.",
+                    },
+                    {
+                        "name": "Polish & Deploy",
+                        "goal": "Testing, bug fixes, deployment",
+                        "start_date": "2026-06-08",
+                        "end_date": "2026-06-14",
+                        "deliverable": "Deployed MVP",
+                        "done_criteria": ["E2E tests pass", "Deployed to staging"],
+                        "order_index": 2,
+                        "reason": "Carol handles devops; Dan handles testing.",
+                    },
+                ],
+                "reason": "Three stages match the project deadline and team skills.",
+            },
+            workspace_state=_messy_workspace_state(),
+        )
+        assert isinstance(output, StagePlanOutput)
+        assert len(output.stages) == 3
+
+
+class TestBreakdownWithMessyProject:
+    def test_accepts_prioritized_task_breakdown(self):
+        output = validate_agent_output(
+            AgentEventType.breakdown,
+            {
+                "tasks": [
+                    {
+                        "stage_id": "stage-2",
+                        "title": "Build event list page",
+                        "description": "Fetch events from API and render in a list UI.",
+                        "priority": "P0",
+                        "due_date": "2026-06-05",
+                        "estimated_hours": 6,
+                        "dependency_ids": [],
+                        "acceptance_criteria": ["Events load from API", "List is responsive"],
+                        "can_cut": False,
+                        "reason": "P0: core user flow. Bob has frontend skills.",
+                    },
+                    {
+                        "stage_id": "stage-2",
+                        "title": "Add login flow",
+                        "description": "Implement OAuth or simple login.",
+                        "priority": "P1",
+                        "due_date": "2026-06-07",
+                        "estimated_hours": 4,
+                        "dependency_ids": [],
+                        "acceptance_criteria": ["User can log in", "Session persists"],
+                        "can_cut": False,
+                        "reason": "P1: needed for registration but not for browsing.",
+                    },
+                    {
+                        "stage_id": "stage-2",
+                        "title": "Build registration form",
+                        "description": "Allow users to sign up for events.",
+                        "priority": "P1",
+                        "due_date": "2026-06-06",
+                        "estimated_hours": 4,
+                        "dependency_ids": [],
+                        "acceptance_criteria": ["Form submits to API", "Confirmation shown"],
+                        "can_cut": True,
+                        "reason": "P1 but can_cut: registration is valuable but not critical for demo.",
+                    },
+                ],
+                "reason": "Tasks prioritize the event list (P0), then auth and registration (P1).",
+            },
+            workspace_state=_messy_workspace_state(),
+        )
+        assert isinstance(output, TaskBreakdownOutput)
+        assert len(output.tasks) == 3
+        # Verify can_cut is respected
+        assert output.tasks[0].can_cut is False
+        assert output.tasks[2].can_cut is True
+
+
+class TestAssignmentWithMessyProject:
+    def test_rejects_fabricated_member_in_assignment(self):
+        with pytest.raises(AgentOutputValidationError) as exc_info:
+            validate_agent_output(
+                AgentEventType.assign,
+                {
+                    "assignments": [
+                        {
+                            "task_id": "task-auth",
+                            "recommended_owner_user_id": "u-fabricated",
+                            "reason": "This member does not exist.",
+                        }
+                    ],
+                    "requires_confirmation": True,
+                    "reason": "Should fail validation.",
+                },
+                workspace_state=_messy_workspace_state(),
+            )
+        assert "u-fabricated" in str(exc_info.value)
+
+
+class TestRiskWithMessyProject:
+    def test_accepts_evidence_grounded_risks(self):
+        output = validate_agent_output(
+            AgentEventType.risk,
+            {
+                "risks": [
+                    {
+                        "type": "deadline",
+                        "severity": "high",
+                        "title": "CI/CD task is blocked and overdue",
+                        "description": "task-deploy is blocked and due 2026-06-04, which is past.",
+                        "evidence": [{"task_id": "task-deploy", "status": "blocked", "due_date": "2026-06-04"}],
+                        "recommendation": "Unblock the CI/CD task or reassign to another member.",
+                        "stage_id": "stage-2",
+                        "task_id": "task-deploy",
+                    },
+                    {
+                        "type": "workload",
+                        "severity": "medium",
+                        "title": "Bob has reduced availability",
+                        "description": "Bob has exam week constraints and only 6h/week.",
+                        "evidence": [{"user_id": "u-bob", "available_hours_per_week": 6}],
+                        "recommendation": "Consider Dan for frontend tasks to reduce Bob's load.",
+                    },
+                ],
+                "requires_confirmation": True,
+                "reason": "High severity deadline risk requires team attention.",
+            },
+            workspace_state=_messy_workspace_state(),
+        )
+        assert isinstance(output, RiskAnalysisOutput)
+        assert len(output.risks) == 2
+
+    def test_rejects_fabricated_task_id_in_evidence(self):
+        with pytest.raises(AgentOutputValidationError) as exc_info:
+            validate_agent_output(
+                AgentEventType.risk,
+                {
+                    "risks": [
+                        {
+                            "type": "deadline",
+                            "severity": "medium",
+                            "title": "Fake risk",
+                            "description": "Evidence references a fabricated task.",
+                            "evidence": [{"task_id": "task-fabricated", "status": "blocked"}],
+                            "recommendation": "Ignore.",
+                        }
+                    ],
+                    "reason": "Evidence has fabricated ID.",
+                },
+                workspace_state=_messy_workspace_state(),
+            )
+        assert "task-fabricated" in str(exc_info.value)
+
+
+class TestReplanWithMessyProject:
+    def test_accepts_grounded_replan(self):
+        output = validate_agent_output(
+            AgentEventType.replan,
+            {
+                "before": {"task-deploy": "Due 2026-06-04, blocked"},
+                "after": {"task-deploy": "Due 2026-06-08, unblocked"},
+                "impact": "Delays deploy by 4 days but stays within project deadline.",
+                "stage_adjustments": [
+                    {
+                        "stage_id": "stage-2",
+                        "new_end_date": "2026-06-09",
+                        "reason": "CI/CD unblock delayed; extend frontend stage.",
+                    }
+                ],
+                "task_changes": [
+                    {
+                        "task_id": "task-deploy",
+                        "due_date": "2026-06-08",
+                        "reason": "Move deploy date after blocker is resolved.",
+                    }
+                ],
+                "action_cards": [
+                    {
+                        "type": "team_next_step",
+                        "title": "Resolve CI/CD blocker",
+                        "content": "Carol needs to unblock the deploy task.",
+                        "reason": "task-deploy is the critical path blocker.",
+                        "user_id": "u-carol",
+                        "task_id": "task-deploy",
+                        "stage_id": "stage-2",
+                    }
+                ],
+                "requires_confirmation": True,
+                "reason": "Replan grounded in blocked task evidence and member availability.",
+            },
+            workspace_state=_messy_workspace_state(),
+        )
+        assert isinstance(output, ReplanOutput)
+        assert len(output.stage_adjustments) == 1
+        assert len(output.task_changes) == 1
