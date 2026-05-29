@@ -10,10 +10,14 @@ import {
   finalizeAssignments,
   getProjectState,
   respondToAssignment,
+  runActivePush,
   runAssignment,
   runBreakdown,
+  runCheckinAnalysis,
   runClarification,
   runPlanning,
+  runReplan,
+  runRiskAnalysis,
   startNegotiation,
 } from "@/lib/api";
 import type { ProjectState } from "@/lib/types";
@@ -23,6 +27,10 @@ const AGENT_RUNNERS: Record<AgentAction, (projectId: string) => Promise<unknown>
   plan: runPlanning,
   breakdown: runBreakdown,
   assign: runAssignment,
+  push: runActivePush,
+  "analyze-checkins": runCheckinAnalysis,
+  "risk-analysis": runRiskAnalysis,
+  replan: runReplan,
 };
 
 export default function ProjectDashboardPage() {

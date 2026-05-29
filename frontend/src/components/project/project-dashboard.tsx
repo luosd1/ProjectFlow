@@ -1,19 +1,29 @@
 "use client";
 
-import { AlertCircle, ChevronRight, Loader2, PlayCircle, Sparkles } from "lucide-react";
+import { AlertCircle, ChevronRight, Loader2, PlayCircle, RotateCcw, Sparkles } from "lucide-react";
 
 import { DirectionCardPanel } from "@/components/agent/direction-card-panel";
+import { ActionCardsList } from "@/components/agent/action-card";
+import { TeamActionsPanel } from "@/components/agent/team-actions-panel";
+import { AgentTimeline } from "@/components/agent/timeline";
+import { ExportPanel } from "@/components/agent/export-panel";
 import { AssignmentFlowPanel } from "@/components/assignment/assignment-flow-panel";
+import { CheckInForm } from "@/components/checkin/checkin-form";
+import { RiskPanel } from "@/components/risk/risk-panel";
+import { ReplanDiff } from "@/components/risk/replan-diff";
 import { StagePlanBoard } from "@/components/stage/stage-plan-board";
 import { TaskBreakdownBoard } from "@/components/task/task-breakdown-board";
+import { TaskStatusUpdateList } from "@/components/task/task-status-update";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { ProjectState } from "@/lib/types";
 
-export type AgentAction = "clarify" | "plan" | "breakdown" | "assign";
+export type AgentAction = "clarify" | "plan" | "breakdown" | "assign" | "push" | "analyze-checkins" | "risk-analysis" | "replan";
 
 type ProjectDashboardProps = {
   state: ProjectState;
+  currentUserId?: string;
   pendingAction?: AgentAction | null;
   actionError?: string | null;
   onRunAgent?: (action: AgentAction) => void | Promise<void>;
@@ -30,6 +40,26 @@ type ProjectDashboardProps = {
     desiredTaskId: string,
   ) => void | Promise<void>;
   onFinalizeAssignments?: (stageId: string) => void | Promise<void>;
+  onSubmitCheckin?: (data: {
+    user_id: string;
+    task_id?: string;
+    what_done: string;
+    blocker?: string;
+    available_hours_next_cycle?: number;
+    mood_or_confidence?: "low" | "medium" | "high";
+  }) => void | Promise<void>;
+  onUpdateTaskStatus?: (data: {
+    user_id: string;
+    status: "not_started" | "in_progress" | "done" | "blocked";
+    progress_note?: string;
+    blocker?: string;
+  }) => void | Promise<void>;
+  onResolveRisk?: (riskId: string) => void | Promise<void>;
+  onAcceptRisk?: (riskId: string) => void | Promise<void>;
+  onIgnoreRisk?: (riskId: string) => void | Promise<void>;
+  onDismissActionCard?: (cardId: string) => void | Promise<void>;
+  onCompleteActionCard?: (cardId: string) => void | Promise<void>;
+  onResetDemo?: () => void | Promise<void>;
 };
 
 function projectStatusClass(status: ProjectState["project"]["status"]) {
@@ -45,20 +75,33 @@ function actionLabel(action: AgentAction) {
     plan: "Generate plan",
     breakdown: "Break down tasks",
     assign: "Recommend assignments",
+    push: "Active push",
+    "analyze-checkins": "Analyze check-ins",
+    "risk-analysis": "Risk analysis",
+    replan: "Replan",
   };
   return labels[action];
 }
 
 export function ProjectDashboard({
   state,
+  currentUserId,
   pendingAction,
   actionError,
   onRunAgent,
   onRespondToAssignment,
   onStartNegotiation,
   onFinalizeAssignments,
+  onSubmitCheckin,
+  onUpdateTaskStatus,
+  onResolveRisk,
+  onAcceptRisk,
+  onIgnoreRisk,
+  onDismissActionCard,
+  onCompleteActionCard,
+  onResetDemo,
 }: ProjectDashboardProps) {
-  const { project, stages, tasks, action_cards } = state;
+  const { project, stages, tasks, action_cards, risks, timeline } = state;
   const currentStage = stages.find((stage) => stage.id === project.current_stage_id)
     ?? stages.find((stage) => stage.status === "active")
     ?? stages[0];
@@ -67,6 +110,10 @@ export function ProjectDashboard({
   const ownerCoverage = tasks.length === 0
     ? 0
     : Math.round((tasks.filter((task) => task.owner_user_id).length / tasks.length) * 100);
+
+  const personalCards = action_cards.filter(
+    (card) => card.user_id === currentUserId && card.status === "active"
+  );
 
   const runButton = (action: AgentAction) => (
     <Button
@@ -123,7 +170,18 @@ export function ProjectDashboard({
         </div>
 
         <div className="mt-5 flex flex-wrap gap-2">
-          {(["clarify", "plan", "breakdown", "assign"] as AgentAction[]).map(runButton)}
+          {(["clarify", "plan", "breakdown", "assign", "push", "analyze-checkins", "risk-analysis", "replan"] as AgentAction[]).map(runButton)}
+          {onResetDemo && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onResetDemo}
+              className="text-ink/50 hover:text-coral"
+            >
+              <RotateCcw className="h-4 w-4" />
+              Reset demo
+            </Button>
+          )}
         </div>
 
         {actionError && (
@@ -169,6 +227,87 @@ export function ProjectDashboard({
           onStartNegotiation={onStartNegotiation}
           onFinalizeAssignments={onFinalizeAssignments}
         />
+
+        <Tabs defaultValue="actions" className="w-full">
+          <TabsList className="mb-4">
+            <TabsTrigger value="actions">Action cards</TabsTrigger>
+            <TabsTrigger value="checkin">Check-in & Status</TabsTrigger>
+            <TabsTrigger value="risks">Risks & Replan</TabsTrigger>
+            <TabsTrigger value="timeline">Timeline & Export</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="actions" className="space-y-5">
+            {personalCards.length > 0 && (
+              <section className="rounded-lg border border-ink/10 bg-white p-5 shadow-sm">
+                <div>
+                  <h2 className="text-lg font-bold text-ink">Your actions</h2>
+                  <p className="mt-1 text-sm text-ink/60">
+                    Personal tasks and reminders assigned to you.
+                  </p>
+                </div>
+                <div className="mt-5">
+                  <ActionCardsList
+                    cards={personalCards}
+                    onDismiss={onDismissActionCard}
+                    onComplete={onCompleteActionCard}
+                    pending={Boolean(pendingAction)}
+                  />
+                </div>
+              </section>
+            )}
+            <TeamActionsPanel
+              cards={action_cards}
+              onDismiss={onDismissActionCard}
+              onComplete={onCompleteActionCard}
+              pending={Boolean(pendingAction)}
+            />
+          </TabsContent>
+
+          <TabsContent value="checkin" className="space-y-5">
+            {currentUserId && onSubmitCheckin && (
+              <CheckInForm
+                tasks={tasks}
+                userId={currentUserId}
+                onSubmit={onSubmitCheckin}
+                pending={Boolean(pendingAction)}
+              />
+            )}
+            {currentUserId && onUpdateTaskStatus && (
+              <section className="rounded-lg border border-ink/10 bg-white p-5 shadow-sm">
+                <div>
+                  <h2 className="text-lg font-bold text-ink">Update task status</h2>
+                  <p className="mt-1 text-sm text-ink/60">
+                    Manually update progress, blockers, and completion.
+                  </p>
+                </div>
+                <div className="mt-5">
+                  <TaskStatusUpdateList
+                    tasks={tasks.filter((t) => t.owner_user_id === currentUserId)}
+                    userId={currentUserId}
+                    onUpdate={onUpdateTaskStatus}
+                    pending={Boolean(pendingAction)}
+                  />
+                </div>
+              </section>
+            )}
+          </TabsContent>
+
+          <TabsContent value="risks" className="space-y-5">
+            <RiskPanel
+              risks={risks}
+              onResolve={onResolveRisk}
+              onAccept={onAcceptRisk}
+              onIgnore={onIgnoreRisk}
+              pending={Boolean(pendingAction)}
+            />
+            <ReplanDiff before={tasks} after={tasks} />
+          </TabsContent>
+
+          <TabsContent value="timeline" className="space-y-5">
+            <AgentTimeline events={timeline} />
+            <ExportPanel projectId={project.id} />
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   );

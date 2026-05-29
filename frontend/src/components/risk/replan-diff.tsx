@@ -1,0 +1,175 @@
+"use client";
+
+import { ArrowRight, GitBranch, Minus, Plus, RefreshCw } from "lucide-react";
+
+import { Badge } from "@/components/ui/badge";
+import type { Task } from "@/lib/types";
+
+type ReplanDiffProps = {
+  before: Task[];
+  after: Task[];
+};
+
+type DiffItem = {
+  kind: "added" | "removed" | "modified" | "unchanged";
+  task: Task;
+  beforeTask?: Task;
+  changes: string[];
+};
+
+function buildDiff(before: Task[], after: Task[]): DiffItem[] {
+  const beforeMap = new Map(before.map((t) => [t.id, t]));
+  const afterMap = new Map(after.map((t) => [t.id, t]));
+  const allIds = new Set([...beforeMap.keys(), ...afterMap.keys()]);
+  const items: DiffItem[] = [];
+
+  for (const id of allIds) {
+    const b = beforeMap.get(id);
+    const a = afterMap.get(id);
+
+    if (!b && a) {
+      items.push({ kind: "added", task: a, changes: ["New task"] });
+    } else if (b && !a) {
+      items.push({ kind: "removed", task: b, changes: ["Removed"] });
+    } else if (b && a) {
+      const changes: string[] = [];
+      if (b.status !== a.status) changes.push(`Status: ${b.status} → ${a.status}`);
+      if (b.owner_user_id !== a.owner_user_id) changes.push("Owner changed");
+      if (b.due_date !== a.due_date) changes.push(`Due: ${b.due_date} → ${a.due_date}`);
+      if (b.priority !== a.priority) changes.push(`Priority: ${b.priority} → ${a.priority}`);
+      if (changes.length > 0) {
+        items.push({ kind: "modified", task: a, beforeTask: b, changes });
+      } else {
+        items.push({ kind: "unchanged", task: a, changes: [] });
+      }
+    }
+  }
+
+  return items;
+}
+
+function kindClass(kind: DiffItem["kind"]) {
+  switch (kind) {
+    case "added":
+      return "border-moss/30 bg-moss/5";
+    case "removed":
+      return "border-coral/30 bg-coral/5";
+    case "modified":
+      return "border-citron/50 bg-citron/10";
+    default:
+      return "border-ink/10 bg-paper/40";
+  }
+}
+
+function kindBadgeClass(kind: DiffItem["kind"]) {
+  switch (kind) {
+    case "added":
+      return "bg-moss/15 text-moss";
+    case "removed":
+      return "bg-coral/15 text-coral";
+    case "modified":
+      return "bg-citron/40 text-ink";
+    default:
+      return "bg-ink/8 text-ink/55";
+  }
+}
+
+function kindLabel(kind: DiffItem["kind"]) {
+  switch (kind) {
+    case "added":
+      return "Added";
+    case "removed":
+      return "Removed";
+    case "modified":
+      return "Changed";
+    default:
+      return "Unchanged";
+  }
+}
+
+function kindIcon(kind: DiffItem["kind"]) {
+  switch (kind) {
+    case "added":
+      return <Plus className="h-4 w-4 text-moss" />;
+    case "removed":
+      return <Minus className="h-4 w-4 text-coral" />;
+    case "modified":
+      return <RefreshCw className="h-4 w-4 text-harbor" />;
+    default:
+      return <GitBranch className="h-4 w-4 text-ink/40" />;
+  }
+}
+
+export function ReplanDiff({ before, after }: ReplanDiffProps) {
+  const diff = buildDiff(before, after);
+  const added = diff.filter((d) => d.kind === "added");
+  const removed = diff.filter((d) => d.kind === "removed");
+  const modified = diff.filter((d) => d.kind === "modified");
+
+  if (diff.length === 0) {
+    return (
+      <div className="rounded-lg border border-dashed border-ink/15 bg-paper/70 p-6 text-sm text-ink/55">
+        No changes to display.
+      </div>
+    );
+  }
+
+  return (
+    <section className="rounded-lg border border-ink/10 bg-white p-5 shadow-sm">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="text-lg font-bold text-ink">Replan changes</h2>
+          <p className="mt-1 text-sm text-ink/60">What changed after the latest replan.</p>
+        </div>
+        <div className="flex gap-2">
+          {added.length > 0 && (
+            <Badge className="bg-moss/15 text-moss">
+              <Plus className="mr-1 h-3 w-3" />
+              {added.length}
+            </Badge>
+          )}
+          {removed.length > 0 && (
+            <Badge className="bg-coral/15 text-coral">
+              <Minus className="mr-1 h-3 w-3" />
+              {removed.length}
+            </Badge>
+          )}
+          {modified.length > 0 && (
+            <Badge className="bg-citron/40 text-ink">
+              <RefreshCw className="mr-1 h-3 w-3" />
+              {modified.length}
+            </Badge>
+          )}
+        </div>
+      </div>
+
+      <div className="mt-5 grid gap-3">
+        {diff
+          .filter((d) => d.kind !== "unchanged")
+          .map((item) => (
+            <article
+              key={item.task.id}
+              className={`rounded-lg border p-4 ${kindClass(item.kind)}`}
+            >
+              <div className="flex flex-wrap items-center gap-2">
+                {kindIcon(item.kind)}
+                <h3 className="font-semibold text-ink">{item.task.title}</h3>
+                <Badge className={kindBadgeClass(item.kind)}>{kindLabel(item.kind)}</Badge>
+              </div>
+
+              {item.changes.length > 0 && (
+                <div className="mt-3 space-y-1">
+                  {item.changes.map((change, index) => (
+                    <div key={index} className="flex items-center gap-2 text-sm text-ink/70">
+                      <ArrowRight className="h-3 w-3 text-ink/40" />
+                      {change}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </article>
+          ))}
+      </div>
+    </section>
+  );
+}
