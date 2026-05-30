@@ -6,7 +6,7 @@ from typing import Any
 
 from sqlmodel import Session
 
-from app.agent.llm_client import LLMClient, LLMError
+from app.agent.llm_client import LLMClient, LLMConnectionError, LLMError, LLMTimeoutError
 from app.agent.output_schemas import AgentOutputBase, AgentOutputValidationError, validate_agent_output
 from app.agent.prompts import build_prompt_messages
 from app.models import AgentEvent
@@ -49,8 +49,20 @@ def generate_structured_output(
 
     for attempt in range(1, 3):
         try:
-            last_raw = llm_client.complete(messages)
-        except LLMError:
+            last_raw = llm_client.complete(messages, max_tokens=_max_tokens_for_event(event_type))
+        except (LLMTimeoutError, LLMConnectionError) as exc:
+            return _fallback_after_provider_error(
+                session=session,
+                workspace_state=workspace_state,
+                event_type=event_type,
+                user_prompt=user_prompt,
+                fallback_payload=fallback_payload,
+                attempts=attempt,
+                raw_output=last_raw,
+                provider_error=exc,
+            )
+        except LLMError as exc:
+            _log_failed_agent_event(session, workspace_state, event_type, user_prompt, exc)
             raise
         try:
             payload, repaired = _parse_or_repair_json(last_raw)
@@ -90,6 +102,55 @@ def generate_structured_output(
         used_fallback=True,
         raw_output=last_raw,
     )
+
+
+def _fallback_after_provider_error(
+    *,
+    session: Session | None,
+    workspace_state: WorkspaceStateResponse,
+    event_type: AgentEventType,
+    user_prompt: str,
+    fallback_payload: dict[str, Any],
+    attempts: int,
+    raw_output: str | None,
+    provider_error: LLMError,
+) -> AgentRunResult:
+    try:
+        output = validate_agent_output(event_type, fallback_payload, workspace_state=workspace_state)
+    except AgentOutputValidationError as exc:
+        _log_failed_agent_event(session, workspace_state, event_type, user_prompt, provider_error)
+        raise exc from provider_error
+
+    _log_agent_event(
+        session,
+        workspace_state,
+        event_type,
+        AgentRunStatus.fallback,
+        user_prompt,
+        output,
+        provider_error=provider_error,
+    )
+    return AgentRunResult(
+        output=output,
+        status=AgentRunStatus.fallback,
+        attempts=attempts,
+        used_fallback=True,
+        raw_output=raw_output,
+    )
+
+
+def _max_tokens_for_event(event_type: AgentEventType) -> int:
+    return {
+        AgentEventType.clarify: 900,
+        AgentEventType.plan: 1600,
+        AgentEventType.breakdown: 1400,
+        AgentEventType.assign: 1100,
+        AgentEventType.negotiate: 900,
+        AgentEventType.push: 1000,
+        AgentEventType.checkin: 900,
+        AgentEventType.risk: 1000,
+        AgentEventType.replan: 1200,
+    }[event_type]
 
 
 def _parse_or_repair_json(raw: str) -> tuple[dict[str, Any], bool]:
@@ -139,19 +200,27 @@ def _log_agent_event(
     status: AgentRunStatus,
     user_prompt: str,
     output: AgentOutputBase,
+    provider_error: LLMError | None = None,
 ) -> None:
     if session is None:
         return
+    input_snapshot = {
+        "event_type": event_type.value,
+        "user_prompt": user_prompt,
+        "workspace_state": workspace_state.model_dump(mode="json"),
+    }
+    if provider_error is not None:
+        input_snapshot["provider_error"] = {
+            "type": provider_error.__class__.__name__,
+            "message": str(provider_error),
+            "detail": provider_error.detail,
+        }
     event = AgentEvent(
         project_id=workspace_state.project.id if workspace_state.project else "",
         workspace_id=workspace_state.workspace_id,
         event_type=event_type,
         status=AgentEventStatus(status.value),
-        input_snapshot=json.dumps({
-            "event_type": event_type.value,
-            "user_prompt": user_prompt,
-            "workspace_state": workspace_state.model_dump(mode="json"),
-        }, ensure_ascii=False),
+        input_snapshot=json.dumps(input_snapshot, ensure_ascii=False),
         output_snapshot=json.dumps(output.model_dump(mode="json"), ensure_ascii=False),
         reasoning_summary=output.reason,
     )

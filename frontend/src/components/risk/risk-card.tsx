@@ -20,17 +20,36 @@ function severityClass(severity: Risk["severity"]) {
   return "bg-ink/8 text-ink/55";
 }
 
+function severityLabel(severity: Risk["severity"]) {
+  const labels: Record<Risk["severity"], string> = {
+    high: "高",
+    medium: "中",
+    low: "低",
+  };
+  return labels[severity];
+}
+
 function typeLabel(type: Risk["type"]) {
   const labels: Record<Risk["type"], string> = {
-    deadline: "Deadline",
-    dependency: "Dependency",
-    workload: "Workload",
-    scope: "Scope",
-    review: "Review",
-    assignment: "Assignment",
-    checkin: "Check-in",
+    deadline: "截止风险",
+    dependency: "依赖风险",
+    workload: "工作量风险",
+    scope: "范围风险",
+    review: "评审风险",
+    assignment: "分工风险",
+    checkin: "签到风险",
   };
   return labels[type];
+}
+
+function statusLabel(status: Risk["status"]) {
+  const labels: Record<Risk["status"], string> = {
+    open: "待处理",
+    accepted: "已接受",
+    ignored: "已忽略",
+    resolved: "已解决",
+  };
+  return labels[status];
 }
 
 function typeClass(type: Risk["type"]) {
@@ -83,7 +102,7 @@ export function RiskCard({ risk, onAccept, onIgnore, onResolve, pending }: RiskC
           <div className="flex flex-wrap items-center gap-2">
             <AlertTriangle className="h-4 w-4 text-coral" />
             <h3 className="font-semibold text-ink">{risk.title}</h3>
-            <Badge className={severityClass(risk.severity)}>{risk.severity}</Badge>
+            <Badge className={severityClass(risk.severity)}>{severityLabel(risk.severity)}</Badge>
             <Badge className={typeClass(risk.type)}>{typeLabel(risk.type)}</Badge>
             <Badge
               className={
@@ -94,14 +113,14 @@ export function RiskCard({ risk, onAccept, onIgnore, onResolve, pending }: RiskC
                     : "bg-ink/8 text-ink/55"
               }
             >
-              {risk.status}
+              {statusLabel(risk.status)}
             </Badge>
           </div>
           <p className="mt-2 text-sm text-ink/70">{risk.description}</p>
 
           {risk.evidence.length > 0 && (
             <div className="mt-3">
-              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-ink/45">Evidence</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-ink/45">证据</p>
               <ul className="mt-1 space-y-1">
                 {risk.evidence.map((item, index) => renderEvidenceItem(item, index))}
               </ul>
@@ -110,7 +129,7 @@ export function RiskCard({ risk, onAccept, onIgnore, onResolve, pending }: RiskC
 
           {risk.recommendation && (
             <div className="mt-3 rounded-md bg-white px-3 py-2 text-sm text-ink/75">
-              <span className="font-semibold text-ink/70">Recommendation:</span> {risk.recommendation}
+              <span className="font-semibold text-ink/70">建议：</span> {risk.recommendation}
             </div>
           )}
         </div>
@@ -124,7 +143,7 @@ export function RiskCard({ risk, onAccept, onIgnore, onResolve, pending }: RiskC
               className="bg-moss text-white hover:bg-moss/85"
             >
               <ShieldCheck className="h-4 w-4" />
-              Resolve
+              解决
             </Button>
             <Button
               size="sm"
@@ -133,7 +152,7 @@ export function RiskCard({ risk, onAccept, onIgnore, onResolve, pending }: RiskC
               onClick={() => onAccept?.(risk.id)}
             >
               <CheckCircle2 className="h-4 w-4" />
-              Accept
+              接受
             </Button>
             <Button
               size="sm"
@@ -142,7 +161,7 @@ export function RiskCard({ risk, onAccept, onIgnore, onResolve, pending }: RiskC
               onClick={() => onIgnore?.(risk.id)}
             >
               <EyeOff className="h-4 w-4" />
-              Ignore
+              忽略
             </Button>
           </div>
         )}

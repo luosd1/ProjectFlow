@@ -21,21 +21,21 @@ export function TeamActionsPanel({ cards, onDismiss, onComplete, pending }: Team
     <section className="rounded-lg border border-ink/10 bg-white p-5 shadow-sm">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="text-lg font-bold text-ink">Team next actions</h2>
+          <h2 className="text-lg font-bold text-ink">团队下一步</h2>
           <p className="mt-1 text-sm text-ink/60">
-            Shared next steps and reminders surfaced by the agent.
+            Agent 推送的团队共同行动和提醒。
           </p>
         </div>
         <div className="flex items-center gap-1 rounded-lg bg-citron/35 px-3 py-1 text-xs font-medium text-ink">
           <Lightbulb className="h-3.5 w-3.5" />
-          {teamCards.filter((c) => c.status === "active").length} active
+          {teamCards.filter((c) => c.status === "active").length} 进行中
         </div>
       </div>
 
       <div className="mt-5">
         <ActionCardsList
           cards={teamCards}
-          emptyText="No team action cards yet. Run active push after assignments are confirmed."
+          emptyText="暂无团队行动卡。分工确认后运行主动推进。"
           onDismiss={onDismiss}
           onComplete={onComplete}
           pending={pending}

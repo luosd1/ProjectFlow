@@ -36,6 +36,16 @@ function statusClass(status: Task["status"]) {
   return "bg-white text-ink/55";
 }
 
+function statusLabel(status: Task["status"]) {
+  const labels: Record<Task["status"], string> = {
+    not_started: "未开始",
+    in_progress: "进行中",
+    done: "已完成",
+    blocked: "受阻",
+  };
+  return labels[status];
+}
+
 export function TaskStatusUpdate({ task, onUpdate, userId, pending }: TaskStatusUpdateProps) {
   const [status, setStatus] = useState<Task["status"]>(task.status);
   const [progressNote, setProgressNote] = useState("");
@@ -59,7 +69,7 @@ export function TaskStatusUpdate({ task, onUpdate, userId, pending }: TaskStatus
       setProgressNote("");
       setBlocker("");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Update failed");
+      setError(err instanceof Error ? err.message : "更新失败");
     }
   };
 
@@ -67,12 +77,12 @@ export function TaskStatusUpdate({ task, onUpdate, userId, pending }: TaskStatus
     <div className="rounded-lg border border-ink/10 bg-white p-4">
       <div className="flex flex-wrap items-center gap-2">
         <h3 className="font-semibold text-ink">{task.title}</h3>
-        <Badge className={statusClass(task.status)}>{task.status}</Badge>
+        <Badge className={statusClass(task.status)}>{statusLabel(task.status)}</Badge>
       </div>
 
       <div className="mt-4 grid gap-4">
         <div className="space-y-2">
-          <Label htmlFor={`status-${task.id}`}>Status</Label>
+          <Label htmlFor={`status-${task.id}`}>状态</Label>
           <Select
             value={status}
             onValueChange={(v) => setStatus(v as Task["status"])}
@@ -81,33 +91,33 @@ export function TaskStatusUpdate({ task, onUpdate, userId, pending }: TaskStatus
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="not_started">Not started</SelectItem>
-              <SelectItem value="in_progress">In progress</SelectItem>
-              <SelectItem value="done">Done</SelectItem>
-              <SelectItem value="blocked">Blocked</SelectItem>
+              <SelectItem value="not_started">未开始</SelectItem>
+              <SelectItem value="in_progress">进行中</SelectItem>
+              <SelectItem value="done">已完成</SelectItem>
+              <SelectItem value="blocked">受阻</SelectItem>
             </SelectContent>
           </Select>
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor={`note-${task.id}`}>Progress note</Label>
+          <Label htmlFor={`note-${task.id}`}>进展说明</Label>
           <Textarea
             id={`note-${task.id}`}
             value={progressNote}
             onChange={(e) => setProgressNote(e.target.value)}
-            placeholder="What changed? (optional)"
+            placeholder="本次有哪些进展？（可选）"
             rows={2}
           />
         </div>
 
         {status === "blocked" && (
           <div className="space-y-2">
-            <Label htmlFor={`blocker-${task.id}`}>Blocker reason</Label>
+            <Label htmlFor={`blocker-${task.id}`}>阻塞原因</Label>
             <Textarea
               id={`blocker-${task.id}`}
               value={blocker}
               onChange={(e) => setBlocker(e.target.value)}
-              placeholder="What is blocking this task?"
+              placeholder="当前卡在哪里？"
               rows={2}
             />
           </div>
@@ -124,7 +134,7 @@ export function TaskStatusUpdate({ task, onUpdate, userId, pending }: TaskStatus
       {success && (
         <div className="mt-4 flex items-start gap-2 rounded-lg border border-moss/20 bg-moss/10 p-3 text-sm text-moss">
           <CheckCircle2 className="mt-0.5 h-4 w-4" />
-          <p>Status updated.</p>
+          <p>状态已更新。</p>
         </div>
       )}
 
@@ -135,7 +145,7 @@ export function TaskStatusUpdate({ task, onUpdate, userId, pending }: TaskStatus
           className="bg-ink text-white hover:bg-ink/85"
         >
           {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-          {pending ? "Updating..." : "Update status"}
+          {pending ? "更新中..." : "更新状态"}
         </Button>
       </div>
     </div>
@@ -153,7 +163,7 @@ export function TaskStatusUpdateList({ tasks, userId, onUpdate, pending }: TaskS
   if (tasks.length === 0) {
     return (
       <div className="rounded-lg border border-dashed border-ink/15 bg-paper/70 p-6 text-sm text-ink/55">
-        No tasks to update.
+        暂无可更新的任务。
       </div>
     );
   }

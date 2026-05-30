@@ -36,15 +36,15 @@ function buildDiff(before: Task[], after: Task[]): DiffItem[] {
     const a = afterMap.get(id);
 
     if (!b && a) {
-      items.push({ kind: "added", task: a, changes: ["New task"] });
+      items.push({ kind: "added", task: a, changes: ["新增任务"] });
     } else if (b && !a) {
-      items.push({ kind: "removed", task: b, changes: ["Removed"] });
+      items.push({ kind: "removed", task: b, changes: ["移除任务"] });
     } else if (b && a) {
       const changes: string[] = [];
-      if (b.status !== a.status) changes.push(`Status: ${b.status} → ${a.status}`);
-      if (b.owner_user_id !== a.owner_user_id) changes.push("Owner changed");
-      if (b.due_date !== a.due_date) changes.push(`Due: ${b.due_date} → ${a.due_date}`);
-      if (b.priority !== a.priority) changes.push(`Priority: ${b.priority} → ${a.priority}`);
+      if (b.status !== a.status) changes.push(`状态：${b.status} → ${a.status}`);
+      if (b.owner_user_id !== a.owner_user_id) changes.push("负责人已调整");
+      if (b.due_date !== a.due_date) changes.push(`截止：${b.due_date} → ${a.due_date}`);
+      if (b.priority !== a.priority) changes.push(`优先级：${b.priority} → ${a.priority}`);
       if (changes.length > 0) {
         items.push({ kind: "modified", task: a, beforeTask: b, changes });
       } else {
@@ -85,13 +85,13 @@ function kindBadgeClass(kind: DiffItem["kind"]) {
 function kindLabel(kind: DiffItem["kind"]) {
   switch (kind) {
     case "added":
-      return "Added";
+      return "新增";
     case "removed":
-      return "Removed";
+      return "移除";
     case "modified":
-      return "Changed";
+      return "调整";
     default:
-      return "Unchanged";
+      return "未变化";
   }
 }
 
@@ -136,7 +136,7 @@ export function ReplanDiff({ before, after, proposal }: ReplanDiffProps) {
   if (diff.length === 0 && !proposal) {
     return (
       <div className="rounded-lg border border-dashed border-ink/15 bg-paper/70 p-6 text-sm text-ink/55">
-        No changes to display.
+        暂无可展示的调整。
       </div>
     );
   }
@@ -145,8 +145,8 @@ export function ReplanDiff({ before, after, proposal }: ReplanDiffProps) {
     <section className="rounded-lg border border-ink/10 bg-white p-5 shadow-sm">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="text-lg font-bold text-ink">Replan changes</h2>
-          <p className="mt-1 text-sm text-ink/60">What changed after the latest replan.</p>
+          <h2 className="text-lg font-bold text-ink">计划调整</h2>
+          <p className="mt-1 text-sm text-ink/60">展示最近一次重排后的任务变化。</p>
         </div>
         <div className="flex gap-2">
           {added.length > 0 && (
@@ -175,30 +175,30 @@ export function ReplanDiff({ before, after, proposal }: ReplanDiffProps) {
         <div className="mt-4 rounded-lg border border-citron/30 bg-citron/5 p-4">
           <div className="flex flex-wrap items-center gap-2">
             <ShieldCheck className="h-4 w-4 text-citron" />
-            <span className="font-semibold text-ink">Replan proposal</span>
+            <span className="font-semibold text-ink">重排建议</span>
             {proposal.requires_confirmation && (
-              <Badge className="bg-citron/40 text-ink">Needs confirmation</Badge>
+              <Badge className="bg-citron/40 text-ink">待确认</Badge>
             )}
           </div>
 
           {proposal.impact && (
             <p className="mt-2 text-sm text-ink/70">
-              <span className="font-semibold text-ink/80">Impact:</span> {proposal.impact}
+              <span className="font-semibold text-ink/80">影响：</span> {proposal.impact}
             </p>
           )}
           {proposal.reason && (
             <p className="mt-1 text-sm text-ink/70">
-              <span className="font-semibold text-ink/80">Reason:</span> {proposal.reason}
+              <span className="font-semibold text-ink/80">原因：</span> {proposal.reason}
             </p>
           )}
 
           <div className="mt-3 grid gap-3 md:grid-cols-2">
             <div className="rounded-md bg-white px-3 py-2">
-              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-ink/45">Before</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-ink/45">调整前</p>
               <div className="mt-1">{renderSummary(proposal.before)}</div>
             </div>
             <div className="rounded-md bg-white px-3 py-2">
-              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-ink/45">After</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-ink/45">调整后</p>
               <div className="mt-1">{renderSummary(proposal.after)}</div>
             </div>
           </div>

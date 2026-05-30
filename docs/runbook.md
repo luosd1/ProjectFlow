@@ -113,8 +113,8 @@ npm audit --omit=dev
 
 Expected baseline as of 2026-05-30:
 
-- Backend tests pass: 146 tests (MVP API/model smoke plus CORS, agent schema, module, provider, fallback, timeline logging, assignment, action-card, check-in, risk, replan, seed/reset/export, demo reset, LLM diagnostic, agent proposal, and agent endpoint tests).
-- Frontend tests pass: 7 tests across 3 files (API layer, project dashboard, home page).
+- Backend tests pass: 166 tests (MVP API/model smoke plus CORS, agent schema, module, provider, fallback, timeline logging, assignment, action-card, check-in, risk, replan, seed/reset/export, demo reset, LLM diagnostic, agent proposal, and agent endpoint tests).
+- Frontend tests pass: 10 tests across 6 files (API layer, project dashboard, home page, error boundaries, action cards, task status update).
 - Frontend lint passes.
 - Frontend production build passes.
 - `npm audit --omit=dev` reports 0 vulnerabilities.
@@ -174,6 +174,23 @@ If an older local `projectflow.sqlite` was created before `AgentEvent.status` ex
 ALTER TABLE agent_events ADD COLUMN status TEXT NOT NULL DEFAULT 'success';
 ```
 
+If an older local `projectflow.sqlite` was created before action cards gained richer active-push fields, back up the file first, then add the missing columns:
+
+```sql
+ALTER TABLE action_cards ADD COLUMN goal TEXT;
+ALTER TABLE action_cards ADD COLUMN start_suggestion TEXT;
+ALTER TABLE action_cards ADD COLUMN completion_standard TEXT;
+```
+
+If an older local `projectflow.sqlite` was created before assignment proposals gained recommendation citation fields, back up the file first, then add the missing columns:
+
+```sql
+ALTER TABLE assignment_proposals ADD COLUMN skill_match TEXT;
+ALTER TABLE assignment_proposals ADD COLUMN availability_match TEXT;
+ALTER TABLE assignment_proposals ADD COLUMN preference_match TEXT;
+ALTER TABLE assignment_proposals ADD COLUMN constraint_respected TEXT;
+```
+
 ## Environment Variables
 
 | Variable | Used by | Required now | Notes |
@@ -184,7 +201,8 @@ ALTER TABLE agent_events ADD COLUMN status TEXT NOT NULL DEFAULT 'success';
 | `LLM_API_KEY` | backend LLM | only for real LLM | Required when `LLM_PROVIDER=openai` or `openai-compatible`. Must stay in `.env`. |
 | `LLM_BASE_URL` | backend LLM | no | Defaults to `https://api.openai.com/v1`; override for OpenAI-compatible providers. |
 | `LLM_MODEL` | backend LLM | no | Defaults to `gpt-4o-mini`. |
-| `LLM_TIMEOUT_SECONDS` | backend LLM | no | Defaults to `120.0`. |
+| `LLM_TIMEOUT_SECONDS` | backend LLM diagnostics | no | Defaults to `30.0`; used by provider diagnostics and direct client checks. |
+| `LLM_AGENT_TIMEOUT_SECONDS` | backend Agent generation | no | Defaults to `120.0`; real structured Agent runs are slower than health checks. |
 | `DEMO_ADMIN_TOKEN` | backend demo admin | outside development | Required for seed/reset endpoints when `APP_ENV` is not `development`. Send it as `X-ProjectFlow-Admin-Token`. |
 | `NEXT_PUBLIC_API_BASE_URL` | frontend | no | Defaults to `http://localhost:8000/api`. |
 
@@ -336,7 +354,8 @@ LLM_PROVIDER=openai
 LLM_API_KEY=sk-...your-key-here...
 LLM_BASE_URL=https://api.openai.com/v1
 LLM_MODEL=gpt-4o-mini
-LLM_TIMEOUT_SECONDS=120.0
+LLM_TIMEOUT_SECONDS=30.0
+LLM_AGENT_TIMEOUT_SECONDS=120.0
 ```
 
 For OpenAI-compatible providers:
@@ -347,6 +366,7 @@ LLM_API_KEY=your-provider-key
 LLM_BASE_URL=https://your-provider.example.com/v1
 LLM_MODEL=your-model-name
 LLM_TIMEOUT_SECONDS=30.0
+LLM_AGENT_TIMEOUT_SECONDS=120.0
 ```
 
 **Security rules**:
@@ -359,7 +379,9 @@ LLM_TIMEOUT_SECONDS=30.0
 
 - Agent endpoints call the configured LLM API with structured output prompts.
 - If the LLM call succeeds and the output passes Pydantic validation, the response includes `"status": "success"`.
-- If the LLM call fails (timeout, auth error, invalid JSON, schema mismatch), the system retries up to 2 times, then falls back to a template payload with `"status": "fallback"` or `"status": "repaired"`.
+- If the LLM call times out, has a transient connection failure, or returns invalid/schema-mismatched content after retry, the system falls back to a template payload with `"status": "fallback"`.
+- Auth, provider configuration, quota/rate-limit, and malformed provider HTTP responses are surfaced as clear failures instead of being treated as Agent success.
+- If the LLM output is repairable JSON and passes Pydantic validation after repair, the response is labeled `"status": "repaired"` and `"used_fallback": false`.
 - High-impact outputs (clarify, plan, breakdown) create `AgentProposal` records that require human confirmation before persisting to project state.
 
 **Diagnostic check** (before running real-provider mode):
@@ -500,7 +522,7 @@ Use this checklist to manually verify the full MVP flow. It covers both mock mod
 - [ ] Restart the backend
 - [ ] Run `curl http://localhost:8000/api/llm/diagnostic` — returns `{"status":"ok"}`
 - [ ] Run through the full checklist above with real LLM responses
-- [ ] Verify that Agent responses include `"status": "success"` (not fallback)
+- [ ] Verify that Agent responses include `"status": "success"` or `"status": "repaired"` with `"used_fallback": false` for the core loop
 - [ ] Verify that structured output passes Pydantic validation
 - [ ] Verify that fallback still works if LLM call fails (e.g., set invalid API key temporarily)
 - [ ] Switch back to `LLM_PROVIDER=mock` after testing
@@ -537,7 +559,7 @@ Use this checklist to manually verify the full MVP flow. It covers both mock mod
 | Area | Behavior | Impact |
 |---|---|---|
 | Mock mode Agent outputs | All Agent endpoints return template/fallback payloads in mock mode | Low — fallback payloads cite real workspace data and validate against schemas |
-| Real-provider fallback | If LLM call fails (timeout, auth, schema mismatch), system retries then falls back to template | Low — fallback is transparent via `status` and `used_fallback` fields |
+| Real-provider fallback | Transient timeout/connection errors or schema mismatch after retry fall back to template; auth/config/quota errors fail clearly | Low — fallback is transparent via `status` and `used_fallback` fields |
 | Repaired outputs | If LLM returns valid JSON that partially matches schema, system repairs and flags as `repaired` | Low — repaired outputs are labeled in timeline |
 
 ### What Is Out of Scope for MVP

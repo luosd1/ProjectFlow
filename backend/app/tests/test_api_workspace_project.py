@@ -137,8 +137,13 @@ def test_full_demo_path(client: TestClient):
     assert len(state["members"]) >= 1
     assert state["project"] is not None
     assert state["project"]["id"] == proj_id
+    assert state["project"]["deliverables"] == "MVP demo"
     assert len(state["project"]["stages"]) == 1
+    assert state["project"]["stages"][0]["deliverable"] == "Working API layer"
+    assert state["project"]["stages"][0]["done_criteria"] == ["All P0 endpoints pass smoke tests"]
     assert len(state["project"]["tasks"]) == 1
+    assert state["project"]["tasks"][0]["description"] == "Build CRUD endpoints for workspaces"
+    assert state["project"]["tasks"][0]["estimated_hours"] == 4
     assert state["project"]["tasks"][0]["status"] == "not_started"
 
 

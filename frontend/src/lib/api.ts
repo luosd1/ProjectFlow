@@ -102,14 +102,14 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 
     if (!response.ok) {
       const body = await response.text().catch(() => "");
-      throw new Error(`Request failed: ${response.status} ${body}`);
+      throw new Error(`请求失败：${response.status} ${body}`);
     }
 
     const text = await response.text();
     try {
       return JSON.parse(text) as T;
     } catch {
-      throw new Error(`Invalid JSON response from ${path}`);
+      throw new Error(`接口返回不是有效 JSON：${path}`);
     }
   } finally {
     clearTimeout(timeoutId);
@@ -489,7 +489,7 @@ export async function startNegotiation(
       from_user_id: fromUserId,
       desired_task_id: desiredTaskId,
       current_owner_user_id: proposal.recommended_owner_user_id,
-      agent_message: `Swap request from ${fromUserId}: prefers ${desiredTaskId} after rejecting ${proposalId}.`,
+      agent_message: `成员 ${fromUserId} 拒绝分工 ${proposalId} 后，希望改做 ${desiredTaskId}。`,
     }),
   });
 }

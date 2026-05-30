@@ -37,7 +37,7 @@ Snapshot date: 2026-05-30.
 - MVP Usable #20 (Assignment, Push, Risk, and Replan Usability Pass) is complete: assignment citations, push card goal/start/done-when, risk structured evidence, replan before/after/impact/confirmation, finalized-assignment guard.
 - MVP Usable #19 (Frontend Agent Status and Review UX) is complete.
 - MVP Usable #21 (Real-Provider Verification and MVP Usable Runbook) is complete: frontend test fixes, runbook with mock/real-provider modes and manual verification checklist, final status report.
-- Current verification baseline: backend pytest 146 passing, frontend 7 tests passing, frontend lint passing, frontend build passing, frontend audit 0 vulnerabilities.
+- Current verification baseline: backend pytest 166 passing, frontend 10 tests passing, frontend lint passing, frontend build passing, frontend audit 0 vulnerabilities.
 
 ---
 
@@ -977,11 +977,15 @@ Field descriptions:
 {
   "assignments": [
     {
-      "task_title": "string",
+      "task_id": "uuid",
       "recommended_owner_user_id": "uuid",
-      "backup_owner_user_id": "uuid",
+      "backup_owner_user_id": "uuid | null",
       "reason": "string",
-      "risk_note": "string"
+      "skill_match": "string | null",
+      "availability_match": "string | null",
+      "preference_match": "string | null",
+      "constraint_respected": "string | null",
+      "risk_note": "string | null"
     }
   ]
 }
@@ -991,16 +995,13 @@ Field descriptions:
 
 ```json
 {
-  "negotiation_message": "string",
+  "from_user_id": "uuid",
   "desired_task_id": "uuid",
-  "current_owner_user_id": "uuid",
-  "swap_options": [
-    {
-      "option_type": "swap | split | keep_original | manual_decision",
-      "description": "string",
-      "reason": "string"
-    }
-  ]
+  "current_owner_user_id": "uuid | null",
+  "message": "string",
+  "options": ["string"],
+  "reason": "string",
+  "requires_confirmation": true
 }
 ```
 
@@ -1010,12 +1011,16 @@ Field descriptions:
 {
   "action_cards": [
     {
-      "target_user_id": "uuid | null",
-      "task_id": "uuid | null",
       "type": "personal_task | team_next_step | reminder | risk_action | kickoff_tip | checkin_prompt | assignment_request",
       "title": "string",
       "content": "string",
       "reason": "string",
+      "goal": "string | null",
+      "start_suggestion": "string | null",
+      "completion_standard": "string | null",
+      "user_id": "uuid | null",
+      "task_id": "uuid | null",
+      "stage_id": "uuid | null",
       "due_date": "YYYY-MM-DD | null"
     }
   ]
@@ -1032,8 +1037,10 @@ Field descriptions:
       "severity": "low | medium | high",
       "title": "string",
       "description": "string",
-      "evidence": ["string"],
-      "recommendation": "string"
+      "evidence": [{"key": "value", "detail": "string"}],
+      "recommendation": "string",
+      "stage_id": "uuid | null",
+      "task_id": "uuid | null"
     }
   ]
 }
@@ -1043,22 +1050,41 @@ Field descriptions:
 
 ```json
 {
-  "summary": "string",
-  "changes": [
+  "before": "object | array | string",
+  "after": "object | array | string",
+  "impact": "string",
+  "stage_adjustments": [
     {
-      "change_type": "change_owner | cut_scope | delay_task | reprioritize | split_task | move_to_next_stage",
-      "target_task_id": "uuid",
-      "before": "string",
-      "after": "string",
+      "stage_id": "uuid",
+      "new_start_date": "YYYY-MM-DD | null",
+      "new_end_date": "YYYY-MM-DD | null",
       "reason": "string"
     }
   ],
-  "next_actions": [
+  "task_changes": [
     {
-      "title": "string",
+      "task_id": "uuid",
+      "title": "string | null",
+      "status": "not_started | in_progress | done | blocked | null",
       "owner_user_id": "uuid | null",
-      "due_date": "YYYY-MM-DD",
+      "due_date": "YYYY-MM-DD | null",
+      "can_cut": "boolean | null",
       "reason": "string"
+    }
+  ],
+  "action_cards": [
+    {
+      "type": "personal_task | team_next_step | reminder | risk_action | kickoff_tip | checkin_prompt | assignment_request",
+      "title": "string",
+      "content": "string",
+      "reason": "string",
+      "goal": "string | null",
+      "start_suggestion": "string | null",
+      "completion_standard": "string | null",
+      "user_id": "uuid | null",
+      "task_id": "uuid | null",
+      "stage_id": "uuid | null",
+      "due_date": "YYYY-MM-DD | null"
     }
   ]
 }
@@ -1805,12 +1831,13 @@ LLM_PROVIDER=mock
 LLM_API_KEY=xxx
 LLM_BASE_URL=https://api.openai.com/v1
 LLM_MODEL=gpt-4o-mini
-LLM_TIMEOUT_SECONDS=120.0
+LLM_TIMEOUT_SECONDS=30.0
+LLM_AGENT_TIMEOUT_SECONDS=120.0
 DEMO_ADMIN_TOKEN=optional-admin-token
 NEXT_PUBLIC_API_BASE_URL=http://localhost:8000/api
 ```
 
-`APP_ENV`、`DATABASE_URL`、`LLM_PROVIDER`、`LLM_API_KEY`、`LLM_BASE_URL`、`LLM_MODEL`、`LLM_TIMEOUT_SECONDS`、`DEMO_ADMIN_TOKEN` 已由后端配置读取。`LLM_PROVIDER` 默认 `mock`；真实 LLM 接入时设置为 `openai` 或 `openai-compatible`，并把 `LLM_API_KEY` 放在 `.env`。`LLM_TIMEOUT_SECONDS` 默认 `120.0`。`DEMO_ADMIN_TOKEN` 仅在非 `development` 环境保护 seed/reset/demo reset 端点。`NEXT_PUBLIC_API_BASE_URL` 是前端可选变量，不配置时默认 `http://localhost:8000/api`。
+`APP_ENV`、`DATABASE_URL`、`LLM_PROVIDER`、`LLM_API_KEY`、`LLM_BASE_URL`、`LLM_MODEL`、`LLM_TIMEOUT_SECONDS`、`LLM_AGENT_TIMEOUT_SECONDS`、`DEMO_ADMIN_TOKEN` 已由后端配置读取。`LLM_PROVIDER` 默认 `mock`；真实 LLM 接入时设置为 `openai` 或 `openai-compatible`，并把 `LLM_API_KEY` 放在 `.env`。`LLM_TIMEOUT_SECONDS` 默认 `30.0`（诊断用），`LLM_AGENT_TIMEOUT_SECONDS` 默认 `120.0`（Agent 生成用）。`DEMO_ADMIN_TOKEN` 仅在非 `development` 环境保护 seed/reset/demo reset 端点。`NEXT_PUBLIC_API_BASE_URL` 是前端可选变量，不配置时默认 `http://localhost:8000/api`。
 
 ## 14.4 Git Ignore Rules
 

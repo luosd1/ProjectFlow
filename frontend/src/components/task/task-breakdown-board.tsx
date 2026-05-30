@@ -23,6 +23,16 @@ function statusClass(status: Task["status"]) {
   return "bg-white text-ink/55";
 }
 
+function statusLabel(status: Task["status"]) {
+  const labels: Record<Task["status"], string> = {
+    not_started: "未开始",
+    in_progress: "进行中",
+    done: "已完成",
+    blocked: "受阻",
+  };
+  return labels[status];
+}
+
 export function TaskBreakdownBoard({ stages, tasks }: TaskBreakdownBoardProps) {
   const stageNameById = new Map(stages.map((stage) => [stage.id, stage.name]));
   const taskTitleById = new Map(tasks.map((task) => [task.id, task.title]));
@@ -30,13 +40,13 @@ export function TaskBreakdownBoard({ stages, tasks }: TaskBreakdownBoardProps) {
   return (
     <section className="rounded-lg border border-ink/10 bg-white p-5 shadow-sm">
       <div>
-        <h2 className="text-lg font-bold text-ink">Task breakdown</h2>
-        <p className="mt-1 text-sm text-ink/60">Tasks keep priority, dependencies, due dates, and cut/delay signals visible.</p>
+        <h2 className="text-lg font-bold text-ink">任务拆解</h2>
+        <p className="mt-1 text-sm text-ink/60">持续展示优先级、依赖、截止时间和可砍/延期信号。</p>
       </div>
 
       {tasks.length === 0 ? (
         <div className="mt-5 rounded-lg border border-dashed border-ink/15 bg-paper/70 p-6 text-sm text-ink/55">
-          No tasks yet. Run task breakdown after a stage plan exists.
+          暂无任务。阶段计划生成后再运行任务拆解。
         </div>
       ) : (
         <div className="mt-5 grid gap-3">
@@ -52,18 +62,18 @@ export function TaskBreakdownBoard({ stages, tasks }: TaskBreakdownBoardProps) {
                     </div>
                     <p className="mt-1 text-sm text-ink/60">{task.description}</p>
                   </div>
-                  <Badge className={statusClass(task.status)}>{task.status}</Badge>
+                  <Badge className={statusClass(task.status)}>{statusLabel(task.status)}</Badge>
                 </div>
 
                 <div className="mt-4 grid gap-2 text-xs text-ink/60 sm:grid-cols-3">
                   <div className="rounded-md bg-white px-3 py-2">
-                    <span className="font-semibold text-ink/70">Stage:</span> {stageNameById.get(task.stage_id) ?? "Unassigned"}
+                    <span className="font-semibold text-ink/70">阶段：</span> {stageNameById.get(task.stage_id) ?? "未分配"}
                   </div>
                   <div className="rounded-md bg-white px-3 py-2">
-                    <span className="font-semibold text-ink/70">Due:</span> {task.due_date}
+                    <span className="font-semibold text-ink/70">截止：</span> {task.due_date}
                   </div>
                   <div className="rounded-md bg-white px-3 py-2">
-                    <span className="font-semibold text-ink/70">Estimate:</span> {task.estimated_hours}h
+                    <span className="font-semibold text-ink/70">预估：</span> {task.estimated_hours}h
                   </div>
                 </div>
 
@@ -71,19 +81,19 @@ export function TaskBreakdownBoard({ stages, tasks }: TaskBreakdownBoardProps) {
                   {dependencies.length > 0 && (
                     <span className="inline-flex items-center gap-1 rounded-full bg-white px-2 py-1 text-ink/65">
                       <GitBranch className="h-3.5 w-3.5" />
-                      Depends on: {dependencies.join(", ")}
+                      依赖：{dependencies.join("、")}
                     </span>
                   )}
                   {task.can_cut && (
                     <span className="inline-flex items-center gap-1 rounded-full bg-citron/35 px-2 py-1 text-ink">
                       <Scissors className="h-3.5 w-3.5" />
-                      Can cut
+                      可砍
                     </span>
                   )}
                   {task.status === "blocked" && (
                     <span className="inline-flex items-center gap-1 rounded-full bg-coral/15 px-2 py-1 text-coral">
                       <AlertTriangle className="h-3.5 w-3.5" />
-                      Delay marker
+                      延期信号
                     </span>
                   )}
                 </div>

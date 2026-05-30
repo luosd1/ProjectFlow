@@ -24,7 +24,7 @@ export function ExportPanel({ projectId }: ExportPanelProps) {
       const result = await exportReviewSummary(projectId);
       setMarkdown(result.markdown);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Export failed");
+      setError(err instanceof Error ? err.message : "导出失败");
     } finally {
       setLoading(false);
     }
@@ -37,7 +37,7 @@ export function ExportPanel({ projectId }: ExportPanelProps) {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      setError("Copy to clipboard failed");
+      setError("复制到剪贴板失败");
     }
   };
 
@@ -45,9 +45,9 @@ export function ExportPanel({ projectId }: ExportPanelProps) {
     <section className="rounded-lg border border-ink/10 bg-white p-5 shadow-sm">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="text-lg font-bold text-ink">Export review summary</h2>
+          <h2 className="text-lg font-bold text-ink">导出评审摘要</h2>
           <p className="mt-1 text-sm text-ink/60">
-            Generate a markdown summary of the project review.
+            生成可用于项目评审的 Markdown 摘要。
           </p>
         </div>
         <Button
@@ -60,7 +60,7 @@ export function ExportPanel({ projectId }: ExportPanelProps) {
           ) : (
             <Download className="h-4 w-4" />
           )}
-          {loading ? "Generating..." : "Generate summary"}
+          {loading ? "生成中..." : "生成摘要"}
         </Button>
       </div>
 
@@ -76,7 +76,7 @@ export function ExportPanel({ projectId }: ExportPanelProps) {
               className="mt-1 h-7 text-xs"
             >
               <RefreshCw className="mr-1 h-3 w-3" />
-              Retry
+              重试
             </Button>
           </div>
         </div>
@@ -86,7 +86,7 @@ export function ExportPanel({ projectId }: ExportPanelProps) {
         <div className="mt-5">
           <div className="flex items-center justify-between">
             <p className="text-xs font-semibold uppercase tracking-[0.14em] text-ink/45">
-              Preview
+              预览
             </p>
             <Button
               variant="outline"
@@ -97,12 +97,12 @@ export function ExportPanel({ projectId }: ExportPanelProps) {
               {copied ? (
                 <>
                   <CheckCircle2 className="mr-1 h-3 w-3 text-moss" />
-                  Copied
+                  已复制
                 </>
               ) : (
                 <>
                   <Copy className="mr-1 h-3 w-3" />
-                  Copy
+                  复制
                 </>
               )}
             </Button>

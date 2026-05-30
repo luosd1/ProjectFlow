@@ -352,7 +352,7 @@ export type ProjectState = {
 
 // --- UI State ---
 export type AgentState = {
-  label: "Loading" | "Empty" | "Error" | "Success";
+  label: "加载中" | "空状态" | "错误" | "成功";
   detail: string;
 };
 

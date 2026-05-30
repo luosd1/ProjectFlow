@@ -30,15 +30,24 @@ function typeIcon(type: ActionCard["type"]) {
 
 function typeLabel(type: ActionCard["type"]) {
   const labels: Record<ActionCard["type"], string> = {
-    personal_task: "Personal task",
-    team_next_step: "Team next step",
-    reminder: "Reminder",
-    risk_action: "Risk action",
-    kickoff_tip: "Kickoff tip",
-    checkin_prompt: "Check-in",
-    assignment_request: "Assignment",
+    personal_task: "个人任务",
+    team_next_step: "团队下一步",
+    reminder: "提醒",
+    risk_action: "风险行动",
+    kickoff_tip: "启动建议",
+    checkin_prompt: "签到提醒",
+    assignment_request: "分工确认",
   };
   return labels[type];
+}
+
+function statusLabel(status: ActionCard["status"]) {
+  const labels: Record<ActionCard["status"], string> = {
+    active: "进行中",
+    done: "已完成",
+    dismissed: "已忽略",
+  };
+  return labels[status];
 }
 
 function typeClass(type: ActionCard["type"]) {
@@ -74,24 +83,24 @@ export function ActionCardItem({ card, onDismiss, onComplete, pending }: ActionC
                     : "bg-ink/8 text-ink/55"
               }
             >
-              {card.status}
+              {statusLabel(card.status)}
             </Badge>
           </div>
           <p className="mt-2 text-sm text-ink/70">{card.content}</p>
 
           {card.goal && (
             <p className="mt-2 text-sm text-ink/70">
-              <span className="font-semibold text-ink/80">Goal:</span> {card.goal}
+              <span className="font-semibold text-ink/80">目标：</span> {card.goal}
             </p>
           )}
           {card.start_suggestion && (
             <p className="mt-1 text-sm text-ink/70">
-              <span className="font-semibold text-ink/80">Start:</span> {card.start_suggestion}
+              <span className="font-semibold text-ink/80">如何开始：</span> {card.start_suggestion}
             </p>
           )}
           {card.completion_standard && (
             <p className="mt-1 text-sm text-ink/70">
-              <span className="font-semibold text-ink/80">Done when:</span> {card.completion_standard}
+              <span className="font-semibold text-ink/80">完成标准：</span> {card.completion_standard}
             </p>
           )}
 
@@ -103,7 +112,7 @@ export function ActionCardItem({ card, onDismiss, onComplete, pending }: ActionC
           )}
           {card.due_date && (
             <p className="mt-1 text-xs text-ink/50">
-              Due: {new Date(card.due_date).toLocaleDateString()}
+              截止：{new Date(card.due_date).toLocaleDateString("zh-CN")}
             </p>
           )}
         </div>
@@ -117,7 +126,7 @@ export function ActionCardItem({ card, onDismiss, onComplete, pending }: ActionC
                 className="bg-moss text-white hover:bg-moss/85"
               >
                 <CheckCircle2 className="h-4 w-4" />
-                Done
+                完成
               </Button>
               <Button
                 size="sm"
@@ -126,7 +135,7 @@ export function ActionCardItem({ card, onDismiss, onComplete, pending }: ActionC
                 onClick={() => onDismiss?.(card.id)}
               >
                 <XCircle className="h-4 w-4" />
-                Dismiss
+                忽略
               </Button>
             </>
           )}
@@ -146,7 +155,7 @@ type ActionCardsListProps = {
 
 export function ActionCardsList({
   cards,
-  emptyText = "No action cards yet.",
+  emptyText = "暂无行动卡。",
   onDismiss,
   onComplete,
   pending,
@@ -165,7 +174,7 @@ export function ActionCardsList({
     <div className="grid gap-3">
       {activeCards.length === 0 && (
         <div className="rounded-lg border border-dashed border-ink/15 bg-paper/70 p-6 text-sm text-ink/55">
-          No active action cards.
+          暂无进行中的行动卡。
         </div>
       )}
       {activeCards.map((card) => (

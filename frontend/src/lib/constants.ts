@@ -1,10 +1,10 @@
 import type { AgentState, ProjectActionCard, StageRow, TeamMember } from "./types";
 
 export const agentStates: AgentState[] = [
-  { label: "Loading", detail: "生成中" },
-  { label: "Empty", detail: "等待输入" },
-  { label: "Error", detail: "需重试" },
-  { label: "Success", detail: "已确认" },
+  { label: "加载中", detail: "生成中" },
+  { label: "空状态", detail: "等待输入" },
+  { label: "错误", detail: "需重试" },
+  { label: "成功", detail: "已确认" },
 ];
 
 export const actionCards: ProjectActionCard[] = [
@@ -26,9 +26,9 @@ export const actionCards: ProjectActionCard[] = [
 ];
 
 export const stageRows: StageRow[] = [
-  { name: "方向澄清", output: "方向卡和边界", status: "Ready", active: false },
-  { name: "阶段计划", output: "3-5 个阶段", status: "Active", active: true },
-  { name: "任务拆解", output: "P0/P1/P2 任务树", status: "Next", active: false },
+  { name: "方向澄清", output: "方向卡和边界", status: "就绪", active: false },
+  { name: "阶段计划", output: "3-5 个阶段", status: "进行中", active: true },
+  { name: "任务拆解", output: "P0/P1/P2 任务树", status: "下一步", active: false },
 ];
 
 export const teamMembers: TeamMember[] = [

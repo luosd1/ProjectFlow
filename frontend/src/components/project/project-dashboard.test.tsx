@@ -217,8 +217,8 @@ describe("ProjectDashboard", () => {
     expect(screen.getByText("Who is the first demo user?")).toBeTruthy();
     expect(screen.getByText("Students lose time deciding what to do next.")).toBeTruthy();
     expect(screen.getByText("P0")).toBeTruthy();
-    expect(screen.getByText("Depends on: Research task")).toBeTruthy();
-    expect(screen.getByText("Can cut")).toBeTruthy();
+    expect(screen.getByText("依赖：Research task")).toBeTruthy();
+    expect(screen.getByText("可砍")).toBeTruthy();
 
     expect(screen.getByText("Mia can ship the UI fastest, Chen can cover API wiring.")).toBeTruthy();
     expect(screen.getByText("负责人: Mia")).toBeTruthy();

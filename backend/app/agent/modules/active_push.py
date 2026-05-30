@@ -24,21 +24,9 @@ def build_request(workspace_state: WorkspaceStateResponse) -> AgentModuleRequest
         return AgentModuleRequest(
             event_type=AgentEventType.push,
             user_prompt=(
-                "Create action cards that actively push the team forward.\n\n"
-                "Using the WorkspaceState:\n"
-                "1. Identify the most impactful next step for the team — a blocked task to unblock, an unassigned task to claim, or an overdue task to escalate.\n"
-                "2. Create action cards grounded in specific state:\n"
-                "   - For blocked tasks: reference the specific task_id and what is blocking it.\n"
-                "   - For unassigned tasks: reference the task_id and suggest the best-fit member by skill.\n"
-                "   - For overdue tasks: reference the task_id, its due_date, and current status.\n"
-                "3. Each action card MUST include:\n"
-                "   - goal: what this card achieves for the project (e.g. 'Unblock the CI/CD pipeline')\n"
-                "   - start_suggestion: concrete first step to take (e.g. 'Resolve the missing config in deploy.yml')\n"
-                "   - completion_standard: how to know the action is done (e.g. 'CI pipeline runs green on main')\n"
-                "4. Assign each card to a specific member (user_id) when possible.\n"
-                "5. Set due_date from the referenced task's due_date when applicable.\n"
-                "6. Do not create cards for tasks that are already done or have no clear next action.\n\n"
-                "Ground every card reason in specific WorkspaceState data: task status, member availability, deadlines."
+                "Create exactly 1 action card for the most important next step. "
+                "Prefer blocked, overdue, unassigned, or high-priority tasks. "
+                "Each card needs goal, start_suggestion, completion_standard, and a reason citing task status, deadline, or member capacity."
             ),
             fallback_payload={
                 "action_cards": [],
@@ -49,21 +37,9 @@ def build_request(workspace_state: WorkspaceStateResponse) -> AgentModuleRequest
     return AgentModuleRequest(
         event_type=AgentEventType.push,
         user_prompt=(
-            "Create action cards that actively push the team forward.\n\n"
-            "Using the WorkspaceState:\n"
-            "1. Identify the most impactful next step for the team — a blocked task to unblock, an unassigned task to claim, or an overdue task to escalate.\n"
-            "2. Create action cards grounded in specific state:\n"
-            "   - For blocked tasks: reference the specific task_id and what is blocking it.\n"
-            "   - For unassigned tasks: reference the task_id and suggest the best-fit member by skill.\n"
-            "   - For overdue tasks: reference the task_id, its due_date, and current status.\n"
-            "3. Each action card MUST include:\n"
-            "   - goal: what this card achieves for the project (e.g. 'Unblock the CI/CD pipeline')\n"
-            "   - start_suggestion: concrete first step to take (e.g. 'Resolve the missing config in deploy.yml')\n"
-            "   - completion_standard: how to know the action is done (e.g. 'CI pipeline runs green on main')\n"
-            "4. Assign each card to a specific member (user_id) when possible.\n"
-            "5. Set due_date from the referenced task's due_date when applicable.\n"
-            "6. Do not create cards for tasks that are already done or have no clear next action.\n\n"
-            "Ground every card reason in specific WorkspaceState data: task status, member availability, deadlines."
+            "Create exactly 1 action card for the most important next step. "
+            "Prefer blocked, overdue, unassigned, or high-priority tasks. "
+            "Each card needs goal, start_suggestion, completion_standard, and a reason citing task status, deadline, or member capacity."
         ),
         fallback_payload={
             "action_cards": [

@@ -54,6 +54,32 @@ class TestSeedEndpoint:
         ws = response.json()
         assert ws["name"] == "ProjectFlow 团队"
 
+    def test_seed_project_direction_card_uses_current_shape(self, client: TestClient):
+        client.post("/api/seed/demo")
+
+        response = client.get("/api/projects/demo-project-001")
+
+        assert response.status_code == 200
+        direction_card = response.json()["direction_card"]
+        assert direction_card["users"] == "大学生项目小队（3-8人）"
+        assert "AI Agent 主动推进项目" in direction_card["value"]
+        assert "本地演示优先" in direction_card["boundaries"]
+        assert "Agent 输出不稳定" in direction_card["risks"]
+        assert "target_users" not in direction_card
+        assert "core_value" not in direction_card
+
+    def test_seed_action_cards_include_usability_fields(self, client: TestClient):
+        client.post("/api/seed/demo")
+
+        response = client.get("/api/projects/demo-project-001/action-cards")
+
+        assert response.status_code == 200
+        cards = response.json()
+        assert cards
+        assert all(card["goal"] for card in cards)
+        assert all(card["start_suggestion"] for card in cards)
+        assert all(card["completion_standard"] for card in cards)
+
 
 class TestResetEndpoint:
     """Tests for POST /api/seed/reset."""
@@ -127,6 +153,8 @@ class TestExportEndpoint:
         md = response.json()["markdown"]
         assert "产品定位" in md
         assert "核心价值" in md
+        assert "大学生项目小队（3-8人）" in md
+        assert "AI Agent 主动推进项目" in md
 
     def test_export_includes_risks(self, client: TestClient):
         client.post("/api/seed/demo")
@@ -146,6 +174,9 @@ class TestExportEndpoint:
         response = client.post("/api/projects/demo-project-001/export/review-summary")
         md = response.json()["markdown"]
         assert "下一步行动" in md
+        assert "目标：" in md
+        assert "如何开始：" in md
+        assert "完成标准：" in md
 
     def test_export_includes_timeline(self, client: TestClient):
         client.post("/api/seed/demo")

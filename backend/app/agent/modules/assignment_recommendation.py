@@ -17,22 +17,10 @@ def build_request(workspace_state: WorkspaceStateResponse) -> AgentModuleRequest
         return AgentModuleRequest(
             event_type=AgentEventType.assign,
             user_prompt=(
-                "Recommend task-to-owner assignments.\n\n"
-                "Using the WorkspaceState:\n"
-                "1. For each unassigned task, recommend the member whose skills best match the task, considering:\n"
-                "   - Member skills vs. task domain (from title/description)\n"
-                "   - Member available_hours_per_week vs. task estimated_hours\n"
-                "   - Member role_preference and interests\n"
-                "   - Member constraints (respect them — do not assign if constraints conflict)\n"
-                "2. Provide a backup_owner_user_id when possible.\n"
-                "3. In each assignment, fill these citation fields:\n"
-                "   - skill_match: which specific member skill matches the task domain (e.g. 'backend matches API task')\n"
-                "   - availability_match: how member available_hours_per_week compares to task estimated_hours\n"
-                "   - preference_match: how member role_preference or interests align with the task\n"
-                "   - constraint_respected: which member constraints were checked and not violated (or 'none' if no constraints)\n"
-                "4. The reason field must summarize the above citations in one sentence.\n"
-                "5. Flag workload imbalance in risk_note — if one member is assigned many tasks while others are free.\n\n"
-                "Do NOT assign a task to a member whose user_id is not in WorkspaceState.members."
+                "Recommend owners for unassigned tasks only. "
+                "Match task title/description to member skills, hours, preference, and constraints. "
+                "Fill skill_match, availability_match, preference_match, constraint_respected, and risk_note. "
+                "Use only existing member IDs and task IDs."
             ),
             fallback_payload={
                 "assignments": [],
@@ -44,22 +32,10 @@ def build_request(workspace_state: WorkspaceStateResponse) -> AgentModuleRequest
     return AgentModuleRequest(
         event_type=AgentEventType.assign,
         user_prompt=(
-            "Recommend task-to-owner assignments.\n\n"
-            "Using the WorkspaceState:\n"
-            "1. For each unassigned task, recommend the member whose skills best match the task, considering:\n"
-            "   - Member skills vs. task domain (from title/description)\n"
-            "   - Member available_hours_per_week vs. task estimated_hours\n"
-            "   - Member role_preference and interests\n"
-            "   - Member constraints (respect them — do not assign if constraints conflict)\n"
-            "2. Provide a backup_owner_user_id when possible.\n"
-            "3. In each assignment, fill these citation fields:\n"
-            "   - skill_match: which specific member skill matches the task domain (e.g. 'backend matches API task')\n"
-            "   - availability_match: how member available_hours_per_week compares to task estimated_hours\n"
-            "   - preference_match: how member role_preference or interests align with the task\n"
-            "   - constraint_respected: which member constraints were checked and not violated (or 'none' if no constraints)\n"
-            "4. The reason field must summarize the above citations in one sentence.\n"
-            "5. Flag workload imbalance in risk_note — if one member is assigned many tasks while others are free.\n\n"
-            "Do NOT assign a task to a member whose user_id is not in WorkspaceState.members."
+            "Recommend owners for unassigned tasks only. "
+            "Match task title/description to member skills, hours, preference, and constraints. "
+            "Fill skill_match, availability_match, preference_match, constraint_respected, and risk_note. "
+            "Use only existing member IDs and task IDs."
         ),
         fallback_payload={
             "assignments": [

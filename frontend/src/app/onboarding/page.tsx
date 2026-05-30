@@ -8,7 +8,7 @@ function LoadingFallback() {
     <div className="flex min-h-screen items-center justify-center bg-paper">
       <div className="flex flex-col items-center gap-3">
         <Loader2 className="h-8 w-8 animate-spin text-moss" />
-        <p className="text-sm text-ink/60">Loading onboarding...</p>
+        <p className="text-sm text-ink/60">正在加载引导流程...</p>
       </div>
     </div>
   );
@@ -23,10 +23,10 @@ export default function OnboardingPage() {
             ProjectFlow
           </p>
           <h1 className="font-display mt-2 text-3xl font-black leading-tight">
-            Account Setup
+            账号设置
           </h1>
           <p className="mt-2 text-sm text-ink/60">
-            Create or select a demo identity to get started.
+            创建或选择一个演示身份开始使用。
           </p>
         </header>
         <Suspense fallback={<LoadingFallback />}>

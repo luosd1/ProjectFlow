@@ -19,6 +19,16 @@ function statusClass(status: Stage["status"]) {
   return "bg-white text-ink/55";
 }
 
+function statusLabel(status: Stage["status"]) {
+  const labels: Record<Stage["status"], string> = {
+    pending: "待开始",
+    active: "进行中",
+    completed: "已完成",
+    at_risk: "有风险",
+  };
+  return labels[status];
+}
+
 export function StagePlanBoard({ stages, tasks, currentStageId }: StagePlanBoardProps) {
   const completed = stages.filter((stage) => stage.status === "completed").length;
   const progress = stages.length > 0 ? Math.round((completed / stages.length) * 100) : 0;
@@ -27,18 +37,18 @@ export function StagePlanBoard({ stages, tasks, currentStageId }: StagePlanBoard
     <section className="rounded-lg border border-ink/10 bg-white p-5 shadow-sm">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="text-lg font-bold text-ink">Plan board</h2>
-          <p className="mt-1 text-sm text-ink/60">Stages, milestones, deliverables, and completion criteria.</p>
+          <h2 className="text-lg font-bold text-ink">阶段计划</h2>
+          <p className="mt-1 text-sm text-ink/60">展示阶段、里程碑、交付物和完成标准。</p>
         </div>
         <div className="w-44">
           <Progress value={progress} className="h-2" />
-          <p className="mt-1 text-right text-xs text-ink/50">{progress}% complete</p>
+          <p className="mt-1 text-right text-xs text-ink/50">完成度 {progress}%</p>
         </div>
       </div>
 
       {stages.length === 0 ? (
         <div className="mt-5 rounded-lg border border-dashed border-ink/15 bg-paper/70 p-6 text-sm text-ink/55">
-          No stages yet. Generate a stage plan after the direction card is confirmed.
+          暂无阶段。方向卡确认后运行阶段计划。
         </div>
       ) : (
         <div className="mt-5 grid gap-3">
@@ -55,8 +65,8 @@ export function StagePlanBoard({ stages, tasks, currentStageId }: StagePlanBoard
                   <div>
                     <div className="flex flex-wrap items-center gap-2">
                       <h3 className="font-semibold text-ink">{stage.name}</h3>
-                      {isCurrent && <Badge className="bg-citron/40 text-ink">current</Badge>}
-                      <Badge className={statusClass(stage.status)}>{stage.status}</Badge>
+                      {isCurrent && <Badge className="bg-citron/40 text-ink">当前</Badge>}
+                      <Badge className={statusClass(stage.status)}>{statusLabel(stage.status)}</Badge>
                     </div>
                     <p className="mt-1 max-w-2xl text-sm text-ink/65">{stage.goal}</p>
                   </div>
@@ -71,14 +81,14 @@ export function StagePlanBoard({ stages, tasks, currentStageId }: StagePlanBoard
                   <div className="rounded-md bg-white p-3">
                     <p className="flex items-center gap-1 text-xs font-semibold uppercase tracking-[0.14em] text-ink/45">
                       <Flag className="h-3.5 w-3.5" />
-                      Deliverable
+                      交付物
                     </p>
                     <p className="mt-1 text-sm text-ink/75">{stage.deliverable}</p>
                   </div>
                   <div className="rounded-md bg-white p-3">
-                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-ink/45">Tasks</p>
+                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-ink/45">任务</p>
                     <p className="mt-1 text-sm text-ink/75">
-                      {stageTasks.length === 0 ? "No tasks yet" : `${stageTasks.length} task${stageTasks.length === 1 ? "" : "s"}`}
+                      {stageTasks.length === 0 ? "暂无任务" : `${stageTasks.length} 个任务`}
                     </p>
                   </div>
                 </div>

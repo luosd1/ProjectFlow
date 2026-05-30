@@ -18,9 +18,9 @@ function WorkspaceNewContent() {
     <div className="mx-auto max-w-lg px-5 py-12">
       <header className="mb-8 text-center">
         <p className="text-xs font-bold uppercase tracking-[0.18em] text-moss">ProjectFlow</p>
-        <h1 className="font-display mt-2 text-3xl font-black leading-tight">New Workspace</h1>
+        <h1 className="font-display mt-2 text-3xl font-black leading-tight">新建工作区</h1>
         <p className="mt-2 text-sm text-ink/60">
-          Create a team workspace and invite members.
+          创建团队工作区并邀请成员。
         </p>
       </header>
 
@@ -46,7 +46,7 @@ function LoadingFallback() {
     <div className="flex min-h-screen items-center justify-center bg-paper">
       <div className="flex flex-col items-center gap-3">
         <Loader2 className="h-8 w-8 animate-spin text-moss" />
-        <p className="text-sm text-ink/60">Loading...</p>
+        <p className="text-sm text-ink/60">正在加载...</p>
       </div>
     </div>
   );

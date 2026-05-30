@@ -21,6 +21,7 @@ from app.models.task import Task
 from app.models.timeline import AgentEvent
 from app.models.user import User
 from app.models.workspace import Workspace
+from app.services.project_service import normalize_direction_card
 
 router = APIRouter(tags=["export"])
 
@@ -116,11 +117,11 @@ def export_review_summary(project_id: str, session: Session = Depends(get_sessio
         "",
     ]
 
-    direction_card = _json_value(project.direction_card, None)
+    direction_card = normalize_direction_card(project.direction_card)
     if isinstance(direction_card, dict):
         lines.append(f"**问题**：{direction_card.get('problem', '')}")
-        lines.append(f"**目标用户**：{direction_card.get('target_users', '')}")
-        lines.append(f"**核心价值**：{direction_card.get('core_value', '')}")
+        lines.append(f"**目标用户**：{direction_card.get('users', '')}")
+        lines.append(f"**核心价值**：{direction_card.get('value', '')}")
         lines.append("")
         deliverables = direction_card.get("deliverables", [])
         if deliverables:
@@ -128,11 +129,17 @@ def export_review_summary(project_id: str, session: Session = Depends(get_sessio
             for deliverable in deliverables:
                 lines.append(f"- {deliverable}")
             lines.append("")
-        constraints = direction_card.get("constraints", [])
-        if constraints:
-            lines.append("**约束**：")
-            for constraint in constraints:
-                lines.append(f"- {constraint}")
+        boundaries = direction_card.get("boundaries", [])
+        if boundaries:
+            lines.append("**边界**：")
+            for boundary in boundaries:
+                lines.append(f"- {boundary}")
+            lines.append("")
+        initial_risks = direction_card.get("risks", [])
+        if initial_risks:
+            lines.append("**初始风险**：")
+            for initial_risk in initial_risks:
+                lines.append(f"- {initial_risk}")
             lines.append("")
     else:
         lines.append(f"项目想法：{project.idea}")
@@ -217,6 +224,12 @@ def export_review_summary(project_id: str, session: Session = Depends(get_sessio
         for card in active_cards:
             target = member_map.get(card.user_id, "团队") if card.user_id else "团队"
             lines.append(f"- **[{target}]** {card.title} - {card.reason}")
+            if card.goal:
+                lines.append(f"  - 目标：{card.goal}")
+            if card.start_suggestion:
+                lines.append(f"  - 如何开始：{card.start_suggestion}")
+            if card.completion_standard:
+                lines.append(f"  - 完成标准：{card.completion_standard}")
         lines.append("")
 
     if checkin_cycles or checkin_responses:

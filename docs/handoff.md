@@ -160,8 +160,8 @@ npm audit --omit=dev
 
 Results:
 
-- Backend: 146 tests passed (MVP suite + usability pass + LLM diagnostics + agent proposal confirmation).
-- Frontend tests: 7 passed across 3 files (API layer, project dashboard, home page).
+- Backend: 166 tests passed (MVP suite + usability pass + LLM diagnostics + agent proposal confirmation + agent workflow + seed/reset/export).
+- Frontend tests: 10 passed across 5 files (API layer, project dashboard, home page, action card, task status update).
 - Frontend lint passed.
 - Frontend build passed.
 - Frontend audit passed with 0 vulnerabilities.
@@ -195,6 +195,22 @@ Frontend:
 
 ### Phase 17 — Code Review Hardening (2026-05-30)
 
+### Phase 19 — Agent Prompt Refactor (2026-05-31)
+
+- `prompts.py` rewritten: replaced 8 module-level `user_prompt` strings with centralized `OUTPUT_CONTRACT_BY_EVENT_TYPE` dict defining precise JSON schema requirements per event type.
+- Added `_compact_member()` / `_compact_workspace_state_json()` for differential workspace state serialization (e.g., assign needs member IDs + interests, clarify doesn't; breakdown/push/checkin/risk/replan only serialize current stage tasks).
+- Added `_without_none()` recursive None-value stripping to reduce token consumption.
+- `build_prompt_messages()` unified: system + user message with `<output_schema>` and `<workspace_state>` XML tag isolation.
+- `workflow.py`: added `_fallback_after_provider_error()` for provider timeout/connection errors; `_max_tokens_for_event_type()` per-event-type token limits (900-1600); rewritten `_repair_json_text()` with layered repair (original → code block strip → JSON extract → trailing comma → single-quote → regex key/value).
+- `llm_client.py`: added 5 error subclasses (`LLMConfigurationError`, `LLMAuthError`, `LLMTimeoutError`, `LLMConnectionError`, `LLMResponseError`) with `provider` and `detail` attributes; added `build_agent_llm_client()` factory using `llm_agent_timeout_seconds` (120s) for Agent generation vs `llm_timeout_seconds` (30s) for diagnostics.
+- `config.py`: added `llm_agent_timeout_seconds: PositiveFloat = 120.0`.
+- `project_service.py`: added `normalize_direction_card()` for field name migration (`target_users/core_value/constraints/out_of_scope/initial_risks` → `users/value/boundaries/risks/suggested_questions`).
+- `workspace_state_service.py`: complete `get_workspace_state()` implementation with JSON deserialization helpers.
+- `workspace_state.py` schemas: defined `MemberState`, `StageState`, `TaskState`, `ProjectState`, `WorkspaceStateResponse`.
+- Frontend: `api.ts` timeout 120s with `AbortController`, JSON parse protection; `types.ts` DirectionCard fields aligned; `constants.ts` homepage static data.
+- New test files: `action-card.test.tsx`, `task-status-update.test.tsx`.
+- Backend test additions: `test_agent_workflow.py`, `test_llm_provider.py`, `test_seed_reset_export.py` expanded.
+
 Full codebase review identified 56 issues across backend and frontend. Fixed 18 issues (all P0/P1/P2 that were confirmed real), leaving 2 P0 + 9 P1 + 10 P2 for post-MVP.
 
 Fixes applied:
@@ -221,7 +237,7 @@ Unfixed issues documented in `.trae/documents/code-review-unfixed-issues.md`.
 
 ## Next Work
 
-Core MVP phase scope is complete. Phase 10 (UI Structural Fix) completed 2026-05-29; MVP Usable #16/#17/#18/#19/#20/#21 are complete. Phase 17 (Code Review Hardening) completed 2026-05-30. Phase 18 (Frontend Bugfix: DirectionCard field alignment, proposal confirmation crash fix, defensive rendering) completed 2026-05-30.
+Core MVP phase scope is complete. Phase 10 (UI Structural Fix) completed 2026-05-29; MVP Usable #16/#17/#18/#19/#20/#21 are complete. Phase 17 (Code Review Hardening) completed 2026-05-30. Phase 18 (Frontend Bugfix) completed 2026-05-30. Phase 19 (Agent Prompt Refactor) completed 2026-05-31.
 
 MVP Usable progress (see `.claude/epics/projectflow-mvp-usable-ready/`):
 - ✅ #18 Prompt and Schema Quality Hardening (completed 2026-05-29)

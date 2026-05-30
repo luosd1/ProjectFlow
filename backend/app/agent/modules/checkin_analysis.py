@@ -11,14 +11,8 @@ def build_request(workspace_state: WorkspaceStateResponse) -> AgentModuleRequest
         return AgentModuleRequest(
             event_type=AgentEventType.checkin,
             user_prompt=(
-                "Analyze check-in signals for task progress and blockers.\n\n"
-                "Using the WorkspaceState:\n"
-                "1. For each task with a recent status change, assess whether progress is on track relative to its due_date.\n"
-                "2. Identify blockers — tasks that are blocked or at risk of missing their deadline.\n"
-                "3. Update task status only if there is clear evidence in WorkspaceState (e.g., a task marked in_progress that has no owner).\n"
-                "4. Flag workload concerns — a member with many in_progress tasks while others are idle.\n"
-                "5. Generate risks only when you can cite specific evidence: a task ID, a deadline, a member's available_hours.\n\n"
-                "Do not invent progress. If WorkspaceState shows no change, report status quo."
+                "Analyze task progress, blockers, deadline risk, and workload from WorkspaceState. "
+                "Update status only with clear evidence. Return status quo if no real signal exists."
             ),
             fallback_payload={
                 "summary": "No members or tasks available for check-in analysis.",
@@ -31,14 +25,8 @@ def build_request(workspace_state: WorkspaceStateResponse) -> AgentModuleRequest
     return AgentModuleRequest(
         event_type=AgentEventType.checkin,
         user_prompt=(
-            "Analyze check-in signals for task progress and blockers.\n\n"
-            "Using the WorkspaceState:\n"
-            "1. For each task with a recent status change, assess whether progress is on track relative to its due_date.\n"
-            "2. Identify blockers — tasks that are blocked or at risk of missing their deadline.\n"
-            "3. Update task status only if there is clear evidence in WorkspaceState (e.g., a task marked in_progress that has no owner).\n"
-            "4. Flag workload concerns — a member with many in_progress tasks while others are idle.\n"
-            "5. Generate risks only when you can cite specific evidence: a task ID, a deadline, a member's available_hours.\n\n"
-            "Do not invent progress. If WorkspaceState shows no change, report status quo."
+            "Analyze task progress, blockers, deadline risk, and workload from WorkspaceState. "
+            "Update status only with clear evidence. Return status quo if no real signal exists."
         ),
         fallback_payload={
             "summary": "No strong check-in signal is available.",

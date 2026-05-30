@@ -1,6 +1,6 @@
 from sqlmodel import Session
 
-from app.agent.llm_client import LLMClient, build_llm_client
+from app.agent.llm_client import LLMClient, build_agent_llm_client
 from app.agent.modules import (
     active_push,
     assignment_negotiation,
@@ -19,7 +19,7 @@ from app.schemas.workspace_state import WorkspaceStateResponse
 
 class CoordinatorAgent:
     def __init__(self, *, llm_client: LLMClient | None = None, session: Session | None = None):
-        self.llm_client = llm_client or build_llm_client()
+        self.llm_client = llm_client or build_agent_llm_client()
         self.session = session
 
     def generate_direction_card(self, workspace_state: WorkspaceStateResponse) -> AgentRunResult:

@@ -1,5 +1,3 @@
-import json
-
 from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session
 
@@ -10,6 +8,7 @@ from app.services.project_service import (
     create_project,
     get_project,
     list_projects_by_workspace,
+    normalize_direction_card,
     update_project,
 )
 
@@ -26,7 +25,7 @@ def _project_to_read(project: Project) -> ProjectRead:
         deliverables=project.deliverables,
         status=project.status,
         current_stage_id=project.current_stage_id,
-        direction_card=json.loads(project.direction_card) if project.direction_card else None,
+        direction_card=normalize_direction_card(project.direction_card),
         created_by=project.created_by,
         created_at=project.created_at,
         updated_at=project.updated_at,

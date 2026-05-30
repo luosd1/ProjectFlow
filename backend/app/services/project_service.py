@@ -1,5 +1,6 @@
 import json
 from datetime import UTC, datetime
+from typing import Any
 
 from sqlmodel import Session, select
 
@@ -30,6 +31,56 @@ def list_projects_by_workspace(session: Session, workspace_id: str) -> list[Proj
     return list(
         session.exec(select(Project).where(Project.workspace_id == workspace_id)).all()
     )
+
+
+def _string_list(value: Any) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    return [item.strip() for item in value if isinstance(item, str) and item.strip()]
+
+
+def _first_text(*values: Any) -> str:
+    for value in values:
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    return ""
+
+
+def normalize_direction_card(value: str | dict | None) -> dict | None:
+    """Return the current direction-card API shape from current or legacy data."""
+    if value is None:
+        return None
+    if isinstance(value, str):
+        if not value.strip():
+            return None
+        try:
+            value = json.loads(value)
+        except json.JSONDecodeError:
+            return None
+    if not isinstance(value, dict):
+        return None
+
+    boundaries = _string_list(value.get("boundaries"))
+    if not boundaries:
+        boundaries = _string_list(value.get("constraints"))
+        out_of_scope = _string_list(value.get("out_of_scope"))
+        boundaries.extend(
+            item for item in out_of_scope if item not in boundaries
+        )
+
+    risks = _string_list(value.get("risks"))
+    if not risks:
+        risks = _string_list(value.get("initial_risks"))
+
+    return {
+        "problem": _first_text(value.get("problem")),
+        "users": _first_text(value.get("users"), value.get("target_users")),
+        "value": _first_text(value.get("value"), value.get("core_value")),
+        "deliverables": _string_list(value.get("deliverables")),
+        "boundaries": boundaries,
+        "risks": risks,
+        "suggested_questions": _string_list(value.get("suggested_questions")),
+    }
 
 
 def update_project(session: Session, project_id: str, data: ProjectUpdate) -> Project:

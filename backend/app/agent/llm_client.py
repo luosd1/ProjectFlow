@@ -49,7 +49,7 @@ class LLMResponseError(LLMError):
 
 
 class LLMClient(Protocol):
-    def complete(self, messages: list[dict[str, str]]) -> str:
+    def complete(self, messages: list[dict[str, str]], *, max_tokens: int | None = None) -> str:
         """Return the assistant message content."""
 
 
@@ -72,7 +72,7 @@ class MockLLMClient:
         self.responses = responses or []
         self.calls = 0
 
-    def complete(self, messages: list[dict[str, str]]) -> str:
+    def complete(self, messages: list[dict[str, str]], *, max_tokens: int | None = None) -> str:
         self.calls += 1
         if not self.responses:
             return "{}"
@@ -98,12 +98,14 @@ class OpenAICompatibleLLMClient:
         self.model = model
         self.timeout_seconds = timeout_seconds
 
-    def complete(self, messages: list[dict[str, str]]) -> str:
+    def complete(self, messages: list[dict[str, str]], *, max_tokens: int | None = None) -> str:
         body = json.dumps(
             {
                 "model": self.model,
                 "messages": messages,
                 "response_format": {"type": "json_object"},
+                "temperature": 0.2,
+                "max_tokens": max_tokens or 1800,
             }
         ).encode("utf-8")
         req = request.Request(
@@ -117,7 +119,8 @@ class OpenAICompatibleLLMClient:
         )
         try:
             with request.urlopen(req, timeout=self.timeout_seconds) as response:
-                payload: dict[str, Any] = json.loads(response.read().decode("utf-8"))
+                raw_response = response.read().decode("utf-8")
+                payload: dict[str, Any] = json.loads(raw_response)
         except urllib_error.HTTPError as exc:
             self._raise_http_error(exc)
         except urllib_error.URLError as exc:
@@ -128,6 +131,12 @@ class OpenAICompatibleLLMClient:
                 provider="openai-compatible",
                 detail=f"model={self.model} base_url={self.base_url}",
             )
+        except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+            raise LLMResponseError(
+                f"LLM response was not valid JSON: {exc}",
+                provider="openai-compatible",
+                detail=f"model={self.model} base_url={self.base_url}",
+            ) from exc
 
         # Validate response structure
         try:
@@ -232,4 +241,22 @@ def build_llm_client(settings: LLMClientSettings | None = None) -> LLMClient:
         f"Unsupported LLM provider: {selected.provider!r}",
         provider=selected.provider,
         detail="Supported providers: mock, openai, openai-compatible",
+    )
+
+
+def build_agent_llm_client() -> LLMClient:
+    """Build the real Agent client with the Agent generation timeout.
+
+    Diagnostics intentionally keep using LLM_TIMEOUT_SECONDS so connectivity
+    checks stay fast. Agent generation gets its own longer default because
+    structured planning responses are slower than a dry-run health check.
+    """
+    return build_llm_client(
+        LLMClientSettings(
+            provider=app_settings.llm_provider,
+            api_key=app_settings.llm_api_key.get_secret_value() if app_settings.llm_api_key else None,
+            base_url=app_settings.llm_base_url,
+            model=app_settings.llm_model,
+            timeout_seconds=app_settings.llm_agent_timeout_seconds,
+        )
     )

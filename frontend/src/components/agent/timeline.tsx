@@ -53,16 +53,16 @@ function eventIcon(type: AgentEvent["event_type"]) {
 
 function eventLabel(type: AgentEvent["event_type"]) {
   const labels: Record<AgentEvent["event_type"], string> = {
-    clarify: "Clarify",
-    plan: "Plan",
-    breakdown: "Breakdown",
-    assign: "Assign",
-    negotiate: "Negotiate",
-    push: "Push",
-    checkin: "Check-in",
-    risk: "Risk",
-    replan: "Replan",
-    export: "Export",
+    clarify: "方向澄清",
+    plan: "阶段计划",
+    breakdown: "任务拆解",
+    assign: "分工推荐",
+    negotiate: "分工协调",
+    push: "主动推进",
+    checkin: "签到分析",
+    risk: "风险分析",
+    replan: "计划调整",
+    export: "导出",
   };
   return labels[type];
 }
@@ -96,7 +96,7 @@ function eventClass(type: AgentEvent["event_type"]) {
 
 function formatDate(iso: string) {
   const d = new Date(iso);
-  return d.toLocaleDateString(undefined, {
+  return d.toLocaleDateString("zh-CN", {
     month: "short",
     day: "numeric",
     hour: "2-digit",
@@ -107,7 +107,7 @@ function formatDate(iso: string) {
 function groupByDate(events: AgentEvent[]) {
   const groups = new Map<string, AgentEvent[]>();
   for (const event of events) {
-    const date = new Date(event.created_at).toLocaleDateString();
+    const date = new Date(event.created_at).toLocaleDateString("zh-CN");
     const existing = groups.get(date) ?? [];
     existing.push(event);
     groups.set(date, existing);
@@ -144,12 +144,12 @@ function SnapshotPreview({ snapshot }: { snapshot: Record<string, unknown> }) {
         {expanded ? (
           <>
             <ChevronUp className="mr-1 h-3 w-3" />
-            Show less
+            收起
           </>
         ) : (
           <>
             <ChevronDown className="mr-1 h-3 w-3" />
-            Show more
+            展开更多
           </>
         )}
       </Button>
@@ -163,7 +163,7 @@ export function AgentTimeline({ events }: AgentTimelineProps) {
   if (events.length === 0) {
     return (
       <div className="rounded-lg border border-dashed border-ink/15 bg-paper/70 p-6 text-sm text-ink/55">
-        No timeline events yet. Run agent actions to see the decision trail.
+        暂无时间线事件。运行 Agent 操作后会显示决策记录。
       </div>
     );
   }
@@ -176,9 +176,9 @@ export function AgentTimeline({ events }: AgentTimelineProps) {
   return (
     <section className="rounded-lg border border-ink/10 bg-white p-5 shadow-sm">
       <div>
-        <h2 className="text-lg font-bold text-ink">Agent timeline</h2>
+        <h2 className="text-lg font-bold text-ink">Agent 时间线</h2>
         <p className="mt-1 text-sm text-ink/60">
-          Decision trail with evidence, actions, and fallback events.
+          记录 Agent 的证据、行动和降级事件。
         </p>
       </div>
 
@@ -209,7 +209,7 @@ export function AgentTimeline({ events }: AgentTimelineProps) {
                         </span>
                       </div>
                       {event.user_confirmed && (
-                        <Badge className="bg-moss/15 text-moss">Confirmed</Badge>
+                        <Badge className="bg-moss/15 text-moss">已确认</Badge>
                       )}
                     </div>
 
@@ -226,12 +226,12 @@ export function AgentTimeline({ events }: AgentTimelineProps) {
                       {isExpanded ? (
                         <>
                           <ChevronUp className="mr-1 h-3 w-3" />
-                          Hide details
+                          隐藏详情
                         </>
                       ) : (
                         <>
                           <ChevronDown className="mr-1 h-3 w-3" />
-                          View details
+                          查看详情
                         </>
                       )}
                     </Button>
@@ -240,13 +240,13 @@ export function AgentTimeline({ events }: AgentTimelineProps) {
                       <div className="mt-2 space-y-3">
                         <div>
                           <p className="text-xs font-semibold uppercase tracking-[0.14em] text-ink/45">
-                            Input
+                            输入
                           </p>
                           <SnapshotPreview snapshot={event.input_snapshot} />
                         </div>
                         <div>
                           <p className="text-xs font-semibold uppercase tracking-[0.14em] text-ink/45">
-                            Output
+                            输出
                           </p>
                           <SnapshotPreview snapshot={event.output_snapshot} />
                         </div>

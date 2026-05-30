@@ -7,16 +7,9 @@ def build_request(workspace_state: WorkspaceStateResponse) -> AgentModuleRequest
     return AgentModuleRequest(
         event_type=AgentEventType.clarify,
         user_prompt=(
-            "Create a direction card for this project.\n\n"
-            "Using the WorkspaceState:\n"
-            "1. Identify the core PROBLEM the project idea addresses.\n"
-            "2. Identify WHO the project serves (from member roles/skills or the idea itself).\n"
-            "3. State the VALUE the project delivers.\n"
-            "4. List concrete DELIVERABLES the project must produce.\n"
-            "5. Define BOUNDARIES — what is explicitly out of scope given the deadline and team capacity.\n"
-            "6. List RISKS grounded in the current state: tight deadline, missing skills, unassigned tasks, member constraints.\n"
-            "7. Ask only HIGH-VALUE clarification questions — skip anything the WorkspaceState already answers.\n\n"
-            "Do not fabricate information not present in WorkspaceState. If the idea is vague, ask a targeted question instead of guessing."
+            "Create a concise direction card from WorkspaceState. "
+            "Use project idea, deadline, deliverables, member skills/hours, and constraints. "
+            "Return only high-value risks/questions that affect the next plan."
         ),
         fallback_payload={
             "problem": "The project direction needs explicit confirmation.",

@@ -24,6 +24,7 @@ from app.agent.llm_client import (
     LLMTimeoutError,
     MockLLMClient,
     OpenAICompatibleLLMClient,
+    build_agent_llm_client,
     build_llm_client,
 )
 from app.core.config import settings as app_settings
@@ -224,6 +225,18 @@ class TestOpenAICompatibleClientErrors:
             with pytest.raises(LLMResponseError) as exc_info:
                 client.complete([{"role": "user", "content": "test"}])
             assert "missing expected structure" in str(exc_info.value)
+
+    def test_non_json_provider_response_raises_response_error(self):
+        client = self._make_client()
+        mock_response = MagicMock()
+        mock_response.__enter__ = MagicMock(return_value=mock_response)
+        mock_response.__exit__ = MagicMock(return_value=False)
+        mock_response.read.return_value = b"not json"
+
+        with patch("app.agent.llm_client.request.urlopen", return_value=mock_response):
+            with pytest.raises(LLMResponseError) as exc_info:
+                client.complete([{"role": "user", "content": "test"}])
+            assert "not valid JSON" in str(exc_info.value)
 
     def test_successful_response(self):
         client = self._make_client()
@@ -433,3 +446,17 @@ class TestMockModeRegression:
         client = build_llm_client(LLMClientSettings(provider="mock"))
         assert isinstance(client, MockLLMClient)
         assert client.complete([{"role": "user", "content": "hello"}]) == "{}"
+
+
+def test_build_agent_llm_client_uses_agent_generation_timeout(monkeypatch):
+    monkeypatch.setattr(app_settings, "llm_provider", "openai-compatible")
+    monkeypatch.setattr(app_settings, "llm_api_key", SecretStr("sk-test"))
+    monkeypatch.setattr(app_settings, "llm_base_url", "https://example.test/v1")
+    monkeypatch.setattr(app_settings, "llm_model", "demo-model")
+    monkeypatch.setattr(app_settings, "llm_timeout_seconds", 30.0)
+    monkeypatch.setattr(app_settings, "llm_agent_timeout_seconds", 66.0)
+
+    client = build_agent_llm_client()
+
+    assert isinstance(client, OpenAICompatibleLLMClient)
+    assert client.timeout_seconds == 66.0

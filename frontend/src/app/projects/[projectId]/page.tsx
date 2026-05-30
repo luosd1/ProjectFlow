@@ -42,6 +42,17 @@ const AGENT_RUNNERS: Record<AgentAction, (projectId: string) => Promise<unknown>
   replan: runReplan,
 };
 
+const AGENT_ACTION_LABELS: Record<AgentAction, string> = {
+  clarify: "方向澄清",
+  plan: "阶段计划",
+  breakdown: "任务拆解",
+  assign: "分工推荐",
+  push: "主动推进",
+  "analyze-checkins": "签到分析",
+  "risk-analysis": "风险分析",
+  replan: "计划调整",
+};
+
 export default function ProjectDashboardPage() {
   const params = useParams();
   const router = useRouter();
@@ -92,15 +103,14 @@ export default function ProjectDashboardPage() {
     setActionError(null);
     setActionSuccess(null);
     try {
-      const result = await AGENT_RUNNERS[action](projectId);
+      await AGENT_RUNNERS[action](projectId);
       await reloadProject();
-      const eventType = (result as { event_type?: string })?.event_type ?? action;
-      setActionSuccess(`Agent "${eventType}" 操作成功`);
+      setActionSuccess(`${AGENT_ACTION_LABELS[action]}已完成`);
     } catch (err: unknown) {
       let msg = "Agent 操作失败，请稍后重试。";
       if (err instanceof Error) {
         try {
-          const parsed = JSON.parse(err.message.replace(/^Request failed: \d+ /, ""));
+          const parsed = JSON.parse(err.message.replace(/^(?:Request failed:|请求失败：)\s*\d+\s*/, ""));
           if (parsed?.detail) msg = parsed.detail;
         } catch {
           if (err.message.includes("504") || err.message.includes("超时")) {
@@ -169,7 +179,7 @@ export default function ProjectDashboardPage() {
       let msg = "确认提案失败，请稍后重试。";
       if (err instanceof Error) {
         try {
-          const parsed = JSON.parse(err.message.replace(/^Request failed: \d+ /, ""));
+          const parsed = JSON.parse(err.message.replace(/^(?:Request failed:|请求失败：)\s*\d+\s*/, ""));
           if (parsed?.detail) msg = typeof parsed.detail === "string" ? parsed.detail : JSON.stringify(parsed.detail);
         } catch { /* ignore */ }
       }
