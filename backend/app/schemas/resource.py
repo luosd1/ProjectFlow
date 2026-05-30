@@ -2,15 +2,16 @@ from datetime import datetime
 from pydantic import BaseModel
 
 from app.models.enums import ResourceType
+from app.schemas.common import NonEmptyStr
 
 
 class ResourceCreate(BaseModel):
-    project_id: str
+    project_id: NonEmptyStr
     type: ResourceType
-    title: str
-    content_text: str | None = None
-    file_name: str | None = None
-    url: str | None = None
+    title: NonEmptyStr
+    content_text: NonEmptyStr | None = None
+    file_name: NonEmptyStr | None = None
+    url: NonEmptyStr | None = None
 
 
 class ResourceRead(BaseModel):

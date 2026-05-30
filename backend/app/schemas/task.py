@@ -1,26 +1,27 @@
 from datetime import date, datetime
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.models.enums import TaskPriority, TaskStatus
+from app.schemas.common import NonEmptyStr
 
 
 class TaskCreate(BaseModel):
-    project_id: str
-    stage_id: str
-    title: str
-    description: str
+    project_id: NonEmptyStr
+    stage_id: NonEmptyStr
+    title: NonEmptyStr
+    description: NonEmptyStr
     priority: TaskPriority = TaskPriority.P1
     due_date: date
-    estimated_hours: float = 0.0
+    estimated_hours: float = Field(default=0.0, ge=0)
     can_cut: bool = False
 
 
 class TaskUpdate(BaseModel):
-    title: str | None = None
-    description: str | None = None
+    title: NonEmptyStr | None = None
+    description: NonEmptyStr | None = None
     priority: TaskPriority | None = None
     status: TaskStatus | None = None
-    owner_user_id: str | None = None
+    owner_user_id: NonEmptyStr | None = None
     can_cut: bool | None = None
 
 
@@ -45,11 +46,11 @@ class TaskRead(BaseModel):
 
 
 class TaskStatusUpdateCreate(BaseModel):
-    task_id: str
-    user_id: str
+    task_id: NonEmptyStr
+    user_id: NonEmptyStr
     status: TaskStatus
-    progress_note: str | None = None
-    blocker: str | None = None
+    progress_note: NonEmptyStr | None = None
+    blocker: NonEmptyStr | None = None
     available_hours_change: float | None = None
 
 

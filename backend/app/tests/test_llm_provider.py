@@ -12,6 +12,7 @@ from unittest.mock import MagicMock, patch
 from urllib import error as urllib_error
 
 import pytest
+from pydantic import SecretStr, ValidationError
 
 from app.agent.llm_client import (
     LLMAuthError,
@@ -25,6 +26,7 @@ from app.agent.llm_client import (
     OpenAICompatibleLLMClient,
     build_llm_client,
 )
+from app.core.config import settings as app_settings
 from app.schemas.llm import LLMDiagnosticRequest, LLMDiagnosticResponse
 from app.services.llm_service import run_diagnostic
 
@@ -260,13 +262,14 @@ class TestLLMDiagnostic:
         assert "Unsupported" in result.detail
 
     def test_missing_api_key_returns_error(self):
-        req = LLMDiagnosticRequest(provider="openai", api_key=None)
+        req = LLMDiagnosticRequest(provider="openai")
         result = run_diagnostic(req)
         assert result.status == "error"
         assert "LLM_API_KEY" in result.detail
 
-    def test_real_provider_auth_failure(self):
+    def test_real_provider_auth_failure(self, monkeypatch):
         """Simulate a 401 from the provider."""
+        monkeypatch.setattr(app_settings, "llm_api_key", SecretStr("sk-bad-key"))
         mock_response = MagicMock()
         mock_response.code = 401
         mock_response.read.return_value = b'{"error":"unauthorized"}'
@@ -274,28 +277,31 @@ class TestLLMDiagnostic:
         with patch("app.agent.llm_client.request.urlopen", side_effect=urllib_error.HTTPError(
             url="", code=401, msg="Unauthorized", hdrs=None, fp=mock_response
         )):
-            req = LLMDiagnosticRequest(provider="openai", api_key="sk-bad-key")
+            req = LLMDiagnosticRequest(provider="openai")
             result = run_diagnostic(req)
             assert result.status == "error"
             assert "LLM_API_KEY" in result.detail
 
-    def test_real_provider_timeout(self):
+    def test_real_provider_timeout(self, monkeypatch):
+        monkeypatch.setattr(app_settings, "llm_api_key", SecretStr("sk-test"))
         with patch("app.agent.llm_client.request.urlopen", side_effect=TimeoutError()):
-            req = LLMDiagnosticRequest(provider="openai", api_key="sk-test", timeout_seconds=1.0)
+            req = LLMDiagnosticRequest(provider="openai", timeout_seconds=1.0)
             result = run_diagnostic(req)
             assert result.status == "error"
             assert "Timeout" in result.detail
 
-    def test_real_provider_connection_failure(self):
+    def test_real_provider_connection_failure(self, monkeypatch):
+        monkeypatch.setattr(app_settings, "llm_api_key", SecretStr("sk-test"))
         with patch("app.agent.llm_client.request.urlopen", side_effect=urllib_error.URLError(
             reason="Connection refused"
         )):
-            req = LLMDiagnosticRequest(provider="openai", api_key="sk-test")
+            req = LLMDiagnosticRequest(provider="openai")
             result = run_diagnostic(req)
             assert result.status == "error"
             assert "Connection" in result.detail
 
-    def test_real_provider_success(self):
+    def test_real_provider_success(self, monkeypatch):
+        monkeypatch.setattr(app_settings, "llm_api_key", SecretStr("sk-test"))
         mock_response = MagicMock()
         mock_response.__enter__ = MagicMock(return_value=mock_response)
         mock_response.__exit__ = MagicMock(return_value=False)
@@ -304,12 +310,13 @@ class TestLLMDiagnostic:
         }).encode("utf-8")
 
         with patch("app.agent.llm_client.request.urlopen", return_value=mock_response):
-            req = LLMDiagnosticRequest(provider="openai", api_key="sk-test")
+            req = LLMDiagnosticRequest(provider="openai")
             result = run_diagnostic(req)
             assert result.status == "ok"
             assert result.provider == "openai"
 
-    def test_real_provider_diagnostic_prompt_matches_json_mode(self):
+    def test_real_provider_diagnostic_prompt_matches_json_mode(self, monkeypatch):
+        monkeypatch.setattr(app_settings, "llm_api_key", SecretStr("sk-test"))
         captured = {}
         mock_response = MagicMock()
         mock_response.__enter__ = MagicMock(return_value=mock_response)
@@ -323,12 +330,20 @@ class TestLLMDiagnostic:
             return mock_response
 
         with patch("app.agent.llm_client.request.urlopen", side_effect=fake_urlopen):
-            req = LLMDiagnosticRequest(provider="openai", api_key="sk-test")
+            req = LLMDiagnosticRequest(provider="openai")
             result = run_diagnostic(req)
 
         assert result.status == "ok"
         assert captured["body"]["response_format"] == {"type": "json_object"}
         assert "json" in captured["body"]["messages"][0]["content"].lower()
+
+    def test_diagnostic_request_rejects_runtime_api_key_override(self):
+        with pytest.raises(ValidationError):
+            LLMDiagnosticRequest.model_validate({"provider": "mock", "api_key": "sk-should-not-be-accepted"})
+
+    def test_diagnostic_endpoint_rejects_runtime_api_key_override(self, client):
+        response = client.post("/api/llm/diagnostic", json={"provider": "mock", "api_key": "sk-should-not-be-accepted"})
+        assert response.status_code == 422
 
 
 # ===========================================================================
@@ -344,7 +359,7 @@ class TestAPIKeyMasking:
         fields = LLMDiagnosticResponse.model_fields
         assert "api_key" not in fields, "LLMDiagnosticResponse must not expose api_key"
 
-    def test_diagnostic_response_never_contains_key_value(self):
+    def test_diagnostic_response_never_contains_key_value(self, monkeypatch):
         """Even after a real diagnostic run, the response text must not contain the key."""
         mock_response = MagicMock()
         mock_response.__enter__ = MagicMock(return_value=mock_response)
@@ -354,16 +369,18 @@ class TestAPIKeyMasking:
         }).encode("utf-8")
 
         secret_key = "sk-super-secret-key-12345"
+        monkeypatch.setattr(app_settings, "llm_api_key", SecretStr(secret_key))
         with patch("app.agent.llm_client.request.urlopen", return_value=mock_response):
-            req = LLMDiagnosticRequest(provider="openai", api_key=secret_key)
+            req = LLMDiagnosticRequest(provider="openai")
             result = run_diagnostic(req)
             # Serialize the response to JSON — the key must not appear
             result_json = result.model_dump_json()
             assert secret_key not in result_json, "API key leaked in diagnostic response"
 
-    def test_provider_error_body_is_not_returned_to_frontend(self):
+    def test_provider_error_body_is_not_returned_to_frontend(self, monkeypatch):
         """Provider error bodies can be arbitrary; do not echo them into API responses."""
         secret_key = "sk-super-secret-key-12345"
+        monkeypatch.setattr(app_settings, "llm_api_key", SecretStr(secret_key))
         mock_response = MagicMock()
         mock_response.code = 401
         mock_response.read.return_value = f'{{"error":"bad key {secret_key}"}}'.encode("utf-8")
@@ -371,7 +388,7 @@ class TestAPIKeyMasking:
         with patch("app.agent.llm_client.request.urlopen", side_effect=urllib_error.HTTPError(
             url="", code=401, msg="Unauthorized", hdrs=None, fp=mock_response
         )):
-            req = LLMDiagnosticRequest(provider="openai", api_key=secret_key)
+            req = LLMDiagnosticRequest(provider="openai")
             result = run_diagnostic(req)
 
         assert result.status == "error"

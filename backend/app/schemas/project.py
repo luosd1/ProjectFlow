@@ -1,25 +1,37 @@
 from datetime import date, datetime
-from pydantic import BaseModel
+from pydantic import BaseModel, model_validator
 
 from app.models.enums import ProjectStatus
+from app.schemas.common import NonEmptyStr, reject_past_date
 
 
 class ProjectCreate(BaseModel):
-    workspace_id: str
-    name: str
-    idea: str
+    workspace_id: NonEmptyStr
+    name: NonEmptyStr
+    idea: NonEmptyStr
     deadline: date
-    deliverables: str
-    created_by: str
+    deliverables: NonEmptyStr
+    created_by: NonEmptyStr
+
+    @model_validator(mode="after")
+    def validate_deadline(self) -> "ProjectCreate":
+        reject_past_date(self.deadline, "project deadline")
+        return self
 
 
 class ProjectUpdate(BaseModel):
-    name: str | None = None
-    idea: str | None = None
+    name: NonEmptyStr | None = None
+    idea: NonEmptyStr | None = None
     deadline: date | None = None
-    deliverables: str | None = None
+    deliverables: NonEmptyStr | None = None
     status: ProjectStatus | None = None
     direction_card: dict | None = None
+
+    @model_validator(mode="after")
+    def validate_deadline(self) -> "ProjectUpdate":
+        if self.deadline is not None:
+            reject_past_date(self.deadline, "project deadline")
+        return self
 
 
 class ProjectRead(BaseModel):

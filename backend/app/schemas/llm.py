@@ -1,18 +1,22 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field
+
+from app.schemas.common import NonEmptyStr
 
 
 class LLMDiagnosticRequest(BaseModel):
-    """Optional body for the diagnostic endpoint — allows overriding settings for the check.
+    """Optional body for the diagnostic endpoint.
 
-    SECURITY: api_key is accepted as input only and is NEVER returned in the response,
-    logged, or persisted. Use sparingly — prefer setting LLM_API_KEY in .env.
+    Runtime API keys are intentionally not accepted here. Configure LLM_API_KEY in
+    the backend environment, then use this request to override non-secret settings
+    for a one-off connectivity check.
     """
 
-    provider: str | None = None
-    api_key: str | None = None
-    base_url: str | None = None
-    model: str | None = None
-    timeout_seconds: float | None = None
+    model_config = ConfigDict(extra="forbid")
+
+    provider: NonEmptyStr | None = None
+    base_url: NonEmptyStr | None = None
+    model: NonEmptyStr | None = None
+    timeout_seconds: float | None = Field(default=None, gt=0)
 
 
 class LLMDiagnosticResponse(BaseModel):

@@ -1,10 +1,12 @@
 from datetime import datetime
 from pydantic import BaseModel
 
+from app.schemas.common import EmailText, NonEmptyStr
+
 
 class UserCreate(BaseModel):
-    display_name: str
-    email: str | None = None
+    display_name: NonEmptyStr
+    email: EmailText | None = None
     avatar_url: str | None = None
 
 

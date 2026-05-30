@@ -1,4 +1,7 @@
+import json
+
 from app.models.enums import AgentEventType
+from app.agent.output_schemas import OUTPUT_SCHEMA_BY_EVENT_TYPE
 from app.schemas.workspace_state import WorkspaceStateResponse
 
 
@@ -25,6 +28,11 @@ When making recommendations:
 """
 
 
+def _output_schema_json(event_type: AgentEventType) -> str:
+    schema = OUTPUT_SCHEMA_BY_EVENT_TYPE[event_type].model_json_schema()
+    return json.dumps(schema, ensure_ascii=False)
+
+
 def build_prompt_messages(
     *,
     event_type: AgentEventType,
@@ -37,6 +45,7 @@ def build_prompt_messages(
             "role": "user",
             "content": (
                 f"Event type: {event_type.value}\n\n"
+                f"<output_schema>\n{_output_schema_json(event_type)}\n</output_schema>\n\n"
                 f"<workspace_state>\n{workspace_state.model_dump_json()}\n</workspace_state>\n\n"
                 f"Task:\n{user_prompt}"
             ),

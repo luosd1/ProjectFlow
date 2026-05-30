@@ -36,12 +36,11 @@ GET /api/llm/diagnostic
 POST /api/llm/diagnostic
 ```
 
-`GET` validates the currently configured provider settings. `POST` accepts an optional diagnostic override payload for checking a real provider before changing `.env`:
+`GET` validates the currently configured provider settings. `POST` accepts an optional diagnostic override payload for non-secret provider settings. API keys are not accepted in the request body; set `LLM_API_KEY` in the backend environment.
 
 ```json
 {
   "provider": "openai-compatible",
-  "api_key": "optional runtime secret",
   "base_url": "https://api.openai.com/v1",
   "model": "gpt-4o-mini",
   "timeout_seconds": 30.0
@@ -302,6 +301,8 @@ POST /api/seed/reset
 
 `POST /api/seed/reset` deletes all rows from all tables. Use for a clean demo reset.
 
+Seed/reset endpoints are open only in `APP_ENV=development`. Outside development, callers must send `X-ProjectFlow-Admin-Token` matching `DEMO_ADMIN_TOKEN`; if no token is configured, these endpoints are disabled.
+
 ### Export
 
 ```http
@@ -338,12 +339,13 @@ Optional request body:
 ```json
 {
   "provider": "openai",
-  "api_key": "sk-...",
   "base_url": "https://api.openai.com/v1",
   "model": "gpt-4o-mini",
   "timeout_seconds": 30.0
 }
 ```
+
+`api_key` is intentionally rejected in this payload. Configure `LLM_API_KEY` in the backend environment before running real-provider diagnostics.
 
 Response (never includes API key):
 

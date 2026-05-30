@@ -2,10 +2,11 @@ from datetime import datetime
 from pydantic import BaseModel
 
 from app.models.enums import WorkspaceRole
+from app.schemas.common import NonEmptyStr
 
 
 class WorkspaceCreate(BaseModel):
-    name: str
+    name: NonEmptyStr
     description: str | None = None
 
 

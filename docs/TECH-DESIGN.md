@@ -1636,7 +1636,7 @@ GET /api/llm/diagnostic
 POST /api/llm/diagnostic
 ```
 
-`GET` checks the configured provider settings. `POST` accepts optional runtime overrides for `provider`, `api_key`, `base_url`, `model`, and `timeout_seconds`, allowing a real-provider readiness check without editing tracked files. Responses report `mock`, `ok`, or `error` status and never include the API key.
+`GET` checks the configured provider settings. `POST` accepts optional runtime overrides for non-secret settings (`provider`, `base_url`, `model`, and `timeout_seconds`). API keys are intentionally rejected in the request body; configure `LLM_API_KEY` in the backend environment before real-provider checks. Responses report `mock`, `ok`, or `error` status and never include the API key.
 
 ---
 
@@ -1806,10 +1806,11 @@ LLM_API_KEY=xxx
 LLM_BASE_URL=https://api.openai.com/v1
 LLM_MODEL=gpt-4o-mini
 LLM_TIMEOUT_SECONDS=30.0
+DEMO_ADMIN_TOKEN=optional-admin-token
 NEXT_PUBLIC_API_BASE_URL=http://localhost:8000/api
 ```
 
-`APP_ENV`、`DATABASE_URL`、`LLM_PROVIDER`、`LLM_API_KEY`、`LLM_BASE_URL`、`LLM_MODEL`、`LLM_TIMEOUT_SECONDS` 已由后端配置读取。`LLM_PROVIDER` 默认 `mock`；真实 LLM 接入时设置为 `openai` 或 `openai-compatible`，并把 `LLM_API_KEY` 放在 `.env`。`LLM_TIMEOUT_SECONDS` 默认 `30.0`。`NEXT_PUBLIC_API_BASE_URL` 是前端可选变量，不配置时默认 `http://localhost:8000/api`。
+`APP_ENV`、`DATABASE_URL`、`LLM_PROVIDER`、`LLM_API_KEY`、`LLM_BASE_URL`、`LLM_MODEL`、`LLM_TIMEOUT_SECONDS`、`DEMO_ADMIN_TOKEN` 已由后端配置读取。`LLM_PROVIDER` 默认 `mock`；真实 LLM 接入时设置为 `openai` 或 `openai-compatible`，并把 `LLM_API_KEY` 放在 `.env`。`LLM_TIMEOUT_SECONDS` 默认 `30.0`。`DEMO_ADMIN_TOKEN` 仅在非 `development` 环境保护 seed/reset/demo reset 端点。`NEXT_PUBLIC_API_BASE_URL` 是前端可选变量，不配置时默认 `http://localhost:8000/api`。
 
 ## 14.4 Git Ignore Rules
 

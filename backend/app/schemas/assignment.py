@@ -7,20 +7,21 @@ from app.models.enums import (
     AssignmentResponseType,
     NegotiationStatus,
 )
+from app.schemas.common import NonEmptyStr
 
 
 class AssignmentProposalCreate(BaseModel):
-    project_id: str
-    stage_id: str
-    task_id: str
-    recommended_owner_user_id: str
-    backup_owner_user_id: str | None = None
-    reason: str
-    skill_match: str | None = None
-    availability_match: str | None = None
-    preference_match: str | None = None
-    constraint_respected: str | None = None
-    risk_note: str | None = None
+    project_id: NonEmptyStr
+    stage_id: NonEmptyStr
+    task_id: NonEmptyStr
+    recommended_owner_user_id: NonEmptyStr
+    backup_owner_user_id: NonEmptyStr | None = None
+    reason: NonEmptyStr
+    skill_match: NonEmptyStr | None = None
+    availability_match: NonEmptyStr | None = None
+    preference_match: NonEmptyStr | None = None
+    constraint_respected: NonEmptyStr | None = None
+    risk_note: NonEmptyStr | None = None
     created_by_agent: bool = False
 
 
@@ -43,10 +44,10 @@ class AssignmentProposalRead(BaseModel):
 
 
 class AssignmentResponseCreate(BaseModel):
-    user_id: str
+    user_id: NonEmptyStr
     response: AssignmentResponseType
-    preferred_task_id: str | None = None
-    reason: str | None = None
+    preferred_task_id: NonEmptyStr | None = None
+    reason: NonEmptyStr | None = None
 
 
 class AssignmentResponseRead(BaseModel):
@@ -60,12 +61,12 @@ class AssignmentResponseRead(BaseModel):
 
 
 class AssignmentNegotiationCreate(BaseModel):
-    project_id: str
-    stage_id: str
-    from_user_id: str
-    desired_task_id: str
-    current_owner_user_id: str | None = None
-    agent_message: str
+    project_id: NonEmptyStr
+    stage_id: NonEmptyStr
+    from_user_id: NonEmptyStr
+    desired_task_id: NonEmptyStr
+    current_owner_user_id: NonEmptyStr | None = None
+    agent_message: NonEmptyStr
 
 
 class AssignmentNegotiationRead(BaseModel):

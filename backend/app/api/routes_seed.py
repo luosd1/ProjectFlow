@@ -5,10 +5,11 @@ from pydantic import BaseModel
 from sqlmodel import Session
 
 from app.core.database import get_session
+from app.core.security import require_demo_admin_access
 from app.seed.demo_projectflow import seed_demo_data
 from app.seed.reset import reset_demo_data
 
-router = APIRouter(tags=["seed"])
+router = APIRouter(tags=["seed"], dependencies=[Depends(require_demo_admin_access)])
 
 
 class SeedResponse(BaseModel):

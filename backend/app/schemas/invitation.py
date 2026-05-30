@@ -2,12 +2,13 @@ from datetime import datetime
 from pydantic import BaseModel
 
 from app.models.enums import InvitationStatus
+from app.schemas.common import EmailText, NonEmptyStr
 
 
 class InvitationCreate(BaseModel):
-    workspace_id: str
-    invited_name: str
-    invited_email: str | None = None
+    workspace_id: NonEmptyStr
+    invited_name: NonEmptyStr
+    invited_email: EmailText | None = None
 
 
 class InvitationRead(BaseModel):
@@ -22,5 +23,5 @@ class InvitationRead(BaseModel):
 
 
 class InvitationAccept(BaseModel):
-    token: str
-    user_id: str | None = None
+    token: NonEmptyStr
+    user_id: NonEmptyStr | None = None

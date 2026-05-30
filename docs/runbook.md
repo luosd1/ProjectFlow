@@ -57,7 +57,7 @@ LLM provider diagnostic:
 curl http://localhost:8000/api/llm/diagnostic
 ```
 
-To test a real OpenAI-compatible provider without editing tracked files, send a one-off diagnostic payload. Keep the API key in your shell or `.env`; do not commit or paste real keys into docs or logs.
+To test a real OpenAI-compatible provider without editing tracked files, send a one-off diagnostic payload for non-secret settings. Keep the API key in `.env`; do not commit or paste real keys into docs or logs.
 
 ```bash
 curl -X POST http://localhost:8000/api/llm/diagnostic ^
@@ -137,8 +137,10 @@ Or with explicit provider settings:
 ```bash
 curl -X POST http://localhost:8000/api/llm/diagnostic \
   -H "Content-Type: application/json" \
-  -d '{"provider":"openai","api_key":"sk-...","model":"gpt-4o-mini"}'
+  -d '{"provider":"openai","model":"gpt-4o-mini"}'
 ```
+
+The diagnostic request body does not accept `api_key`; configure `LLM_API_KEY` in `.env` before running real-provider checks.
 
 The response never includes the API key value. `status` is `"ok"`, `"error"`, or `"mock"`.
 
@@ -183,6 +185,7 @@ ALTER TABLE agent_events ADD COLUMN status TEXT NOT NULL DEFAULT 'success';
 | `LLM_BASE_URL` | backend LLM | no | Defaults to `https://api.openai.com/v1`; override for OpenAI-compatible providers. |
 | `LLM_MODEL` | backend LLM | no | Defaults to `gpt-4o-mini`. |
 | `LLM_TIMEOUT_SECONDS` | backend LLM | no | Defaults to `30.0`. |
+| `DEMO_ADMIN_TOKEN` | backend demo admin | outside development | Required for seed/reset endpoints when `APP_ENV` is not `development`. Send it as `X-ProjectFlow-Admin-Token`. |
 | `NEXT_PUBLIC_API_BASE_URL` | frontend | no | Defaults to `http://localhost:8000/api`. |
 
 ## Demo Seed Data and Reset
@@ -366,12 +369,12 @@ curl http://localhost:8000/api/llm/diagnostic
 # Expected: {"provider":"openai","model":"gpt-4o-mini","base_url":"...","status":"ok","detail":"Provider responded successfully"}
 ```
 
-**One-off diagnostic** (test a provider without changing `.env`):
+**One-off diagnostic** (override non-secret provider settings):
 
 ```bash
 curl -X POST http://localhost:8000/api/llm/diagnostic \
   -H "Content-Type: application/json" \
-  -d '{"provider":"openai-compatible","api_key":"sk-...","base_url":"https://api.openai.com/v1","model":"gpt-4o-mini","timeout_seconds":30.0}'
+  -d '{"provider":"openai-compatible","base_url":"https://api.openai.com/v1","model":"gpt-4o-mini","timeout_seconds":30.0}'
 ```
 
 ---

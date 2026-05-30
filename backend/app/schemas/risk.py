@@ -1,20 +1,21 @@
 from datetime import datetime
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.models.enums import RiskSeverity, RiskStatus, RiskType
+from app.schemas.common import NonEmptyStr
 
 
 class RiskCreate(BaseModel):
-    project_id: str
-    stage_id: str | None = None
-    task_id: str | None = None
+    project_id: NonEmptyStr
+    stage_id: NonEmptyStr | None = None
+    task_id: NonEmptyStr | None = None
     type: RiskType
     severity: RiskSeverity
-    title: str
-    description: str
-    evidence: list[str | dict]
-    recommendation: str
+    title: NonEmptyStr
+    description: NonEmptyStr
+    evidence: list[str | dict] = Field(min_length=1)
+    recommendation: NonEmptyStr
     created_by_agent: bool = False
 
 

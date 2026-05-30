@@ -1,7 +1,9 @@
 from fastapi.testclient import TestClient
+from pydantic import SecretStr
 from sqlalchemy.pool import StaticPool
 from sqlmodel import Session, SQLModel, create_engine
 
+from app.core.config import settings as app_settings
 from app.core.database import get_session
 from app.main import app
 
@@ -160,3 +162,15 @@ def test_demo_reset_creates_known_state_with_execution_loop_data():
         assert len(client.get(f"/api/projects/{project_id}/risks").json()) >= 1
         assert len(client.get(f"/api/projects/{project_id}/checkin-cycles").json()) >= 1
         assert len(client.get(f"/api/projects/{project_id}/timeline").json()) >= 1
+
+
+def test_demo_reset_requires_admin_token_outside_development(monkeypatch):
+    monkeypatch.setattr(app_settings, "app_env", "production")
+    monkeypatch.setattr(app_settings, "demo_admin_token", SecretStr("admin-token"), raising=False)
+
+    with _client() as client:
+        missing_token = client.post("/api/demo/reset")
+        valid_token = client.post("/api/demo/reset", headers={"X-ProjectFlow-Admin-Token": "admin-token"})
+
+    assert missing_token.status_code == 403
+    assert valid_token.status_code == 200

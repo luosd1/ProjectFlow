@@ -2,6 +2,9 @@
 
 import pytest
 from fastapi.testclient import TestClient
+from pydantic import SecretStr
+
+from app.core.config import settings as app_settings
 
 
 class TestSeedEndpoint:
@@ -86,6 +89,22 @@ class TestResetEndpoint:
         # Resetting an already-empty DB should not error
         client.post("/api/seed/reset")
         response = client.post("/api/seed/reset")
+        assert response.status_code == 200
+
+    def test_reset_is_blocked_outside_development_without_admin_token(self, client: TestClient, monkeypatch):
+        monkeypatch.setattr(app_settings, "app_env", "production")
+        monkeypatch.setattr(app_settings, "demo_admin_token", None, raising=False)
+
+        response = client.post("/api/seed/reset")
+
+        assert response.status_code == 403
+
+    def test_reset_accepts_admin_token_outside_development(self, client: TestClient, monkeypatch):
+        monkeypatch.setattr(app_settings, "app_env", "production")
+        monkeypatch.setattr(app_settings, "demo_admin_token", SecretStr("admin-token"), raising=False)
+
+        response = client.post("/api/seed/reset", headers={"X-ProjectFlow-Admin-Token": "admin-token"})
+
         assert response.status_code == 200
 
 

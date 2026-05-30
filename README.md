@@ -91,6 +91,7 @@ npm audit --omit=dev
 
 ## Project Docs
 
+- [Setup guide](docs/setup-guide.md)
 - [Technical design](docs/TECH-DESIGN.md)
 - [API contract](docs/api-contract.md)
 - [Runbook](docs/runbook.md)

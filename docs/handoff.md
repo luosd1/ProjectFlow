@@ -118,7 +118,7 @@ Implemented scope:
 ### GitHub issue #16 (2026-05-29)
 
 - Added `GET /api/llm/diagnostic` for checking the configured provider without exposing secrets.
-- Added `POST /api/llm/diagnostic` for one-off provider diagnostics using runtime payload overrides.
+- Added `POST /api/llm/diagnostic` for one-off provider diagnostics using non-secret runtime payload overrides.
 - Added `LLM_TIMEOUT_SECONDS` support in backend configuration and documentation.
 - Diagnostic responses report `mock`, `ok`, or `error` status and never return the API key.
 - Backend provider tests are part of the current 146-test baseline.
@@ -192,6 +192,8 @@ Fixes applied:
 - **Transaction atomicity**: `workspace_service`, `invitation_service`, `agent_flow_service`, `assignment_service` now use `flush()` + single `session.commit()` instead of multiple independent commits. Sub-service functions accept `auto_commit=False` to let callers control transaction boundaries.
 - **Double JSON serialization**: Removed redundant `json.dumps()` calls in `member_profile_service` (skills), `risk_service` (evidence), and `project_service` (direction_card) that produced corrupted escaped strings like `"\"skill\""`.
 - **SecretStr for config**: `llm_api_key` in `core/config.py` changed from `str | None` to `SecretStr | None`; `llm_timeout_seconds` changed to `PositiveFloat`. `llm_client.py` and `llm_service.py` updated to use `.get_secret_value()`.
+- **Diagnostic request hardening**: `POST /api/llm/diagnostic` no longer accepts runtime `api_key` payloads; real-provider checks must use `LLM_API_KEY` from environment config.
+- **Demo admin guard**: destructive seed/reset/demo-reset endpoints remain open in development, but require `X-ProjectFlow-Admin-Token` matching `DEMO_ADMIN_TOKEN` outside development.
 - **Prompt injection protection**: `prompts.py` wraps `workspace_state` JSON in XML tags (`<workspace_state>...</workspace_state>`) to isolate user data from LLM instructions.
 - **Fallback safety**: `assignment_recommendation`, `active_push`, `assignment_negotiation`, and `checkin_analysis` modules now return empty lists instead of payloads with `None` IDs when fallback data is incomplete.
 - **Schema type tightening**: `skills: list | dict` → `list[str | dict]`, `evidence: list | dict` → `list[str | dict]`, `dependency_ids: dict | list` → `list[str]`, `acceptance_criteria: dict | list` → `list[str]`, `done_criteria: dict | list` → `list[str]`, `available_hours_per_week: int` → `float`.

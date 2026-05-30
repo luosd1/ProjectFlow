@@ -13,7 +13,7 @@ from app.agent.llm_client import (
     OpenAICompatibleLLMClient,
     build_llm_client,
 )
-from app.agent.prompts import AGENT_SYSTEM_PROMPT
+from app.agent.prompts import AGENT_SYSTEM_PROMPT, build_prompt_messages
 from app.agent.workflow import AgentRunStatus, generate_structured_output
 from app.models import AgentEvent
 from app.models.enums import AgentEventStatus, AgentEventType
@@ -106,6 +106,20 @@ def test_prompt_boundary_prevents_fabricated_entities():
     assert "tasks" in prompt
     assert "stages" in prompt
     assert "assignments" in prompt
+
+
+def test_prompt_includes_event_specific_output_schema():
+    messages = build_prompt_messages(
+        event_type=AgentEventType.clarify,
+        workspace_state=_workspace_state(),
+        user_prompt="Create a direction card.",
+    )
+
+    user_message = messages[1]["content"]
+    assert "<output_schema>" in user_message
+    assert "DirectionCardOutput" in user_message
+    assert '"problem"' in user_message
+    assert '"requires_confirmation"' in user_message
 
 
 def test_generate_structured_output_repairs_json_and_logs_event(session: Session):
