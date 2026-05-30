@@ -81,17 +81,38 @@ function normalizeRisk(risk: BackendRisk): Risk {
 }
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    headers: { "Content-Type": "application/json" },
-    ...options,
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 30_000);
 
-  if (!response.ok) {
-    const body = await response.text().catch(() => "");
-    throw new Error(`Request failed: ${response.status} ${body}`);
+  const { headers: customHeaders, ...restOptions } = options || {};
+  const mergedHeaders = {
+    "Content-Type": "application/json",
+    ...(customHeaders instanceof Headers
+      ? Object.fromEntries(customHeaders.entries())
+      : customHeaders),
+  };
+
+  try {
+    const response = await fetch(`${API_BASE_URL}${path}`, {
+      ...restOptions,
+      headers: mergedHeaders,
+      signal: controller.signal,
+    });
+
+    if (!response.ok) {
+      const body = await response.text().catch(() => "");
+      throw new Error(`Request failed: ${response.status} ${body}`);
+    }
+
+    const text = await response.text();
+    try {
+      return JSON.parse(text) as T;
+    } catch {
+      throw new Error(`Invalid JSON response from ${path}`);
+    }
+  } finally {
+    clearTimeout(timeoutId);
   }
-
-  return response.json() as Promise<T>;
 }
 
 export async function apiGet<T>(path: string): Promise<T> {
@@ -186,10 +207,9 @@ export async function createInvitation(
 }
 
 export async function acceptInvitation(token: string, userId: string): Promise<void> {
-  void userId;
   await request("/invitations/accept", {
     method: "POST",
-    body: JSON.stringify({ token }),
+    body: JSON.stringify({ token, user_id: userId }),
   });
 }
 
@@ -465,9 +485,9 @@ export async function resolveNegotiation(
 }
 
 export async function finalizeAssignments(stageId: string, finalizedBy: string): Promise<void> {
-  void finalizedBy;
   await request(`/stages/${stageId}/assignments/finalize`, {
     method: "POST",
+    body: JSON.stringify({ finalized_by: finalizedBy }),
   });
 }
 

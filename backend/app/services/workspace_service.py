@@ -12,10 +12,8 @@ def create_workspace(session: Session, data: WorkspaceCreate, owner_user_id: str
         description=data.description,
     )
     session.add(workspace)
-    session.commit()
-    session.refresh(workspace)
+    session.flush()
 
-    # Automatically add owner as a member with owner role
     membership = WorkspaceMembership(
         workspace_id=workspace.id,
         user_id=owner_user_id,

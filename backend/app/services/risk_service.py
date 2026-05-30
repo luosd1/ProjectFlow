@@ -2,23 +2,21 @@ import json
 
 from sqlmodel import Session, select
 
+from app.core.db_utils import require_row
 from app.models import Project, Risk, Stage, Task
 from app.models.enums import RiskStatus
 from app.schemas.risk import RiskCreate
 
 
-def create_risk(session: Session, data: RiskCreate) -> Risk:
+def create_risk(session: Session, data: RiskCreate, *, auto_commit: bool = True) -> Risk:
     if not data.evidence:
         raise ValueError("Risk evidence is required")
-    _require(session, Project, data.project_id, "Project")
+    require_row(session, Project, data.project_id, "Project")
     if data.stage_id:
-        _require(session, Stage, data.stage_id, "Stage")
+        require_row(session, Stage, data.stage_id, "Stage")
     if data.task_id:
-        _require(session, Task, data.task_id, "Task")
+        require_row(session, Task, data.task_id, "Task")
 
-    evidence = data.evidence
-    if not isinstance(evidence, str):
-        evidence = json.dumps(evidence)
     risk = Risk(
         project_id=data.project_id,
         stage_id=data.stage_id,
@@ -32,8 +30,11 @@ def create_risk(session: Session, data: RiskCreate) -> Risk:
         created_by_agent=data.created_by_agent,
     )
     session.add(risk)
-    session.commit()
-    session.refresh(risk)
+    if auto_commit:
+        session.commit()
+        session.refresh(risk)
+    else:
+        session.flush()
     return risk
 
 
@@ -50,10 +51,3 @@ def update_risk_status(session: Session, risk_id: str, status: RiskStatus) -> Ri
     session.commit()
     session.refresh(risk)
     return risk
-
-
-def _require(session: Session, model: type, row_id: str, label: str):
-    row = session.get(model, row_id)
-    if row is None:
-        raise ValueError(f"{label} not found")
-    return row

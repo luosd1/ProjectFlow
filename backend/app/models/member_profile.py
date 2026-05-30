@@ -11,7 +11,7 @@ class MemberProfile(SQLModel, table=True):
     user_id: str = Field(foreign_key="users.id")
     workspace_id: str = Field(foreign_key="workspaces.id")
     skills: str = Field(default="[]")  # JSON string: [{"name": "frontend", "level": 3}]
-    available_hours_per_week: int = Field(default=0)
+    available_hours_per_week: float = Field(default=0.0)
     role_preference: str = Field(default="")
     interests: str = Field(default="")
     constraints: str = Field(default="")

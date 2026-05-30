@@ -36,8 +36,8 @@ class TaskRead(BaseModel):
     backup_owner_user_id: str | None
     due_date: date
     estimated_hours: float
-    dependency_ids: dict | list
-    acceptance_criteria: dict | list
+    dependency_ids: list[str]
+    acceptance_criteria: list[str]
     can_cut: bool
     assignment_reason: str | None
     created_by_agent: bool

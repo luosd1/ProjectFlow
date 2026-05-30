@@ -26,7 +26,9 @@ def run_diagnostic(req: LLMDiagnosticRequest | None = None) -> LLMDiagnosticResp
     provider = (req.provider if req and req.provider else app_settings.llm_provider).lower()
     model = req.model if req and req.model else app_settings.llm_model
     base_url = req.base_url if req and req.base_url else app_settings.llm_base_url
-    api_key = req.api_key if req and req.api_key else app_settings.llm_api_key
+    api_key = req.api_key if req and req.api_key else (
+        app_settings.llm_api_key.get_secret_value() if app_settings.llm_api_key else None
+    )
     timeout = req.timeout_seconds if req and req.timeout_seconds else app_settings.llm_timeout_seconds
 
     # Mock mode — no connectivity check needed

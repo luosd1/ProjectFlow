@@ -3,6 +3,7 @@ from datetime import UTC, datetime
 
 from sqlmodel import Session, select
 
+from app.core.db_utils import require_row
 from app.agent.output_schemas import (
     DirectionCardOutput,
     StagePlanOutput,
@@ -20,10 +21,10 @@ def create_proposal(
     proposal_type: str,
     agent_event_id: str,
     payload: dict,
+    auto_commit: bool = True,
 ) -> AgentProposal:
-    """Store an agent output as a pending proposal (no state mutation)."""
-    _require(session, Project, project_id, "Project")
-    _require(session, AgentEvent, agent_event_id, "AgentEvent")
+    require_row(session, Project, project_id, "Project")
+    require_row(session, AgentEvent, agent_event_id, "AgentEvent")
 
     proposal = AgentProposal(
         project_id=project_id,
@@ -34,8 +35,11 @@ def create_proposal(
         payload=json.dumps(payload) if not isinstance(payload, str) else payload,
     )
     session.add(proposal)
-    session.commit()
-    session.refresh(proposal)
+    if auto_commit:
+        session.commit()
+        session.refresh(proposal)
+    else:
+        session.flush()
     return proposal
 
 
@@ -68,7 +72,7 @@ def confirm_proposal(
     - Marks source AgentEvent as user_confirmed
     - Records a timeline AgentEvent for the confirmation
     """
-    proposal = _require(session, AgentProposal, proposal_id, "Agent proposal")
+    proposal = require_row(session, AgentProposal, proposal_id, "Agent proposal")
     if proposal.status != AgentProposalStatus.pending:
         raise ValueError(f"Proposal is {proposal.status.value}, cannot confirm")
 
@@ -125,7 +129,7 @@ def confirm_proposal(
 
 def reject_proposal(session: Session, proposal_id: str) -> AgentProposal:
     """Reject a pending proposal. No state mutation occurs."""
-    proposal = _require(session, AgentProposal, proposal_id, "Agent proposal")
+    proposal = require_row(session, AgentProposal, proposal_id, "Agent proposal")
     if proposal.status != AgentProposalStatus.pending:
         raise ValueError(f"Proposal is {proposal.status.value}, cannot reject")
 
@@ -145,7 +149,7 @@ def _get_payload(proposal: AgentProposal) -> dict:
 
 def _persist_clarification(session: Session, proposal: AgentProposal) -> list[str]:
     """Persist clarification output to Project.direction_card."""
-    project = _require(session, Project, proposal.project_id, "Project")
+    project = require_row(session, Project, proposal.project_id, "Project")
     payload = _get_payload(proposal)
     output = DirectionCardOutput.model_validate(payload)
     direction_card = {
@@ -208,10 +212,3 @@ def _persist_task_breakdown(session: Session, proposal: AgentProposal) -> list[s
         session.flush()
         created_ids.append(task.id)
     return created_ids
-
-
-def _require(session: Session, model: type, row_id: str, label: str):
-    row = session.get(model, row_id)
-    if row is None:
-        raise ValueError(f"{label} not found")
-    return row

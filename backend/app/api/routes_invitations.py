@@ -17,7 +17,9 @@ def create_invitation(data: InvitationCreate, session: Session = Depends(get_ses
 @router.post("/invitations/accept", response_model=InvitationRead)
 def accept_invitation(data: InvitationAccept, session: Session = Depends(get_session)):
     try:
-        invitation = invitation_service.accept_invitation(session, data.token)
+        invitation = invitation_service.accept_invitation(
+            session, data.token, user_id=data.user_id
+        )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     return invitation

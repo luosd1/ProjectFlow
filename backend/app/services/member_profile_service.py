@@ -8,9 +8,6 @@ from app.schemas.member_profile import MemberProfileCreate, MemberProfileUpdate
 
 
 def create_profile(session: Session, data: MemberProfileCreate) -> MemberProfile:
-    skills = data.skills
-    if not isinstance(skills, str):
-        skills = json.dumps(skills)
     profile = MemberProfile(
         user_id=data.user_id,
         workspace_id=data.workspace_id,

@@ -1,11 +1,11 @@
 from datetime import datetime
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class MemberProfileCreate(BaseModel):
     user_id: str
     workspace_id: str
-    skills: list | dict = []
+    skills: list[str | dict] = Field(default_factory=list)
     available_hours_per_week: float = 0.0
     role_preference: str = ""
     interests: str = ""
@@ -14,7 +14,7 @@ class MemberProfileCreate(BaseModel):
 
 
 class MemberProfileUpdate(BaseModel):
-    skills: list | dict | None = None
+    skills: list[str | dict] | None = None
     available_hours_per_week: float | None = None
     role_preference: str | None = None
     interests: str | None = None
@@ -26,7 +26,7 @@ class MemberProfileRead(BaseModel):
     id: str
     user_id: str
     workspace_id: str
-    skills: list | dict
+    skills: list[str | dict]
     available_hours_per_week: float
     role_preference: str
     interests: str

@@ -2,6 +2,7 @@ from datetime import UTC, datetime
 
 from sqlmodel import Session, select
 
+from app.core.db_utils import require_row
 from app.models import ActionCard, AssignmentProposal, Project, Stage, Task, User
 from app.models.enums import AssignmentProposalStatus
 from app.schemas.replan import ReplanConfirmRead, ReplanConfirmRequest
@@ -11,13 +12,13 @@ def confirm_replan(session: Session, data: ReplanConfirmRequest) -> ReplanConfir
     if not data.requires_confirmation:
         raise ValueError("Replan confirmation requires a proposal marked requires_confirmation")
 
-    _require(session, Project, data.project_id, "Project")
+    require_row(session, Project, data.project_id, "Project")
     applied_stage_ids: list[str] = []
     applied_task_ids: list[str] = []
     created_action_card_ids: list[str] = []
 
     for adjustment in data.stage_adjustments:
-        stage = _require(session, Stage, adjustment.stage_id, "Stage")
+        stage = require_row(session, Stage, adjustment.stage_id, "Stage")
         if stage.project_id != data.project_id:
             raise ValueError("Stage does not belong to project")
         if adjustment.new_start_date is not None:
@@ -28,7 +29,7 @@ def confirm_replan(session: Session, data: ReplanConfirmRequest) -> ReplanConfir
         applied_stage_ids.append(stage.id)
 
     for change in data.task_changes:
-        task = _require(session, Task, change.task_id, "Task")
+        task = require_row(session, Task, change.task_id, "Task")
         if task.project_id != data.project_id:
             raise ValueError("Task does not belong to project")
         # Guard: do not change owner on a task with a finalized assignment
@@ -50,7 +51,7 @@ def confirm_replan(session: Session, data: ReplanConfirmRequest) -> ReplanConfir
         if change.status is not None:
             task.status = change.status
         if change.owner_user_id is not None:
-            _require(session, User, change.owner_user_id, "Task owner")
+            require_row(session, User, change.owner_user_id, "Task owner")
             task.owner_user_id = change.owner_user_id
         if change.due_date is not None:
             task.due_date = change.due_date
@@ -96,10 +97,3 @@ def confirm_replan(session: Session, data: ReplanConfirmRequest) -> ReplanConfir
     )
     session.commit()
     return result
-
-
-def _require(session: Session, model: type, row_id: str, label: str):
-    row = session.get(model, row_id)
-    if row is None:
-        raise ValueError(f"{label} not found")
-    return row

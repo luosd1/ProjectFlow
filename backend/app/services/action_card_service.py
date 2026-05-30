@@ -1,11 +1,12 @@
 from sqlmodel import Session, select
 
+from app.core.db_utils import require_row
 from app.models import ActionCard, Project, Stage, Task, User
 from app.models.enums import ActionCardStatus
 from app.schemas.action_card import ActionCardCreate
 
 
-def create_action_card(session: Session, data: ActionCardCreate) -> ActionCard:
+def create_action_card(session: Session, data: ActionCardCreate, *, auto_commit: bool = True) -> ActionCard:
     _validate_action_card_refs(session, data)
     card = ActionCard(
         project_id=data.project_id,
@@ -23,8 +24,11 @@ def create_action_card(session: Session, data: ActionCardCreate) -> ActionCard:
         created_by_agent=data.created_by_agent,
     )
     session.add(card)
-    session.commit()
-    session.refresh(card)
+    if auto_commit:
+        session.commit()
+        session.refresh(card)
+    else:
+        session.flush()
     return card
 
 
@@ -48,17 +52,10 @@ def update_action_card_status(
 
 
 def _validate_action_card_refs(session: Session, data: ActionCardCreate) -> None:
-    _require(session, Project, data.project_id, "Project")
+    require_row(session, Project, data.project_id, "Project")
     if data.stage_id:
-        _require(session, Stage, data.stage_id, "Stage")
+        require_row(session, Stage, data.stage_id, "Stage")
     if data.task_id:
-        _require(session, Task, data.task_id, "Task")
+        require_row(session, Task, data.task_id, "Task")
     if data.user_id:
-        _require(session, User, data.user_id, "User")
-
-
-def _require(session: Session, model: type, row_id: str, label: str):
-    row = session.get(model, row_id)
-    if row is None:
-        raise ValueError(f"{label} not found")
-    return row
+        require_row(session, User, data.user_id, "User")

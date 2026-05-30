@@ -2,6 +2,7 @@ from datetime import timedelta
 
 from sqlmodel import Session, select
 
+from app.core.db_utils import require_row
 from app.models import CheckInCycle, CheckInResponse, Project, Stage, Task, User
 from app.schemas.checkin import CheckInCycleCreate, CheckInResponseCreate
 
@@ -9,9 +10,9 @@ from app.schemas.checkin import CheckInCycleCreate, CheckInResponseCreate
 def create_checkin_cycle(session: Session, data: CheckInCycleCreate) -> CheckInCycle:
     if data.cadence_days < 1:
         raise ValueError("cadence_days must be at least 1")
-    _require(session, Project, data.project_id, "Project")
-    _require(session, Stage, data.stage_id, "Stage")
-    _require(session, User, data.created_by_user_id, "Creator")
+    require_row(session, Project, data.project_id, "Project")
+    require_row(session, Stage, data.stage_id, "Stage")
+    require_row(session, User, data.created_by_user_id, "Creator")
 
     cycle = CheckInCycle(
         project_id=data.project_id,
@@ -36,12 +37,12 @@ def create_checkin_response(
     cycle_id: str,
     data: CheckInResponseCreate,
 ) -> CheckInResponse:
-    cycle = _require(session, CheckInCycle, cycle_id, "Check-in cycle")
-    _require(session, Project, data.project_id, "Project")
-    _require(session, Stage, data.stage_id, "Stage")
-    _require(session, User, data.user_id, "User")
+    cycle = require_row(session, CheckInCycle, cycle_id, "Check-in cycle")
+    require_row(session, Project, data.project_id, "Project")
+    require_row(session, Stage, data.stage_id, "Stage")
+    require_row(session, User, data.user_id, "User")
     if data.task_id:
-        _require(session, Task, data.task_id, "Task")
+        require_row(session, Task, data.task_id, "Task")
     if cycle.project_id != data.project_id or cycle.stage_id != data.stage_id:
         raise ValueError("Check-in response must match cycle project and stage")
 
@@ -64,10 +65,3 @@ def create_checkin_response(
 
 def list_checkin_responses_by_cycle(session: Session, cycle_id: str) -> list[CheckInResponse]:
     return list(session.exec(select(CheckInResponse).where(CheckInResponse.cycle_id == cycle_id)).all())
-
-
-def _require(session: Session, model: type, row_id: str, label: str):
-    row = session.get(model, row_id)
-    if row is None:
-        raise ValueError(f"{label} not found")
-    return row

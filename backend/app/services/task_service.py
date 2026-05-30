@@ -52,7 +52,7 @@ def update_task(session: Session, task_id: str, data: TaskUpdate) -> Task:
     return task
 
 
-def create_status_update(session: Session, data: TaskStatusUpdateCreate) -> TaskStatusUpdate:
+def create_status_update(session: Session, data: TaskStatusUpdateCreate, *, auto_commit: bool = True) -> TaskStatusUpdate:
     status_update = TaskStatusUpdate(
         task_id=data.task_id,
         user_id=data.user_id,
@@ -62,6 +62,9 @@ def create_status_update(session: Session, data: TaskStatusUpdateCreate) -> Task
         available_hours_change=data.available_hours_change,
     )
     session.add(status_update)
-    session.commit()
-    session.refresh(status_update)
+    if auto_commit:
+        session.commit()
+        session.refresh(status_update)
+    else:
+        session.flush()
     return status_update

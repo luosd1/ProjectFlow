@@ -70,7 +70,6 @@ def _persist_agent_output(
     created_ids: list[str] = []
     proposal_id: str | None = None
 
-    # High-impact outputs that require confirmation → create AgentProposal
     if isinstance(output, DirectionCardOutput):
         proposal_id = _create_agent_proposal(
             session, workspace_state, project_id, "clarify", output
@@ -104,6 +103,7 @@ def _persist_agent_output(
                     risk_note=assignment.risk_note,
                     created_by_agent=True,
                 ),
+                auto_commit=False,
             )
             created_ids.append(proposal.id)
 
@@ -126,6 +126,7 @@ def _persist_agent_output(
                     due_date=card.due_date,
                     created_by_agent=True,
                 ),
+                auto_commit=False,
             )
             created_ids.append(created.id)
 
@@ -141,6 +142,7 @@ def _persist_agent_output(
                     blocker=update.blocker,
                     available_hours_change=update.available_hours_change,
                 ),
+                auto_commit=False,
             )
             created_ids.append(status_update.id)
         created_ids.extend(_persist_risks(session, project_id, output.risks))
@@ -148,6 +150,7 @@ def _persist_agent_output(
     if isinstance(output, RiskAnalysisOutput):
         created_ids.extend(_persist_risks(session, project_id, output.risks))
 
+    session.commit()
     return created_ids, proposal_id
 
 
@@ -168,6 +171,7 @@ def _persist_risks(session: Session, project_id: str, risks) -> list[str]:
                 recommendation=risk.recommendation,
                 created_by_agent=True,
             ),
+            auto_commit=False,
         )
         created_ids.append(created.id)
     return created_ids
@@ -187,8 +191,6 @@ def _create_agent_proposal(
     proposal_type: str,
     output,
 ) -> str:
-    """Create an AgentProposal for a high-impact agent output that requires confirmation."""
-    # Find the most recent agent event for this project/workspace/type
     agent_event_id = _find_latest_agent_event_id(
         session, project_id, workspace_state.workspace_id, proposal_type
     )
@@ -199,6 +201,7 @@ def _create_agent_proposal(
         proposal_type=proposal_type,
         agent_event_id=agent_event_id,
         payload=output.model_dump(mode="json"),
+        auto_commit=False,
     )
     return proposal.id
 

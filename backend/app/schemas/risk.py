@@ -13,7 +13,7 @@ class RiskCreate(BaseModel):
     severity: RiskSeverity
     title: str
     description: str
-    evidence: list | dict
+    evidence: list[str | dict]
     recommendation: str
     created_by_agent: bool = False
 
@@ -27,7 +27,7 @@ class RiskRead(BaseModel):
     severity: RiskSeverity
     title: str
     description: str
-    evidence: list | dict
+    evidence: list[str | dict]
     recommendation: str
     status: RiskStatus
     created_by_agent: bool

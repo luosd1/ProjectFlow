@@ -2,6 +2,7 @@ from datetime import UTC, datetime
 
 from sqlmodel import Session, select
 
+from app.core.db_utils import require_row
 from app.models import (
     AssignmentNegotiation,
     AssignmentProposal,
@@ -19,13 +20,13 @@ from app.schemas.assignment import (
 )
 
 
-def create_assignment_proposal(session: Session, data: AssignmentProposalCreate) -> AssignmentProposal:
-    _require(session, Project, data.project_id, "Project")
-    _require(session, Stage, data.stage_id, "Stage")
-    _require(session, Task, data.task_id, "Task")
-    _require(session, User, data.recommended_owner_user_id, "Recommended owner")
+def create_assignment_proposal(session: Session, data: AssignmentProposalCreate, *, auto_commit: bool = True) -> AssignmentProposal:
+    require_row(session, Project, data.project_id, "Project")
+    require_row(session, Stage, data.stage_id, "Stage")
+    require_row(session, Task, data.task_id, "Task")
+    require_row(session, User, data.recommended_owner_user_id, "Recommended owner")
     if data.backup_owner_user_id:
-        _require(session, User, data.backup_owner_user_id, "Backup owner")
+        require_row(session, User, data.backup_owner_user_id, "Backup owner")
 
     proposal = AssignmentProposal(
         project_id=data.project_id,
@@ -42,8 +43,11 @@ def create_assignment_proposal(session: Session, data: AssignmentProposalCreate)
         created_by_agent=data.created_by_agent,
     )
     session.add(proposal)
-    session.commit()
-    session.refresh(proposal)
+    if auto_commit:
+        session.commit()
+        session.refresh(proposal)
+    else:
+        session.flush()
     return proposal
 
 
@@ -88,12 +92,12 @@ def create_assignment_response(
     proposal_id: str,
     data: AssignmentResponseCreate,
 ) -> AssignmentResponse:
-    proposal = _require(session, AssignmentProposal, proposal_id, "Assignment proposal")
-    _require(session, User, data.user_id, "User")
+    proposal = require_row(session, AssignmentProposal, proposal_id, "Assignment proposal")
+    require_row(session, User, data.user_id, "User")
     if data.user_id != proposal.recommended_owner_user_id:
         raise ValueError("Only the recommended owner can respond to this proposal")
     if data.preferred_task_id:
-        _require(session, Task, data.preferred_task_id, "Preferred task")
+        require_row(session, Task, data.preferred_task_id, "Preferred task")
 
     response = AssignmentResponse(
         proposal_id=proposal_id,
@@ -115,11 +119,11 @@ def create_assignment_response(
 
 
 def finalize_assignment_proposal(session: Session, proposal_id: str) -> AssignmentProposal:
-    proposal = _require(session, AssignmentProposal, proposal_id, "Assignment proposal")
+    proposal = require_row(session, AssignmentProposal, proposal_id, "Assignment proposal")
     if proposal.status != AssignmentProposalStatus.owner_confirmed:
         raise ValueError("Assignment proposal must be owner_confirmed before finalization")
 
-    task = _require(session, Task, proposal.task_id, "Task")
+    task = require_row(session, Task, proposal.task_id, "Task")
     task.owner_user_id = proposal.recommended_owner_user_id
     task.backup_owner_user_id = proposal.backup_owner_user_id
     task.assignment_reason = proposal.reason
@@ -134,7 +138,7 @@ def finalize_assignment_proposal(session: Session, proposal_id: str) -> Assignme
 
 
 def finalize_assignment_proposals_by_stage(session: Session, stage_id: str) -> list[AssignmentProposal]:
-    _require(session, Stage, stage_id, "Stage")
+    require_row(session, Stage, stage_id, "Stage")
     proposals = list(
         session.exec(
             select(AssignmentProposal).where(
@@ -143,22 +147,31 @@ def finalize_assignment_proposals_by_stage(session: Session, stage_id: str) -> l
             )
         ).all()
     )
-    finalized: list[AssignmentProposal] = []
     for proposal in proposals:
-        finalized.append(finalize_assignment_proposal(session, proposal.id))
-    return finalized
+        task = require_row(session, Task, proposal.task_id, "Task")
+        task.owner_user_id = proposal.recommended_owner_user_id
+        task.backup_owner_user_id = proposal.backup_owner_user_id
+        task.assignment_reason = proposal.reason
+        task.updated_at = datetime.now(UTC)
+        proposal.status = AssignmentProposalStatus.finalized
+        session.add(task)
+        session.add(proposal)
+    session.commit()
+    for proposal in proposals:
+        session.refresh(proposal)
+    return proposals
 
 
 def create_assignment_negotiation(
     session: Session,
     data: AssignmentNegotiationCreate,
 ) -> AssignmentNegotiation:
-    _require(session, Project, data.project_id, "Project")
-    _require(session, Stage, data.stage_id, "Stage")
-    _require(session, User, data.from_user_id, "Requester")
-    _require(session, Task, data.desired_task_id, "Desired task")
+    require_row(session, Project, data.project_id, "Project")
+    require_row(session, Stage, data.stage_id, "Stage")
+    require_row(session, User, data.from_user_id, "Requester")
+    require_row(session, Task, data.desired_task_id, "Desired task")
     if data.current_owner_user_id:
-        _require(session, User, data.current_owner_user_id, "Current owner")
+        require_row(session, User, data.current_owner_user_id, "Current owner")
 
     negotiation = AssignmentNegotiation(
         project_id=data.project_id,
@@ -172,10 +185,3 @@ def create_assignment_negotiation(
     session.commit()
     session.refresh(negotiation)
     return negotiation
-
-
-def _require(session: Session, model: type, row_id: str, label: str):
-    row = session.get(model, row_id)
-    if row is None:
-        raise ValueError(f"{label} not found")
-    return row

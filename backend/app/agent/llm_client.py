@@ -207,7 +207,7 @@ class OpenAICompatibleLLMClient:
 def build_llm_client(settings: LLMClientSettings | None = None) -> LLMClient:
     selected = settings or LLMClientSettings(
         provider=app_settings.llm_provider,
-        api_key=app_settings.llm_api_key,
+        api_key=app_settings.llm_api_key.get_secret_value() if app_settings.llm_api_key else None,
         base_url=app_settings.llm_base_url,
         model=app_settings.llm_model,
         timeout_seconds=app_settings.llm_timeout_seconds,

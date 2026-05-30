@@ -183,9 +183,33 @@ Frontend:
 - localStorage 读取使用 `useSyncExternalStore` 避免 hydration mismatch。
 - UI components use shadcn/ui with project color tokens. Form components unified through FormField wrapper (label + input + error + hint).
 
+### Phase 17 — Code Review Hardening (2026-05-30)
+
+Full codebase review identified 56 issues across backend and frontend. Fixed 18 issues (all P0/P1/P2 that were confirmed real), leaving 2 P0 + 9 P1 + 10 P2 for post-MVP.
+
+Fixes applied:
+
+- **Transaction atomicity**: `workspace_service`, `invitation_service`, `agent_flow_service`, `assignment_service` now use `flush()` + single `session.commit()` instead of multiple independent commits. Sub-service functions accept `auto_commit=False` to let callers control transaction boundaries.
+- **Double JSON serialization**: Removed redundant `json.dumps()` calls in `member_profile_service` (skills), `risk_service` (evidence), and `project_service` (direction_card) that produced corrupted escaped strings like `"\"skill\""`.
+- **SecretStr for config**: `llm_api_key` in `core/config.py` changed from `str | None` to `SecretStr | None`; `llm_timeout_seconds` changed to `PositiveFloat`. `llm_client.py` and `llm_service.py` updated to use `.get_secret_value()`.
+- **Prompt injection protection**: `prompts.py` wraps `workspace_state` JSON in XML tags (`<workspace_state>...</workspace_state>`) to isolate user data from LLM instructions.
+- **Fallback safety**: `assignment_recommendation`, `active_push`, `assignment_negotiation`, and `checkin_analysis` modules now return empty lists instead of payloads with `None` IDs when fallback data is incomplete.
+- **Schema type tightening**: `skills: list | dict` → `list[str | dict]`, `evidence: list | dict` → `list[str | dict]`, `dependency_ids: dict | list` → `list[str]`, `acceptance_criteria: dict | list` → `list[str]`, `done_criteria: dict | list` → `list[str]`, `available_hours_per_week: int` → `float`.
+- **Global error handler**: `main.py` adds `@app.exception_handler(Exception)` to prevent stack trace leaks, CORS middleware tightened to explicit methods/headers, lifespan error handling added.
+- **Database session safety**: `get_session()` in `core/database.py` now has explicit `session.rollback()` on exception before re-raising.
+- **JSON repair in workflow**: `_repair_json_text` rewritten with layered approach: try original → try brute single-quote replacement → try regex key/value replacement. Trailing comma cleanup added.
+- **LLM error propagation**: `workflow.py` now catches `LLMError` separately and re-raises it to ensure network errors reach the fallback path.
+- **Frontend request safety**: `api.ts` `request<T>` now uses `AbortController` with 30s timeout, JSON parse protection, and proper headers merging. `acceptInvitation` and `finalizeAssignments` now pass their actual parameters.
+- **Shared utility**: `core/db_utils.py` extracted `require_row()` to replace duplicated `_require` functions across 6 service files.
+- **Invitation accept**: `accept_invitation` now accepts `user_id` parameter; creates a User record when no user_id is provided instead of using a placeholder.
+
+Verification: backend 146/146 tests pass, frontend build passes.
+
+Unfixed issues documented in `.trae/documents/code-review-unfixed-issues.md`.
+
 ## Next Work
 
-Core MVP phase scope is complete. Phase 10 (UI Structural Fix) completed 2026-05-29; MVP Usable #16/#17/#18/#19/#20/#21 are complete.
+Core MVP phase scope is complete. Phase 10 (UI Structural Fix) completed 2026-05-29; MVP Usable #16/#17/#18/#19/#20/#21 are complete. Phase 17 (Code Review Hardening) completed 2026-05-30.
 
 MVP Usable progress (see `.claude/epics/projectflow-mvp-usable-ready/`):
 - ✅ #18 Prompt and Schema Quality Hardening (completed 2026-05-29)
@@ -197,7 +221,7 @@ MVP Usable progress (see `.claude/epics/projectflow-mvp-usable-ready/`):
 
 All MVP Usable tasks are complete. The runbook now documents mock mode, real-provider mode, a full manual verification checklist, and a final status report.
 
-Post-MVP: auth, deployment, collaboration permissions, broader UI hardening.
+Post-MVP: auth, deployment, collaboration permissions, broader UI hardening, remaining code review issues (2 P0 + 9 P1 + 10 P2 documented in `.trae/documents/code-review-unfixed-issues.md`).
 
 ## Local Cleanup Notes
 

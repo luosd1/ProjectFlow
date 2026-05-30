@@ -6,7 +6,7 @@ from typing import Any
 
 from sqlmodel import Session
 
-from app.agent.llm_client import LLMClient
+from app.agent.llm_client import LLMClient, LLMError
 from app.agent.output_schemas import AgentOutputBase, AgentOutputValidationError, validate_agent_output
 from app.agent.prompts import build_prompt_messages
 from app.models import AgentEvent
@@ -48,7 +48,10 @@ def generate_structured_output(
     last_error: Exception | None = None
 
     for attempt in range(1, 3):
-        last_raw = llm_client.complete(messages)
+        try:
+            last_raw = llm_client.complete(messages)
+        except LLMError:
+            raise
         try:
             payload, repaired = _parse_or_repair_json(last_raw)
             output = validate_agent_output(event_type, payload, workspace_state=workspace_state)
@@ -112,8 +115,20 @@ def _repair_json_text(raw: str) -> str:
     last = text.rfind("}")
     if first >= 0 and last >= first:
         text = text[first:last + 1]
-    text = text.replace("'", '"')
     text = re.sub(r",\s*([}\]])", r"\1", text)
+    try:
+        json.loads(text)
+        return text
+    except json.JSONDecodeError:
+        pass
+    replaced = text.replace("'", '"')
+    try:
+        json.loads(replaced)
+        return replaced
+    except json.JSONDecodeError:
+        pass
+    text = re.sub(r"'([^']*)'(\s*:)", r'"\1"\2', text)
+    text = re.sub(r":\s*'([^']*)'", r': "\1"', text)
     return text
 
 
@@ -141,7 +156,7 @@ def _log_agent_event(
         reasoning_summary=output.reason,
     )
     session.add(event)
-    session.commit()
+    session.flush()
 
 
 def _log_failed_agent_event(
@@ -167,4 +182,4 @@ def _log_failed_agent_event(
         reasoning_summary=str(error),
     )
     session.add(event)
-    session.commit()
+    session.flush()

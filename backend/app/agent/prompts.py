@@ -36,8 +36,8 @@ def build_prompt_messages(
         {
             "role": "user",
             "content": (
-                f"Event type: {event_type.value}\n"
-                f"WorkspaceState JSON:\n{workspace_state.model_dump_json()}\n\n"
+                f"Event type: {event_type.value}\n\n"
+                f"<workspace_state>\n{workspace_state.model_dump_json()}\n</workspace_state>\n\n"
                 f"Task:\n{user_prompt}"
             ),
         },

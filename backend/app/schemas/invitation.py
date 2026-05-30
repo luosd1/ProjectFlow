@@ -23,3 +23,4 @@ class InvitationRead(BaseModel):
 
 class InvitationAccept(BaseModel):
     token: str
+    user_id: str | None = None

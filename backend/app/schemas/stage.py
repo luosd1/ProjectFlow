@@ -11,7 +11,7 @@ class StageCreate(BaseModel):
     start_date: date
     end_date: date
     deliverable: str
-    done_criteria: dict | list | None = None
+    done_criteria: list[str] | None = None
     order_index: int | None = None
 
 
@@ -30,6 +30,6 @@ class StageRead(BaseModel):
     start_date: date
     end_date: date
     deliverable: str
-    done_criteria: dict | list
+    done_criteria: list[str]
     status: StageStatus
     order_index: int

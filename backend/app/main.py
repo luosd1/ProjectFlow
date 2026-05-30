@@ -1,7 +1,9 @@
 from contextlib import asynccontextmanager
+import logging
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from app.api.routes_health import router as health_router
 from app.api.routes_users import router as users_router
@@ -27,14 +29,31 @@ from app.api.routes_export import router as export_router
 from app.api.routes_llm import router as llm_router
 from app.core.database import create_db_and_tables
 
+logger = logging.getLogger(__name__)
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    create_db_and_tables()
+    try:
+        create_db_and_tables()
+    except Exception:
+        logger.exception("Failed to initialize database")
+        raise
     yield
 
 
 app = FastAPI(title="ProjectFlow API", lifespan=lifespan)
+
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    logger.exception("Unhandled exception on %s %s", request.method, request.url.path)
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Internal server error"},
+    )
+
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -43,8 +62,8 @@ app.add_middleware(
         "http://127.0.0.1:3000",
         "http://127.0.0.1:3001",
     ],
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
+    allow_headers=["Content-Type", "Authorization"],
 )
 app.include_router(health_router, prefix="/api")
 app.include_router(users_router, prefix="/api")

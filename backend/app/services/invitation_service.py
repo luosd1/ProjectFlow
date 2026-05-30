@@ -4,6 +4,7 @@ from sqlmodel import Session, select
 
 from app.models.enums import InvitationStatus, WorkspaceRole
 from app.models.invitation import Invitation
+from app.models.user import User
 from app.models.workspace import WorkspaceMembership
 from app.schemas.invitation import InvitationCreate
 
@@ -20,7 +21,7 @@ def create_invitation(session: Session, data: InvitationCreate) -> Invitation:
     return invitation
 
 
-def accept_invitation(session: Session, token: str) -> Invitation:
+def accept_invitation(session: Session, token: str, user_id: str | None = None) -> Invitation:
     invitation = session.exec(
         select(Invitation).where(Invitation.token == token)
     ).first()
@@ -31,22 +32,24 @@ def accept_invitation(session: Session, token: str) -> Invitation:
     if invitation.status != InvitationStatus.pending.value:
         raise ValueError(f"Invitation is already {invitation.status}")
 
-    # Update invitation status
     invitation.status = InvitationStatus.accepted.value
     invitation.accepted_at = datetime.now(UTC)
     session.add(invitation)
-    session.commit()
-    session.refresh(invitation)
+    session.flush()
 
-    # Create workspace membership for the accepted invitee
-    # We use a placeholder user_id derived from the invitation since
-    # the invitee may not have a User account yet.
-    # The caller (or a follow-up step) should link this to a real user.
-    # For MVP, we create the membership with the invitation id as a marker
-    # that will be replaced when the user registers.
+    resolved_user_id = user_id
+    if resolved_user_id is None:
+        user = User(
+            display_name=invitation.invited_name or "Invited Member",
+            email=invitation.invited_email,
+        )
+        session.add(user)
+        session.flush()
+        resolved_user_id = user.id
+
     membership = WorkspaceMembership(
         workspace_id=invitation.workspace_id,
-        user_id=invitation.id,  # placeholder until real user links
+        user_id=resolved_user_id,
         role=WorkspaceRole.member,
     )
     session.add(membership)

@@ -431,7 +431,7 @@ export function ProjectDashboard({
               onIgnore={onIgnoreRisk}
               pending={Boolean(pendingAction)}
             />
-            <ReplanDiff before={tasks} after={tasks} />
+            <ReplanDiff before={[]} after={[]} proposal={null} />
           </TabsContent>
 
           <TabsContent value="timeline" className="space-y-5">
