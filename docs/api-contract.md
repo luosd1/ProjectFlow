@@ -64,7 +64,10 @@ POST /api/workspaces?owner_user_id=...
 GET /api/workspaces
 GET /api/workspaces/{workspace_id}
 POST /api/workspaces/{workspace_id}/members
+DELETE /api/workspaces/{workspace_id}/members/{user_id}
 ```
+
+`DELETE` removes both the workspace membership and the associated member profile.
 
 ### Invitations
 

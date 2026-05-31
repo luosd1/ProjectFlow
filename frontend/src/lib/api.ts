@@ -3,6 +3,7 @@ import type {
   CreateUserRequest,
   Workspace,
   CreateWorkspaceRequest,
+  WorkspaceMembership,
   WorkspaceState,
   Invitation,
   CreateInvitationRequest,
@@ -594,6 +595,23 @@ export async function updateRiskStatus(
     body: JSON.stringify({ status }),
   });
   return normalizeRisk(risk);
+}
+
+export async function addWorkspaceMember(
+  workspaceId: string,
+  userId: string,
+  role: "owner" | "member" = "member",
+): Promise<WorkspaceMembership> {
+  return request<WorkspaceMembership>(`/workspaces/${workspaceId}/members`, {
+    method: "POST",
+    body: JSON.stringify({ user_id: userId, role }),
+  });
+}
+
+export async function removeMember(workspaceId: string, userId: string): Promise<void> {
+  await request(`/workspaces/${workspaceId}/members/${userId}`, {
+    method: "DELETE",
+  });
 }
 
 // --- Seed / Reset ---

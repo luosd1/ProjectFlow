@@ -1,5 +1,6 @@
 "use client";
 
+import * as React from "react";
 import { useEffect, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
@@ -25,14 +26,15 @@ function getServerSnapshot() {
 export function ProjectFlowHome() {
   const router = useRouter();
   const storedId = useSyncExternalStore(subscribeToStorage, getStorageSnapshot, getServerSnapshot);
+  const [isLoadingDemo, setIsLoadingDemo] = React.useState(false);
 
   useEffect(() => {
-    if (storedId) {
+    if (storedId && !isLoadingDemo) {
       router.replace(`/workspaces/${storedId}`);
     }
-  }, [storedId, router]);
+  }, [storedId, router, isLoadingDemo]);
 
-  if (storedId) {
+  if (storedId && !isLoadingDemo) {
     return (
       <div className="flex min-h-[70vh] items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-moss" />
@@ -73,25 +75,37 @@ export function ProjectFlowHome() {
           </Button>
           <Button
             variant="outline"
+            disabled={isLoadingDemo}
             onClick={async () => {
+              setIsLoadingDemo(true);
               try {
                 const { apiGet, loadDemoSeed } = await import("@/lib/api");
                 await loadDemoSeed();
-                const workspaces = await apiGet<{ workspace_id: string }[]>(`/workspaces`);
+                const workspaces = await apiGet<{ id: string }[]>(`/workspaces`);
                 if (workspaces.length > 0) {
-                  const wsId = workspaces[0].workspace_id;
+                  const wsId = workspaces[0].id;
                   localStorage.setItem(WORKSPACE_STORAGE_KEY, wsId);
                   window.dispatchEvent(new StorageEvent("storage", { key: WORKSPACE_STORAGE_KEY }));
                   router.push(`/workspaces/${wsId}`);
                   return;
                 }
-              } catch {
-                router.push("/onboarding");
+              } catch (err) {
+                console.error("加载演示数据失败:", err);
+                alert(`加载演示数据失败: ${err instanceof Error ? err.message : "未知错误"}`);
+              } finally {
+                setIsLoadingDemo(false);
               }
             }}
             size="lg"
           >
-            加载演示数据
+            {isLoadingDemo ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                加载中...
+              </>
+            ) : (
+              "加载演示数据"
+            )}
           </Button>
         </div>
       </motion.div>

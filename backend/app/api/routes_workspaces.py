@@ -54,3 +54,15 @@ def add_member(
     except ValueError as e:
         raise HTTPException(status_code=409, detail=str(e))
     return membership
+
+
+@router.delete("/workspaces/{workspace_id}/members/{user_id}", status_code=204)
+def remove_member(
+    workspace_id: str,
+    user_id: str,
+    session: Session = Depends(get_session),
+):
+    from app.services import member_profile_service
+    member_profile_service.delete_profile_by_user_and_workspace(session, user_id, workspace_id)
+    workspace_service.remove_member(session, workspace_id, user_id)
+    return None

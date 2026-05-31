@@ -54,3 +54,15 @@ def list_profiles_by_workspace(session: Session, workspace_id: str) -> list[Memb
             select(MemberProfile).where(MemberProfile.workspace_id == workspace_id)
         ).all()
     )
+
+
+def delete_profile_by_user_and_workspace(session: Session, user_id: str, workspace_id: str) -> None:
+    profile = session.exec(
+        select(MemberProfile).where(
+            MemberProfile.user_id == user_id,
+            MemberProfile.workspace_id == workspace_id,
+        )
+    ).first()
+    if profile:
+        session.delete(profile)
+        session.commit()

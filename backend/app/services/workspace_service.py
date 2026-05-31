@@ -53,3 +53,15 @@ def add_member(session: Session, workspace_id: str, user_id: str, role: Workspac
     session.commit()
     session.refresh(membership)
     return membership
+
+
+def remove_member(session: Session, workspace_id: str, user_id: str) -> None:
+    membership = session.exec(
+        select(WorkspaceMembership).where(
+            WorkspaceMembership.workspace_id == workspace_id,
+            WorkspaceMembership.user_id == user_id,
+        )
+    ).first()
+    if membership:
+        session.delete(membership)
+        session.commit()
