@@ -257,17 +257,6 @@ MVP Usable progress (see `.claude/epics/projectflow-mvp-usable-ready/`):
 
 All MVP Usable tasks are complete. The runbook now documents mock mode, real-provider mode, a full manual verification checklist, and a final status report.
 
-### Phase 20 — Workspace Member Management (2026-05-31)
-
-- Added `DELETE /api/workspaces/{workspace_id}/members/{user_id}` endpoint to remove members (deletes both membership and profile).
-- Added `remove_member()` to `workspace_service.py` and `delete_profile_by_user_and_workspace()` to `member_profile_service.py`.
-- Frontend: replaced simple "Add Member" button with "Manage" button opening `MemberManagementDialog`.
-- `MemberManagementDialog` supports: list all members with role/availability info, add new member (create user + membership + profile), edit existing member profile, delete member with confirmation.
-- Owner members are protected from deletion and editing.
-- Added `addWorkspaceMember()` and `removeMember()` to frontend `api.ts`.
-- Fixed `projectflow-home.tsx`: `workspace_id` → `id` field name mismatch when reading workspaces list.
-- Fixed `projectflow-home.tsx`: loading demo seed no longer incorrectly redirects to `/onboarding` on error; instead shows alert with error details.
-
 Post-MVP: auth, deployment, collaboration permissions, broader UI hardening, remaining code review issues (2 P0 + 9 P1 + 10 P2 documented in `.trae/documents/code-review-unfixed-issues.md`).
 
 ## Local Cleanup Notes
