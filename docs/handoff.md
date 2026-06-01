@@ -211,6 +211,14 @@ Frontend:
 - New test files: `action-card.test.tsx`, `task-status-update.test.tsx`.
 - Backend test additions: `test_agent_workflow.py`, `test_llm_provider.py`, `test_seed_reset_export.py` expanded.
 
+### Phase 20 — Test Docs + User Switcher (2026-05-31)
+
+- Added `docs/T23/` with 4 test documents (T23.A cold-start + planning, T23.B assignment + negotiation, T23.C execution + check-in, T23.D risk + replan + export) covering the full MVP flow with step-by-step instructions, verification checklists, and horizontal evaluation criteria.
+- Added user identity switcher in navigation bar: `useCurrentUserId()` / `setCurrentUserId()` / `setWorkspaceMembers()` in `app-shell.tsx` using `useSyncExternalStore` + localStorage.
+- Project dashboard `currentUserId` now reads from localStorage (user switcher) with fallback to `project.created_by`.
+- Project page auto-populates workspace members into localStorage on load, enabling the switcher dropdown.
+- Test documents updated to reference the user switcher instead of API-based multi-member operations.
+
 Full codebase review identified 56 issues across backend and frontend. Fixed 18 issues (all P0/P1/P2 that were confirmed real), leaving 2 P0 + 9 P1 + 10 P2 for post-MVP.
 
 Fixes applied:
@@ -237,7 +245,7 @@ Unfixed issues documented in `.trae/documents/code-review-unfixed-issues.md`.
 
 ## Next Work
 
-Core MVP phase scope is complete. Phase 10 (UI Structural Fix) completed 2026-05-29; MVP Usable #16/#17/#18/#19/#20/#21 are complete. Phase 17 (Code Review Hardening) completed 2026-05-30. Phase 18 (Frontend Bugfix) completed 2026-05-30. Phase 19 (Agent Prompt Refactor) completed 2026-05-31.
+Core MVP phase scope is complete. Phase 10 (UI Structural Fix) completed 2026-05-29; MVP Usable #16/#17/#18/#19/#20/#21 are complete. Phase 17 (Code Review Hardening) completed 2026-05-30. Phase 18 (Frontend Bugfix) completed 2026-05-30. Phase 19 (Agent Prompt Refactor) completed 2026-05-31. Phase 20 (Test Docs + User Switcher) completed 2026-05-31.
 
 MVP Usable progress (see `.claude/epics/projectflow-mvp-usable-ready/`):
 - ✅ #18 Prompt and Schema Quality Hardening (completed 2026-05-29)

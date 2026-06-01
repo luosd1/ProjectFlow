@@ -6,7 +6,7 @@ import { AlertCircle, Loader2 } from "lucide-react";
 
 import { ProjectDashboard, type AgentAction } from "@/components/project/project-dashboard";
 import { Button } from "@/components/ui/button";
-import { setLastWorkspaceId } from "@/components/app-shell";
+import { setLastWorkspaceId, useCurrentUserId, setCurrentUserId, setWorkspaceMembers } from "@/components/app-shell";
 import {
   finalizeAssignments,
   confirmAgentProposal,
@@ -82,6 +82,13 @@ export default function ProjectDashboardPage() {
         if (!ignore) {
           setState(nextState);
           setLastWorkspaceId(nextState.workspace.workspace_id);
+          setWorkspaceMembers(nextState.members.map((m) => ({
+            user_id: m.user_id,
+            display_name: m.display_name,
+          })));
+          if (!localStorage.getItem("projectflow:current-user-id")) {
+            setCurrentUserId(nextState.project.created_by);
+          }
         }
       })
       .catch(() => {
@@ -203,7 +210,8 @@ export default function ProjectDashboardPage() {
   const activeStage = state?.stages.find((stage) => stage.id === state.project.current_stage_id)
     ?? state?.stages.find((stage) => stage.status === "active")
     ?? state?.stages[0];
-  const currentUserId = state?.project.created_by;
+  const storedUserId = useCurrentUserId();
+  const currentUserId = storedUserId ?? state?.project.created_by;
 
   const handleSubmitCheckin = async (data: {
     user_id: string;

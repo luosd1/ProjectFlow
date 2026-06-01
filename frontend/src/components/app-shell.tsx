@@ -4,11 +4,17 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useSyncExternalStore } from "react";
 import { motion } from "framer-motion";
-import { Home, LayoutDashboard, Plus, Menu } from "lucide-react";
+import { Home, LayoutDashboard, Plus, Menu, Users } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from "@/components/ui/dropdown-menu";
 import {
   Sheet,
   SheetTrigger,
@@ -20,14 +26,16 @@ import {
 } from "@/components/ui/sheet";
 
 const WORKSPACE_STORAGE_KEY = "projectflow:last-workspace-id";
+const USER_STORAGE_KEY = "projectflow:current-user-id";
+const MEMBERS_STORAGE_KEY = "projectflow:workspace-members";
 
 function subscribeToStorage(cb: () => void) {
   window.addEventListener("storage", cb);
   return () => window.removeEventListener("storage", cb);
 }
 
-function getStorageSnapshot() {
-  return localStorage.getItem(WORKSPACE_STORAGE_KEY);
+function getStorageSnapshot(key: string) {
+  return localStorage.getItem(key);
 }
 
 function getServerSnapshot() {
@@ -46,7 +54,7 @@ function useWorkspaceNav() {
 
   const cachedId = useSyncExternalStore(
     subscribeToStorage,
-    getStorageSnapshot,
+    () => getStorageSnapshot(WORKSPACE_STORAGE_KEY),
     getServerSnapshot,
   );
 
@@ -63,6 +71,51 @@ function useWorkspaceNav() {
 export function setLastWorkspaceId(id: string) {
   if (typeof window !== "undefined") {
     localStorage.setItem(WORKSPACE_STORAGE_KEY, id);
+  }
+}
+
+export function useCurrentUserId() {
+  return useSyncExternalStore(
+    subscribeToStorage,
+    () => getStorageSnapshot(USER_STORAGE_KEY),
+    getServerSnapshot,
+  );
+}
+
+export function setCurrentUserId(id: string) {
+  if (typeof window !== "undefined") {
+    localStorage.setItem(USER_STORAGE_KEY, id);
+    window.dispatchEvent(new StorageEvent("storage", { key: USER_STORAGE_KEY }));
+  }
+}
+
+export function clearCurrentUserId() {
+  if (typeof window !== "undefined") {
+    localStorage.removeItem(USER_STORAGE_KEY);
+    window.dispatchEvent(new StorageEvent("storage", { key: USER_STORAGE_KEY }));
+  }
+}
+
+type MemberOption = { user_id: string; display_name: string };
+
+export function setWorkspaceMembers(members: MemberOption[]) {
+  if (typeof window !== "undefined") {
+    localStorage.setItem(MEMBERS_STORAGE_KEY, JSON.stringify(members));
+    window.dispatchEvent(new StorageEvent("storage", { key: MEMBERS_STORAGE_KEY }));
+  }
+}
+
+function useWorkspaceMembers(): MemberOption[] {
+  const raw = useSyncExternalStore(
+    subscribeToStorage,
+    () => getStorageSnapshot(MEMBERS_STORAGE_KEY),
+    getServerSnapshot,
+  );
+  if (!raw) return [];
+  try {
+    return JSON.parse(raw) as MemberOption[];
+  } catch {
+    return [];
   }
 }
 
@@ -150,6 +203,8 @@ function MobileNav({ pathname, workspaceId }: { pathname: string; workspaceId: s
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const workspaceId = useWorkspaceNav();
+  const storedUserId = useCurrentUserId();
+  const members = useWorkspaceMembers();
 
   const navItems = workspaceId
     ? [
@@ -158,6 +213,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         { label: "新建项目", href: `/projects/new?workspaceId=${workspaceId}`, icon: Plus },
       ]
     : baseNavItems;
+
+  const currentMember = members.find((m) => m.user_id === storedUserId);
 
   return (
     <div className="min-h-screen bg-paper text-ink">
@@ -188,7 +245,35 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </nav>
           </div>
 
-          <div className="hidden md:block" />
+          <div className="flex items-center gap-3">
+            {members.length > 0 && (
+              <DropdownMenu>
+                <DropdownMenuTrigger render={
+                  <Button variant="outline" size="sm" className="gap-2 text-xs">
+                    <Users className="h-3.5 w-3.5" />
+                    {currentMember?.display_name ?? "选择身份"}
+                  </Button>
+                } />
+                <DropdownMenuContent align="end" className="min-w-40">
+                  {members.map((member) => (
+                    <DropdownMenuItem
+                      key={member.user_id}
+                      onSelect={() => setCurrentUserId(member.user_id)}
+                      className={cn(
+                        "cursor-pointer text-sm",
+                        member.user_id === storedUserId && "font-semibold text-moss",
+                      )}
+                    >
+                      {member.display_name}
+                      {member.user_id === storedUserId && " ✓"}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+
+            <div className="hidden md:block" />
+          </div>
 
           <div className="md:hidden">
             <MobileNav pathname={pathname} workspaceId={workspaceId} />
