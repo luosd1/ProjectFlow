@@ -258,7 +258,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   {members.map((member) => (
                     <DropdownMenuItem
                       key={member.user_id}
-                      onSelect={() => setCurrentUserId(member.user_id)}
+                      onClick={() => setCurrentUserId(member.user_id)}
                       className={cn(
                         "cursor-pointer text-sm",
                         member.user_id === storedUserId && "font-semibold text-moss",
