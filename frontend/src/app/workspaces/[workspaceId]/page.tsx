@@ -40,8 +40,8 @@ function WorkspaceContent({ workspaceId }: { workspaceId: string }) {
       .then((data) => {
         if (!cancelled) setState(data)
       })
-      .catch(() => {
-        if (!cancelled) setError("加载工作台失败")
+      .catch((err) => {
+        if (!cancelled) setError(err instanceof Error ? err.message : "加载工作台失败")
       })
       .finally(() => {
         if (!cancelled) setLoading(false)
@@ -53,6 +53,11 @@ function WorkspaceContent({ workspaceId }: { workspaceId: string }) {
     setLoading(true)
     setError(null)
     setRefreshKey((k) => k + 1)
+  }, [])
+
+  const handleBackHome = React.useCallback(() => {
+    localStorage.removeItem("projectflow:last-workspace-id")
+    window.location.href = "/"
   }, [])
 
   if (loading) {
@@ -69,16 +74,10 @@ function WorkspaceContent({ workspaceId }: { workspaceId: string }) {
         <AlertCircle className="h-8 w-8 text-destructive" />
         <p className="text-sm text-destructive">{error ?? "工作台未找到"}</p>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={() => window.location.reload()}>
+          <Button variant="outline" onClick={loadWorkspace}>
             重试
           </Button>
-          <Button
-            variant="ghost"
-            onClick={() => {
-              localStorage.removeItem("projectflow:last-workspace-id");
-              window.location.href = "/";
-            }}
-          >
+          <Button variant="ghost" onClick={handleBackHome}>
             返回首页
           </Button>
         </div>
@@ -157,6 +156,15 @@ function WorkspaceContent({ workspaceId }: { workspaceId: string }) {
                               {profile.available_hours_per_week}h/周
                             </p>
                           )}
+                          {profile?.skills?.length ? (
+                            <div className="mt-2 flex flex-wrap gap-1">
+                              {profile.skills.slice(0, 3).map((skill) => (
+                                <Badge key={skill.name} variant="secondary" className="text-[10px]">
+                                  {skill.name} Lv.{skill.level}
+                                </Badge>
+                              ))}
+                            </div>
+                          ) : null}
                         </div>
                         <Badge variant={m.role === "owner" ? "default" : "secondary"}>
                           {m.role === "owner" ? (
@@ -165,7 +173,7 @@ function WorkspaceContent({ workspaceId }: { workspaceId: string }) {
                               负责人
                             </span>
                           ) : (
-                            "成员"
+                            "已加入"
                           )}
                         </Badge>
                       </div>
