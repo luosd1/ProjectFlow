@@ -1,6 +1,6 @@
 # ProjectFlow Handoff
 
-Status: current as of 2026-06-02.
+Status: current as of 2026-06-03.
 
 ## Completed
 
@@ -268,6 +268,26 @@ Code review of PR #28 identified and fixed 10 issues (2 Critical, 3 High, 5 Medi
 - Project page auto-populates workspace members into localStorage on load, enabling the switcher dropdown.
 - Test documents updated to reference the user switcher instead of API-based multi-member operations.
 
+### Phase 24 — Agent Output Quality + Bug Fixes (2026-06-03)
+
+T23.C full verification with real LLM (DeepSeek V4-pro) drove 4 blocking bugs to resolution and unified Agent output quality across all modules.
+
+**Blocking bugs fixed (4):**
+
+- **BUG-004 (sign-in analysis can't detect blocker)**: `_compact_workspace_state_json` now serializes `checkin_responses` for checkin events. `workflow.py:_max_tokens_for_event` increased 2-4x (checkin 900→4000, etc.) to accommodate reasoning model `reasoning_tokens` overhead. `output_schemas.py:RiskProposal.evidence` relaxed from `list[dict]` to `list[str | dict]` to match LLM output behavior. `checkin_analysis.py` fallback now dynamically detects blockers from workspace state.
+- **BUG-005 (manual task status update doesn't change Task.status)**: `create_status_update` now accepts `task_id` as a positional parameter and synchronizes `Task.status` in the same transaction. `TaskStatusUpdateCreate` schema removed the `task_id` field (set by route from URL path). Call sites in `agent_flow_service.py` and `routes_tasks.py` adapted.
+- **BUG-008 (Agent uses raw IDs in user-facing text)**: `AGENT_SYSTEM_PROMPT` now mandates "Never use raw IDs — use member display names and task titles". `_compact_member` gained `include_name` parameter: push/checkin/risk/replan now include `name` (display_name) in workspace state. Checkin responses serialized with `member_name` + `task_title` instead of bare `user_id`/`task_id`. All module `user_prompt`s (active_push, checkin_analysis, risk_analysis, replanning) updated to forbid internal IDs in visible text.
+- **BUG-009 (Agent output mixed Chinese/English)**: `AGENT_SYSTEM_PROMPT` now requires "ALL user-facing text MUST be written in Chinese". `OUTPUT_CONTRACT` push entry and all module `user_prompt`s (active_push, risk_analysis, replanning) explicitly added this requirement.
+
+**Frontend improvements:**
+
+- Action card allocation simplified from type-whitelist to user_id-based: cards with no `user_id` always go to team panel; cards with `user_id` always go to personal panel. `TEAM_CARD_TYPES` whitelist removed.
+- `ActionCardItem` gained `canOperate` prop (default true); team actions panel passes `canOperate={isCreator}` for permission gating.
+
+**Documentation:**
+
+- `T23-C-feedback.md` created in `docs/T23/` with all identified bugs (BUG-001 through BUG-009), root cause analysis, fix records, and fix status. BUG-002 and BUG-003 removed (superseded); bugs renumbered to close gaps.
+
 Full codebase review identified 56 issues across backend and frontend. Fixed 18 issues (all P0/P1/P2 that were confirmed real), leaving 2 P0 + 9 P1 + 10 P2 for post-MVP.
 
 Fixes applied:
@@ -294,7 +314,7 @@ Unfixed issues documented in `.trae/documents/code-review-unfixed-issues.md`.
 
 ## Next Work
 
-Core MVP phase scope is complete. Phase 10 (UI Structural Fix) completed 2026-05-29; MVP Usable #16/#17/#18/#19/#20/#21 are complete. Phase 17 (Code Review Hardening) completed 2026-05-30. Phase 18 (Frontend Bugfix) completed 2026-05-30. Phase 19 (Agent Prompt Refactor) completed 2026-05-31. Phase 20 (Workspace Member Management) completed 2026-05-31. Phase 21 (Test Docs + User Switcher) completed 2026-05-31. Phase 22 (T23.A Feedback Fixes) completed 2026-06-02. Phase 23 (Code Review Hardening) completed 2026-06-02.
+Core MVP phase scope is complete. Phase 10 (UI Structural Fix) completed 2026-05-29; MVP Usable #16/#17/#18/#19/#20/#21 are complete. Phase 17 (Code Review Hardening) completed 2026-05-30. Phase 18 (Frontend Bugfix) completed 2026-05-30. Phase 19 (Agent Prompt Refactor) completed 2026-05-31. Phase 20 (Workspace Member Management) completed 2026-05-31. Phase 21 (Test Docs + User Switcher) completed 2026-05-31. Phase 22 (T23.A Feedback Fixes) completed 2026-06-02. Phase 23 (Code Review Hardening) completed 2026-06-02. Phase 24 (Agent Output Quality + Bug Fixes) completed 2026-06-03.
 
 MVP Usable progress (see `.claude/epics/projectflow-mvp-usable-ready/`):
 - ✅ #18 Prompt and Schema Quality Hardening (2026-05-29)
@@ -312,7 +332,7 @@ T23.A test audit completed (2026-06-02) with feedback documented in `docs/T23/T2
 
 T23.B/C/D 测试待执行。
 
-Post-MVP: auth, deployment, collaboration permissions, broader UI hardening, remaining code review issues (2 P0 + 9 P1 + 10 P2 documented in `.trae/documents/code-review-unfixed-issues.md`).
+Post-MVP: auth, deployment, collaboration permissions, broader UI hardening, remaining code review issues (2 P0 + 9 P1 + 10 P2 documented in `.trae/documents/code-review-unfixed-issues.md`), and outstanding bugs (see `docs/T23/T23-C-feedback.md`).
 
 ## Local Cleanup Notes
 

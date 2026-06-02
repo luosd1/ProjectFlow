@@ -17,6 +17,19 @@ def create_risk(session: Session, data: RiskCreate, *, auto_commit: bool = True)
     if data.task_id:
         require_row(session, Task, data.task_id, "Task")
 
+    # Dedup: skip if an open/accepted risk already exists for the same task+type combination
+    if data.task_id and data.type:
+        existing = session.exec(
+            select(Risk).where(
+                Risk.project_id == data.project_id,
+                Risk.task_id == data.task_id,
+                Risk.type == data.type,
+                Risk.status.in_([RiskStatus.open, RiskStatus.accepted]),
+            )
+        ).first()
+        if existing is not None:
+            return existing
+
     risk = Risk(
         project_id=data.project_id,
         stage_id=data.stage_id,
