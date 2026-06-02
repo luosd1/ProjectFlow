@@ -18,6 +18,8 @@ MVP 目标：2026-06-01 前跑通初步闭环，2026-06-07 前稳定可演示 De
 
 ## Directory Structure
 
+> 需要详细代码情况时读取 [`docs/code-wiki.md`](docs/code-wiki.md)
+
 ```
 projectflow/
 ├── docs/                    # PRD、技术设计、API 契约、演示脚本
