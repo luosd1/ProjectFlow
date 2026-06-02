@@ -213,7 +213,7 @@ Frontend:
 
 ### Phase 22 — T23.A Feedback Fixes (2026-06-02)
 
-Fixes applied from the T23.A test audit (see `docs/T23.A.feedback.md`):
+Fixes applied from the T23.A test audit (see `docs/T23/T23.A.md`):
 
 **Blockers fixed:**
 - **Agent 提案拒绝 422** (`A-17`): `POST /agent-proposals/{id}/reject` body 改为可选，`reject_proposal()` 接受 `reason | None`，前端 `rejectAgentProposal()` 发送空 body 不再报错。
@@ -232,6 +232,29 @@ Fixes applied from the T23.A test audit (see `docs/T23.A.feedback.md`):
 - `test_agent_modules.py`: Agent 模块 fallback 中文验证
 - `test_agent_proposal_confirm.py`: 提案拒绝空 body 兼容、阶段激活验证
 - `conftest.py`: 新增 Agent 模块测试 fixtures
+
+### Phase 23 — Code Review Hardening (2026-06-02)
+
+Code review of PR #28 identified and fixed 10 issues (2 Critical, 3 High, 5 Medium/Low):
+
+**Critical/High fixes:**
+- **isValidating 死代码** (`projectflow-home.tsx`): `setIsValidating(true)` 从未调用，首页 workspace 验证 loading 状态完全无效。修复：在验证前设置 `isValidating=true`。
+- **AbortController.signal 未传递** (`projectflow-home.tsx`): `fetch(url)` 未传 `{ signal }`，cleanup 的 abort 是空操作。修复：传入 signal 并处理 AbortError。
+- **confirmed_by 未校验** (`agent_proposal_service.py`): 传入不存在的 user ID 触发 IntegrityError → 500。修复：添加 `require_row(session, User, confirmed_by, "User")`。
+- **rejection_reason 丢弃** (`agent_proposal_service.py`): reject 接口接收 reason 但不存储。修复：AgentProposal 模型新增 `rejection_reason` 列，reject 时持久化，API 响应包含该字段。
+- **next-env.d.ts dev 路径**: 还原为 `.next/types/routes.d.ts`。
+
+**Medium/Low fixes:**
+- 资源面板：添加 aria-label、local error state、catch handler
+- skill badge key：`key={skill.name}` → `key={name}-{level}-{i}` 避免重复
+- account-setup-form：`listUsers` effect 添加 cleanup flag
+- workspace-create-form：submit 时同时验证 step 0 和 step 1
+- layout.tsx：metadata description 改为中文
+- planning fallback：空 deliverables 加 `or` 兜底
+- breakdown fallback：空 stage_id 改为 `"unassigned"`
+- test conftest：confirm 测试 fixture 补齐 JSON serializer
+- 新增测试：`test_confirm_plan_does_not_duplicate_active_stage`
+- README：修复 `T23.A.feedback.md` 断链
 
 ### Phase 20 — Workspace Member Management (2026-05-31)
 
@@ -271,7 +294,7 @@ Unfixed issues documented in `.trae/documents/code-review-unfixed-issues.md`.
 
 ## Next Work
 
-Core MVP phase scope is complete. Phase 10 (UI Structural Fix) completed 2026-05-29; MVP Usable #16/#17/#18/#19/#20/#21 are complete. Phase 17 (Code Review Hardening) completed 2026-05-30. Phase 18 (Frontend Bugfix) completed 2026-05-30. Phase 19 (Agent Prompt Refactor) completed 2026-05-31. Phase 20 (Workspace Member Management) completed 2026-05-31. Phase 21 (Test Docs + User Switcher) completed 2026-05-31. Phase 22 (T23.A Feedback Fixes) completed 2026-06-02.
+Core MVP phase scope is complete. Phase 10 (UI Structural Fix) completed 2026-05-29; MVP Usable #16/#17/#18/#19/#20/#21 are complete. Phase 17 (Code Review Hardening) completed 2026-05-30. Phase 18 (Frontend Bugfix) completed 2026-05-30. Phase 19 (Agent Prompt Refactor) completed 2026-05-31. Phase 20 (Workspace Member Management) completed 2026-05-31. Phase 21 (Test Docs + User Switcher) completed 2026-05-31. Phase 22 (T23.A Feedback Fixes) completed 2026-06-02. Phase 23 (Code Review Hardening) completed 2026-06-02.
 
 MVP Usable progress (see `.claude/epics/projectflow-mvp-usable-ready/`):
 - ✅ #18 Prompt and Schema Quality Hardening (2026-05-29)
@@ -283,7 +306,7 @@ MVP Usable progress (see `.claude/epics/projectflow-mvp-usable-ready/`):
 
 All MVP Usable tasks are complete. The runbook now documents mock mode, real-provider mode, a full manual verification checklist, and a final status report.
 
-T23.A test audit completed (2026-06-02) with feedback documented in `docs/T23.A.feedback.md`. 4 blockers, 7 experience issues, and 1 optimization identified. All 4 blocker issues fixed in Phase 22. Remaining open items from T23.A feedback:
+T23.A test audit completed (2026-06-02) with feedback documented in `docs/T23/T23.A.md`. 4 blockers, 7 experience issues, and 1 optimization identified. All 4 blocker issues fixed in Phase 22. Remaining open items from T23.A feedback:
 - A-18: 真实 LLM 超时/失败兜底链路待补测（需用户提供 API）
 - 自动化测试隔离：真实 `.env` 配置影响 mock 测试（需 `LLM_PROVIDER=mock` 强制环境变量）
 

@@ -1,6 +1,6 @@
 # ProjectFlow API Contract
 
-Status: current as of 2026-06-02. All planned MVP endpoints are implemented; confirmation-to-persist flow for clarify/plan/breakdown; structured assignment citations and action card fields; resource CRUD; reject endpoint accepts empty body.
+Status: current as of 2026-06-02. All planned MVP endpoints are implemented; confirmation-to-persist flow for clarify/plan/breakdown; structured assignment citations and action card fields; resource CRUD; reject endpoint accepts empty body and persists rejection_reason; confirmed_by validated against User table.
 
 This document records the implemented MVP API surface. Post-MVP ideas should be tracked in roadmap docs, not mixed into this contract.
 
@@ -223,6 +223,10 @@ Confirming a proposal persists its payload to project state:
 - `breakdown` → creates `Task` records
 
 Confirming also marks the source `AgentEvent.user_confirmed = True` and records a confirmation timeline event with the source event ID.
+
+The `confirm` endpoint validates `confirmed_by` against the `users` table and returns 400 for non-existent user IDs. The `reject` endpoint accepts an optional `reason` field persisted as `rejection_reason` on the proposal record.
+
+The proposal response includes `rejection_reason` (string | null) when a proposal has been rejected with a reason.
 
 ### Assignments
 

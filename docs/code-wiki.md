@@ -261,7 +261,7 @@ Project ──1:N──> AgentEvent
 | `CheckInResponse` | cycle_id, user_id, what_done, blocker, available_hours_next_cycle, mood_or_confidence | 签到响应 |
 | `Risk` | project_id, stage/task_id, type, severity, title, description, evidence(JSON), recommendation, status | 风险条目 |
 | `ActionCard` | project_id, stage/task/user_id, type, title, content, reason, goal, start_suggestion, completion_standard, due_date, status | 行动卡 |
-| `AgentProposal` | project_id, workspace_id, proposal_type, status, payload(JSON), confirmed_by | Agent 提案（确认前不写入项目状态） |
+| `AgentProposal` | project_id, workspace_id, proposal_type, status, payload(JSON), confirmed_by, rejection_reason | Agent 提案（确认前不写入项目状态；reject 时记录原因） |
 | `AgentEvent` | project_id, workspace_id, event_type, status, input/output_snapshot, reasoning_summary, user_confirmed | Agent 决策日志 |
 
 ### 5.3 Schema 层
@@ -337,7 +337,7 @@ generate_structured_output()
 | Risk Analysis | risk_analysis.py | 构建风险分析请求 → 返回风险项 |
 | Replanning | replanning.py | 构建重计划请求 → 最小化调整提案 |
 
-公共结构（[common.py](backend/app/agent/modules/common.py)）：`AgentModuleRequest` + 辅助函数（`project_deadline_or_today`、`first_stage_id`、`first_task_id`、`first_member_id`）
+公共结构（[common.py](backend/app/agent/modules/common.py)）：`AgentModuleRequest` + 辅助函数（`project_deadline_or_today`、`project_name_or_default`、`project_idea_or_default`、`first_stage_name_or_default`、`stage_windows`、`first_stage_id`、`first_task_id`、`first_member_id`）
 
 ### 5.5 Service 层
 
@@ -665,7 +665,7 @@ Base URL: `http://localhost:8000/api`
 
 ### 验证基线
 
-- 后端 pytest：166 passing
+- 后端 pytest：170 passing（1 pre-existing failure in test_llm_provider）
 - 前端：13 tests passing, lint passing, build passing, audit 0 vulnerabilities
 
 ---
@@ -747,6 +747,7 @@ npm audit --omit=dev                # 安全审计
 | 20 | 工作台成员管理 | ✅ 2026-05-31 |
 | 21 | 测试分工文档 + 用户切换器 | ✅ 2026-05-31 |
 | 22 | T23.A 反馈修复 | ✅ 2026-06-02 |
+| 23 | Code Review Hardening | ✅ 2026-06-02 |
 
 ---
 
