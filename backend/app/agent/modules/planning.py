@@ -15,7 +15,7 @@ def build_request(workspace_state: WorkspaceStateResponse) -> AgentModuleRequest
     deadline = project_deadline_or_today(workspace_state)
     end = deadline if deadline >= start else start
     project_name = project_name_or_default(workspace_state)
-    deliverables = workspace_state.project.deliverables if workspace_state.project else "可演示交付物"
+    deliverables = (workspace_state.project.deliverables if workspace_state.project else None) or "可演示交付物"
     windows = stage_windows(start, end, preferred_count=3)
     stage_templates = [
         {

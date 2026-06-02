@@ -485,8 +485,8 @@ export function MemberManagementDialog({
                       )}
                       {profile?.skills?.length ? (
                         <div className="mt-1 flex flex-wrap gap-1">
-                          {profile.skills.slice(0, 4).map((skill) => (
-                            <Badge key={skill.name} variant="secondary" className="text-[10px]">
+                          {profile.skills.slice(0, 4).map((skill, i) => (
+                            <Badge key={`${skill.name}-${skill.level}-${i}`} variant="secondary" className="text-[10px]">
                               {skill.name} Lv.{skill.level}
                             </Badge>
                           ))}

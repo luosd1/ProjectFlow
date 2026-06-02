@@ -77,7 +77,7 @@ export function WorkspaceCreateForm({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!validateStep(1)) return
+    if (!validateStep(0) || !validateStep(1)) return
     setSubmitting(true)
     setError(null)
     try {

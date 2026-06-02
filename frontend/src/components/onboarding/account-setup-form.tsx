@@ -30,10 +30,12 @@ export function AccountSetupForm() {
   const [errors, setErrors] = React.useState<Record<string, string>>({})
 
   React.useEffect(() => {
+    let ignore = false;
     listUsers()
-      .then(setUsers)
-      .catch(() => setError("加载用户列表失败"))
-      .finally(() => setLoading(false))
+      .then((data) => { if (!ignore) setUsers(data); })
+      .catch(() => { if (!ignore) setError("加载用户列表失败"); })
+      .finally(() => { if (!ignore) setLoading(false); });
+    return () => { ignore = true; };
   }, [])
 
   const validate = (): boolean => {

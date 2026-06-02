@@ -42,11 +42,13 @@ export function ProjectResourcesPanel({
   const [title, setTitle] = React.useState("");
   const [content, setContent] = React.useState("");
   const [submitting, setSubmitting] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
   const canSubmit = Boolean(onAddResource && title.trim() && content.trim());
 
   const submit = async () => {
     if (!canSubmit) return;
     setSubmitting(true);
+    setError(null);
     try {
       await onAddResource?.({
         type,
@@ -58,6 +60,8 @@ export function ProjectResourcesPanel({
       setTitle("");
       setContent("");
       setType("text_note");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "添加失败，请重试");
     } finally {
       setSubmitting(false);
     }
@@ -119,15 +123,19 @@ export function ProjectResourcesPanel({
               <SelectItem value="file_stub">文件引用</SelectItem>
             </SelectContent>
           </Select>
-          <Input value={title} onChange={(event) => setTitle(event.target.value)} placeholder="资源标题" />
+          <Input value={title} onChange={(event) => setTitle(event.target.value)} placeholder="资源标题" aria-label="资源标题" />
           <div className="md:col-span-2">
             <Textarea
               value={content}
               onChange={(event) => setContent(event.target.value)}
               rows={3}
               placeholder={type === "link" ? "https://..." : "资源内容"}
+              aria-label={type === "link" ? "资源链接" : "资源内容"}
             />
           </div>
+          {error && (
+            <p className="md:col-span-2 text-sm text-red-500">{error}</p>
+          )}
           <div className="md:col-span-2">
             <Button size="sm" disabled={!canSubmit || pending || submitting} onClick={submit}>
               {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}

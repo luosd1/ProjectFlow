@@ -10,7 +10,7 @@ from app.schemas.workspace_state import WorkspaceStateResponse
 
 
 def build_request(workspace_state: WorkspaceStateResponse) -> AgentModuleRequest:
-    stage_id = first_stage_id(workspace_state) or ""
+    stage_id = first_stage_id(workspace_state) or "unassigned"
     stage_name = first_stage_name_or_default(workspace_state)
     project_name = project_name_or_default(workspace_state)
     due_date = project_deadline_or_today(workspace_state).isoformat()

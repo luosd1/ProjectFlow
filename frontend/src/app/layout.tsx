@@ -20,7 +20,7 @@ const body = Source_Sans_3({
 
 export const metadata: Metadata = {
   title: "ProjectFlow",
-  description: "Active project agent workspace for college teams.",
+  description: "面向大学生项目小队的主动推进型 AI Agent",
   icons: {
     icon: "/favicon.svg",
   },

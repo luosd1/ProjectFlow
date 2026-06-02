@@ -4,6 +4,8 @@ Covers the confirm-to-persist path for clarification, stage planning,
 and task breakdown outputs. Unconfirmed outputs remain proposals and
 do not silently mutate project state.
 """
+import json
+
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.pool import StaticPool
@@ -19,6 +21,8 @@ def client_fixture():
         "sqlite://",
         connect_args={"check_same_thread": False},
         poolclass=StaticPool,
+        json_serializer=json.dumps,
+        json_deserializer=json.loads,
     )
     SQLModel.metadata.create_all(engine)
 
@@ -232,6 +236,41 @@ def test_confirm_plan_sets_first_new_stage_active(client: TestClient):
     assert len(active_stages) == 1
     assert project_after["current_stage_id"] == active_stages[0]["id"]
     assert project_after["status"] == "active"
+
+
+def test_confirm_plan_does_not_duplicate_active_stage(client: TestClient):
+    """Re-confirming a plan when an active stage exists should not create another active stage."""
+    workspace, project, owner = _create_project_without_stage(client)
+
+    # First plan confirmation → activates the first stage
+    plan1 = client.post("/api/agent/plan", json={"workspace_id": workspace["id"]})
+    client.post(
+        f"/api/agent-proposals/{plan1.json()['proposal_id']}/confirm",
+        json={"confirmed_by": owner["id"]},
+    )
+
+    project_mid = client.get(f"/api/projects/{project['id']}").json()
+    original_active_id = project_mid["current_stage_id"]
+    assert original_active_id is not None
+
+    stages_after_first = client.get(f"/api/projects/{project['id']}/stages").json()
+    assert any(s["status"] == "active" for s in stages_after_first)
+
+    # Second plan confirmation → new stages should be pending
+    plan2 = client.post("/api/agent/plan", json={"workspace_id": workspace["id"]})
+    confirm2 = client.post(
+        f"/api/agent-proposals/{plan2.json()['proposal_id']}/confirm",
+        json={"confirmed_by": owner["id"]},
+    )
+    assert confirm2.status_code == 200
+
+    all_stages = client.get(f"/api/projects/{project['id']}/stages").json()
+    new_stages = [s for s in all_stages if s["id"] not in {st["id"] for st in stages_after_first}]
+    assert all(s["status"] == "pending" for s in new_stages)
+
+    # Original active stage should remain the current one
+    project_after = client.get(f"/api/projects/{project['id']}").json()
+    assert project_after["current_stage_id"] == original_active_id
 
 
 # --- Task Breakdown ---

@@ -103,7 +103,7 @@ npm audit --omit=dev
 - [Code wiki](docs/code-wiki.md)
 - [Current handoff](docs/handoff.md)
 - [T23 test docs](docs/T23/)
-- [T23.A feedback](docs/T23.A.feedback.md)
+- [T23.A feedback](docs/T23/T23.A.md)
 - [Issue #11 verification report](docs/issue-11-status-report.md)
 
 ## Runtime Files
