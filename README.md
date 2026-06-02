@@ -98,7 +98,7 @@ npm audit --omit=dev
 - [Demo script](docs/demo-script.md)
 - [Seed scenarios](docs/seed-scenarios.md)
 - [Current handoff](docs/handoff.md)
-- [Bug log](Bug.md)
+- [Bug log](docs/T23/T23-C-feedback.md)
 - [Issue #11 verification report](docs/issue-11-status-report.md)
 
 ## Runtime Files
