@@ -237,7 +237,7 @@ T23.C full verification with real LLM (DeepSeek V4-pro) drove 4 blocking bugs to
 
 **Documentation:**
 
-- `Bug.md` created in repo root with all identified bugs (BUG-001 through BUG-009), root cause analysis, fix records, and fix status. BUG-002 and BUG-003 removed (superseded); bugs renumbered to close gaps.
+- `T23-C-feedback.md` created in `docs/T23/` with all identified bugs (BUG-001 through BUG-009), root cause analysis, fix records, and fix status. BUG-002 and BUG-003 removed (superseded); bugs renumbered to close gaps.
 
 Full codebase review identified 56 issues across backend and frontend. Fixed 18 issues (all P0/P1/P2 that were confirmed real), leaving 2 P0 + 9 P1 + 10 P2 for post-MVP.
 
@@ -277,7 +277,7 @@ MVP Usable progress (see `.claude/epics/projectflow-mvp-usable-ready/`):
 
 All MVP Usable tasks are complete. The runbook now documents mock mode, real-provider mode, a full manual verification checklist, and a final status report.
 
-Post-MVP: auth, deployment, collaboration permissions, broader UI hardening, remaining code review issues (documented in `.trae/documents/code-review-unfixed-issues.md`), and outstanding bugs (see `Bug.md`).
+Post-MVP: auth, deployment, collaboration permissions, broader UI hardening, remaining code review issues (documented in `.trae/documents/code-review-unfixed-issues.md`), and outstanding bugs (see `docs/T23/T23-C-feedback.md`).
 
 ## Local Cleanup Notes
 
