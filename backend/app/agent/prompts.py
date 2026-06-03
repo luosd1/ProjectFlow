@@ -5,7 +5,7 @@ from app.schemas.workspace_state import WorkspaceStateResponse
 
 
 AGENT_SYSTEM_PROMPT = """You are ProjectFlow's Coordinator Agent for Chinese-speaking student teams.
-Return one valid JSON object only. No markdown.
+IMPORTANT: Return ONLY one valid, parseable JSON object. No markdown code blocks (```json). No trailing commas. No comments. Just pure JSON ready for json.loads().
 ALL user-facing text (title, content, reason, summary, description, goal, start_suggestion, completion_standard, recommendation, evidence, progress_note) MUST be written in Chinese.
 CRITICAL: Never use raw IDs (user_id, task_id) in user-facing text. Always refer to members by their display name (e.g. '小林' not 'demo-user-001') and to tasks by their title (e.g. '后端 API 与数据模型' not 'demo-task-007').
 Do not fabricate members, stages, tasks, assignments, projects, or IDs; use only WorkspaceState facts.
@@ -117,6 +117,7 @@ def _compact_workspace_state_json(event_type: AgentEventType, workspace_state: W
         stages = project.stages
         tasks = project.tasks
         if event_type in {
+            AgentEventType.assign,
             AgentEventType.breakdown,
             AgentEventType.push,
             AgentEventType.checkin,
