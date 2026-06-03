@@ -1,0 +1,347 @@
+"use client";
+
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { motion } from "framer-motion";
+import {
+  Users,
+  FolderOpen,
+  Plus,
+  Crown,
+  Settings,
+  Archive,
+  TriangleAlert,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
+import { EmptyState } from "@/components/ui/empty-state";
+import { MemberManagementDialog } from "@/components/member/member-management-dialog";
+import { NewProjectDialog } from "./new-project-dialog";
+import type { ProjectState } from "@/lib/types";
+
+const statusLabelMap: Record<string, string> = {
+  draft: "草稿",
+  active: "进行中",
+  at_risk: "有风险",
+  completed: "已完成",
+};
+
+function StatCard({
+  value,
+  label,
+  icon,
+  accent = "primary",
+  prominent = false,
+}: {
+  value: number | string;
+  label: string;
+  icon: React.ReactNode;
+  accent?: "primary" | "emerald" | "citron";
+  prominent?: boolean;
+}) {
+  const accentStyles = {
+    primary: "bg-primary/10 text-primary",
+    emerald: "bg-emerald-100 text-emerald-600",
+    citron: "bg-citron/20 text-yellow-700",
+  };
+
+  return (
+    <div
+      className={`flex items-center gap-4 rounded-2xl border border-neutral-200 bg-white p-5 ${
+        prominent ? "shadow-sm" : ""
+      }`}
+    >
+      <span
+        className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${accentStyles[accent]}`}
+      >
+        {icon}
+      </span>
+      <div className="min-w-0">
+        <p
+          className={`font-bold text-neutral-900 ${
+            prominent ? "text-3xl" : "text-2xl"
+          }`}
+        >
+          {value}
+        </p>
+        <p className="text-sm text-neutral-500">{label}</p>
+      </div>
+    </div>
+  );
+}
+
+interface WorkspaceContentProps {
+  state: ProjectState;
+  currentUserId?: string;
+  onNavigateToProject?: () => void;
+}
+
+export function WorkspaceContent({ state, currentUserId, onNavigateToProject }: WorkspaceContentProps) {
+  const router = useRouter();
+  const [memberMgmtOpen, setMemberMgmtOpen] = useState(false);
+  const [newProjectOpen, setNewProjectOpen] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  const workspace = state.workspace;
+  const memberships = state.memberships ?? [];
+  const projects = state.projects ?? [];
+  const members = state.members;
+  const profiles = state.member_profiles;
+
+  const activeProjects = projects.filter((p) => p.status !== "completed");
+  const completedProjects = projects.filter((p) => p.status === "completed");
+
+  const currentMembership = memberships.find((m) => m.user_id === currentUserId);
+  const isOwner = currentMembership?.role === "owner";
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="h-full overflow-y-auto custom-scrollbar p-6"
+    >
+      {/* Header */}
+      <header className="mb-8 flex flex-wrap items-end justify-between gap-4">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2 text-neutral-400 mb-1">
+            <Users className="h-4 w-4" />
+            <span className="text-xs font-medium uppercase tracking-wider">
+              工作区
+            </span>
+          </div>
+          <h1 className="font-display text-3xl font-normal leading-tight text-neutral-900 md:text-4xl">
+            {workspace.name}
+          </h1>
+          <p className="mt-1.5 text-sm text-neutral-500">
+            {workspace.description || "团队项目、成员能力和 Agent 推进状态集中在这里。"}
+          </p>
+        </div>
+        <Button
+          className="gap-2 bg-neutral-900 text-white hover:bg-neutral-800"
+          onClick={() => setNewProjectOpen(true)}
+        >
+          <Plus className="h-4 w-4" />
+          新建项目
+        </Button>
+      </header>
+
+      {/* Stats */}
+      <section className="mb-8 grid gap-3 sm:grid-cols-3">
+        <StatCard
+          value={memberships.length}
+          label="团队成员"
+          icon={<Users className="h-5 w-5" />}
+          accent="primary"
+          prominent
+        />
+        <StatCard
+          value={activeProjects.length}
+          label="活跃项目"
+          icon={<FolderOpen className="h-5 w-5" />}
+          accent="emerald"
+          prominent
+        />
+        <StatCard
+          value={completedProjects.length}
+          label="已完成"
+          icon={<Archive className="h-5 w-5" />}
+          accent="citron"
+        />
+      </section>
+
+      {/* Main content */}
+      <div className="grid gap-6 lg:grid-cols-2">
+        {/* Members */}
+        <Card className="border-neutral-200 bg-white shadow-sm">
+          <CardHeader className="flex flex-row items-center justify-between border-b border-neutral-100 pb-4">
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <Users className="h-5 w-5 text-primary" />
+              成员 ({memberships.length})
+            </CardTitle>
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5"
+              onClick={() => setMemberMgmtOpen(true)}
+            >
+              <Settings className="h-4 w-4" />
+              成员管理
+            </Button>
+          </CardHeader>
+          <CardContent className="pt-4">
+            {memberships.length === 0 ? (
+              <EmptyState
+                icon={
+                  <Users className="h-10 w-10 text-muted-foreground/60" />
+                }
+                title="还没有成员"
+                description="邀请团队成员加入，分配角色和任务"
+                action={{
+                  label: "邀请成员",
+                  onClick: () => setMemberMgmtOpen(true),
+                }}
+              />
+            ) : (
+              <ul className="space-y-1">
+                {memberships.map((m) => {
+                  const user = members.find((u) => u.user_id === m.user_id);
+                  const profile = profiles.find(
+                    (p) => p.user_id === m.user_id
+                  );
+                  const initials = (user?.display_name ?? "?").slice(0, 2);
+
+                  return (
+                    <li
+                      key={m.id}
+                      className="flex items-center justify-between rounded-xl px-3 py-3 transition-colors hover:bg-neutral-50"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
+                          {initials}
+                        </span>
+                        <div className="min-w-0">
+                          <p className="truncate font-medium text-neutral-900">
+                            {user?.display_name ?? "未知"}
+                          </p>
+                          {profile && (
+                            <p className="text-xs text-muted-foreground">
+                              {profile.role_preference} · {profile.available_hours_per_week} 小时/周
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                      <Badge
+                        variant={m.role === "owner" ? "default" : "secondary"}
+                        className="shrink-0 ml-2"
+                      >
+                        {m.role === "owner" ? (
+                          <span className="flex items-center gap-1">
+                            <Crown className="h-3 w-3" />
+                            负责人
+                          </span>
+                        ) : (
+                          "成员"
+                        )}
+                      </Badge>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Projects */}
+        <Card className="border-neutral-200 bg-white shadow-sm">
+          <CardHeader className="border-b border-neutral-100 pb-4">
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <FolderOpen className="h-5 w-5 text-emerald-500" />
+              项目 ({projects.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2 pt-4">
+            {projects.length === 0 ? (
+              <EmptyState
+                icon={
+                  <FolderOpen className="h-10 w-10 text-muted-foreground/60" />
+                }
+                title="还没有项目"
+                description="创建第一个项目，开始你的团队协作之旅"
+                action={{
+                  label: "新建项目",
+                  onClick: () => setNewProjectOpen(true),
+                }}
+              />
+            ) : (
+              <>
+                {projects.map((p) => (
+                  <button
+                    key={p.id}
+                    onClick={() => {
+                      onNavigateToProject?.();
+                      router.push(`/projects/${p.id}`);
+                    }}
+                    className="group flex w-full items-center justify-between rounded-xl border border-neutral-100 px-3 py-3 text-left transition-colors hover:border-primary/40 hover:bg-primary/5"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <span
+                        className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${
+                          p.status === "at_risk"
+                            ? "bg-coral/10 text-coral"
+                            : p.status === "completed"
+                              ? "bg-neutral-100 text-neutral-500"
+                              : "bg-emerald-100 text-emerald-600"
+                        }`}
+                      >
+                        {p.status === "at_risk" ? (
+                          <TriangleAlert className="h-5 w-5" />
+                        ) : p.status === "completed" ? (
+                          <Archive className="h-5 w-5" />
+                        ) : (
+                          <FolderOpen className="h-5 w-5" />
+                        )}
+                      </span>
+                      <div className="min-w-0">
+                        <p className="truncate font-medium text-neutral-800">
+                          {p.name}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {statusLabelMap[p.status] ?? p.status}
+                        </p>
+                      </div>
+                    </div>
+                    <Badge
+                      variant={
+                        p.status === "active"
+                          ? "default"
+                          : p.status === "at_risk"
+                            ? "destructive"
+                            : "secondary"
+                      }
+                      className="shrink-0 ml-2"
+                    >
+                      {statusLabelMap[p.status] ?? p.status}
+                    </Badge>
+                  </button>
+                ))}
+                <Separator className="my-2" />
+                <Button
+                  variant="outline"
+                  className="w-full gap-2"
+                  onClick={() => setNewProjectOpen(true)}
+                >
+                  <Plus className="h-4 w-4" />
+                  新建项目
+                </Button>
+              </>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      <MemberManagementDialog
+        workspaceId={workspace.workspace_id}
+        open={memberMgmtOpen}
+        onOpenChange={setMemberMgmtOpen}
+        members={members}
+        memberships={memberships}
+        profiles={profiles}
+        onMembersChanged={() => setRefreshKey((k) => k + 1)}
+      />
+
+      <NewProjectDialog
+        workspaceId={workspace.workspace_id}
+        createdBy={workspace.owner_user_id}
+        open={newProjectOpen}
+        onOpenChange={setNewProjectOpen}
+        onCreated={(project) => {
+          setRefreshKey((k) => k + 1);
+          onNavigateToProject?.();
+          router.push(`/projects/${project.id}`);
+        }}
+      />
+    </motion.div>
+  );
+}

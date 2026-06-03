@@ -341,7 +341,9 @@ export type ProjectState = {
   project: Project;
   resources: ProjectResource[];
   members: User[];
+  memberships: WorkspaceMembership[];
   member_profiles: MemberProfile[];
+  projects: Project[];
   stages: Stage[];
   tasks: Task[];
   agent_proposals: AgentProposal[];

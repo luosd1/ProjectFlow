@@ -4,8 +4,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { AppShell, setLastWorkspaceId } from "./app-shell";
 
+let mockPathname = "/";
+
 vi.mock("next/navigation", () => ({
-  usePathname: () => "/projects/demo-project-001",
+  usePathname: () => mockPathname,
 }));
 
 vi.mock("framer-motion", () => ({
@@ -36,6 +38,7 @@ describe("AppShell user switcher", () => {
   let consoleErrorSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
+    mockPathname = "/";
     consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
     localStorage.clear();
     localStorage.setItem("projectflow:last-workspace-id", "workspace-1");
@@ -82,6 +85,20 @@ describe("AppShell user switcher", () => {
 
     expect(screen.getByRole("button", { name: /Lin/ })).toBeTruthy();
     expect(screen.queryByRole("button", { name: /选择身份/ })).toBeNull();
+    expect(consoleErrorSpy).not.toHaveBeenCalled();
+  });
+
+  it("hides the global top navigation on project dashboard routes", () => {
+    mockPathname = "/projects/demo-project-001";
+
+    render(
+      <AppShell>
+        <div>Dashboard</div>
+      </AppShell>,
+    );
+
+    expect(screen.queryByRole("button", { name: /Lin/ })).toBeNull();
+    expect(screen.getByText("Dashboard")).toBeTruthy();
     expect(consoleErrorSpy).not.toHaveBeenCalled();
   });
 });

@@ -1,10 +1,10 @@
 "use client";
 
 import * as React from "react";
-import { useEffect, useSyncExternalStore, useRef } from "react";
+import { useEffect, useRef, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { ArrowRight, Loader2, Sparkles } from "lucide-react";
+import { ArrowRight, BookOpen, Compass, HelpCircle, Loader2, MessageCircle, Shield, Sparkles, Users, Zap } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 
@@ -39,6 +39,7 @@ export function ProjectFlowHome() {
   const storedId = useSyncExternalStore(subscribeToStorage, getStorageSnapshot, getServerSnapshot);
   const [isLoadingDemo, setIsLoadingDemo] = React.useState(false);
   const [isValidating, setIsValidating] = React.useState(false);
+  const [demoError, setDemoError] = React.useState<string | null>(null);
   const validatedRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -83,31 +84,33 @@ export function ProjectFlowHome() {
   }
 
   return (
-    <main className="mx-auto flex min-h-[80vh] max-w-2xl flex-col items-center justify-center px-5 text-center">
+    <main className="relative overflow-hidden">
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-96 bg-[radial-gradient(ellipse_at_top_right,_rgba(45,109,195,0.10),transparent_60%)]" />
       <motion.div
         initial={{ opacity: 0, y: 24 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
+        className="site-container relative flex min-h-[82dvh] flex-col items-center justify-center py-16 text-center"
       >
         <div className="mb-6 inline-flex items-center gap-2 rounded-full bg-moss/10 px-4 py-1.5 text-sm font-medium text-moss">
           <Sparkles className="h-4 w-4" />
           主动推进型项目 Agent
         </div>
 
-        <h1 className="font-display text-4xl font-black leading-tight md:text-5xl">
+        <h1 className="font-display text-balance text-5xl font-normal leading-[1.08] text-neutral-900 md:text-6xl">
           让项目自己告诉你
           <br />
-          下一步做什么
+          <span className="text-moss">下一步做什么</span>
         </h1>
 
-        <p className="mx-auto mt-5 max-w-md text-base leading-7 text-ink/65">
+        <p className="mx-auto mt-6 max-w-lg text-pretty text-base leading-7 text-neutral-600 md:text-lg">
           ProjectFlow 帮大学生项目小队持续回答：项目该往哪走？谁适合做什么？哪些有风险？计划是否需要调整？
         </p>
 
         <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
           <Button
             onClick={() => router.push("/onboarding")}
-            className="bg-ink text-white hover:bg-ink/85"
+            className="bg-moss text-white hover:bg-primary-strong"
             size="lg"
           >
             开始使用
@@ -116,8 +119,10 @@ export function ProjectFlowHome() {
           <Button
             variant="outline"
             disabled={isLoadingDemo}
+            aria-busy={isLoadingDemo}
             onClick={async () => {
               setIsLoadingDemo(true);
+              setDemoError(null);
               try {
                 const { apiGet, loadDemoSeed } = await import("@/lib/api");
                 await loadDemoSeed();
@@ -130,8 +135,7 @@ export function ProjectFlowHome() {
                   return;
                 }
               } catch (err) {
-                console.error("加载演示数据失败:", err);
-                alert(`加载演示数据失败: ${err instanceof Error ? err.message : "未知错误"}`);
+                setDemoError(`加载演示数据失败: ${err instanceof Error ? err.message : "未知错误"}`);
               } finally {
                 setIsLoadingDemo(false);
               }
@@ -141,14 +145,82 @@ export function ProjectFlowHome() {
             {isLoadingDemo ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                加载中...
+                正在加载演示数据...
               </>
             ) : (
               "加载演示数据"
             )}
           </Button>
         </div>
+        {demoError && (
+          <div className="mt-4 max-w-md rounded-lg border border-coral/20 bg-coral/10 px-4 py-3 text-sm text-coral">
+            <p className="font-medium">演示数据加载失败</p>
+            <p className="mt-1 text-coral/90">请检查网络连接，或稍后再试。</p>
+            <div className="mt-2 flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setDemoError(null)}
+                className="text-xs font-medium underline underline-offset-2 hover:text-coral/80"
+              >
+                清除提示
+              </button>
+              <a
+                href="https://github.com/Robert-Flow/ProjectFlow/issues"
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1 text-xs font-medium underline underline-offset-2 hover:text-coral/80"
+              >
+                <MessageCircle className="h-3 w-3" />
+                反馈问题
+              </a>
+            </div>
+          </div>
+        )}
       </motion.div>
+
+      <section className="site-container grid gap-6 pb-24 pt-8 sm:grid-cols-2 lg:grid-cols-4">
+        {[
+          { icon: Compass, title: "规划", text: "澄清方向、拆解阶段、分解任务", tone: "text-moss bg-moss/10" },
+          { icon: Users, title: "分工", text: "按技能、时间和意向推荐 owner", tone: "text-yellow-700 bg-citron/25" },
+          { icon: Zap, title: "执行", text: "行动卡、签到反馈和状态更新", tone: "text-emerald-600 bg-emerald-100" },
+          { icon: Shield, title: "监控", text: "识别风险，并给出重排建议", tone: "text-coral bg-coral/10" },
+        ].map((item) => (
+          <article
+            key={item.title}
+            className="rounded-xl border border-neutral-100 bg-white/80 p-6 shadow-sm transition duration-200 ease-out hover:-translate-y-0.5 hover:border-moss/30 hover:shadow-panel"
+          >
+            <span className={`mb-5 flex h-12 w-12 items-center justify-center rounded-xl ${item.tone}`}>
+              <item.icon className="h-6 w-6" aria-hidden />
+            </span>
+            <h2 className="text-base font-semibold text-neutral-900">{item.title}</h2>
+            <p className="mt-2 text-pretty text-sm leading-6 text-neutral-600">{item.text}</p>
+          </article>
+        ))}
+      </section>
+
+      <footer className="site-container pb-12">
+        <div className="flex flex-wrap items-center justify-center gap-4 text-sm text-neutral-500">
+          <a
+            href="https://github.com/Robert-Flow/ProjectFlow/blob/main/README.md"
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-1.5 transition hover:text-moss"
+          >
+            <BookOpen className="h-4 w-4" />
+            使用文档
+          </a>
+          <span className="hidden text-neutral-300 sm:inline">|</span>
+          <a
+            href="https://github.com/Robert-Flow/ProjectFlow/issues"
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-1.5 transition hover:text-moss"
+          >
+            <HelpCircle className="h-4 w-4" />
+            常见问题与反馈
+          </a>
+        </div>
+      </footer>
     </main>
   );
 }

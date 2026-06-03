@@ -4,7 +4,8 @@ import { useCallback, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { AlertCircle, Loader2 } from "lucide-react";
 
-import { ProjectDashboard, type AgentAction } from "@/components/project/project-dashboard";
+import type { AgentAction } from "@/components/project/project-dashboard";
+import { ProjectLayout } from "@/components/project/project-layout";
 import { Button } from "@/components/ui/button";
 import { setLastWorkspaceId, useCurrentUserId, setCurrentUserId, setWorkspaceMembers } from "@/components/app-shell";
 import {
@@ -32,11 +33,11 @@ import {
 } from "@/lib/api";
 import type { AddResourceRequest, AgentFlowResult, ProjectState } from "@/lib/types";
 
-const AGENT_RUNNERS: Record<AgentAction, (projectId: string) => Promise<unknown>> = {
+const AGENT_RUNNERS: Record<AgentAction, (projectId: string, state?: ProjectState) => Promise<unknown>> = {
   clarify: runClarification,
   plan: runPlanning,
   breakdown: runBreakdown,
-  assign: runAssignment,
+  assign: (projectId, state) => runAssignment(projectId, resolveActiveStageId(state)),
   push: runActivePush,
   "analyze-checkins": runCheckinAnalysis,
   "risk-analysis": runRiskAnalysis,
@@ -53,6 +54,13 @@ const AGENT_ACTION_LABELS: Record<AgentAction, string> = {
   "risk-analysis": "风险分析",
   replan: "计划调整",
 };
+
+function resolveActiveStageId(state?: ProjectState) {
+  if (!state) return undefined;
+  return state.project.current_stage_id
+    ?? state.stages.find((stage) => stage.status === "active")?.id
+    ?? state.stages[0]?.id;
+}
 
 function resolveValidCurrentUserId(nextState: ProjectState, storedUserId: string | null) {
   const memberIds = new Set(nextState.members.map((member) => member.user_id));
@@ -126,7 +134,7 @@ export default function ProjectDashboardPage() {
     setActionError(null);
     setActionSuccess(null);
     try {
-      const result = (await AGENT_RUNNERS[action](projectId)) as AgentFlowResult;
+      const result = (await AGENT_RUNNERS[action](projectId, state ?? undefined)) as AgentFlowResult;
       await reloadProject();
       // Show status-based feedback
       if (result?.status === "fallback") {
@@ -370,7 +378,8 @@ export default function ProjectDashboardPage() {
   }
 
   return (
-    <ProjectDashboard
+    <ProjectLayout
+      projectId={projectId}
       state={state}
       currentUserId={currentUserId}
       pendingAction={pendingAction}

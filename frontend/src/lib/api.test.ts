@@ -233,6 +233,24 @@ describe("frontend API layer", () => {
         });
       }
       if (url.endsWith("/projects/project-1/resources")) return jsonResponse([]);
+      if (url.endsWith("/workspaces/workspace-1/projects")) {
+        return jsonResponse([
+          {
+            id: "project-1",
+            workspace_id: "workspace-1",
+            name: "Demo",
+            idea: "Demo",
+            deadline: "2026-06-07",
+            deliverables: "Demo",
+            status: "active",
+            current_stage_id: "stage-1",
+            direction_card: null,
+            created_by: "user-1",
+            created_at: "2026-05-29T00:00:00Z",
+            updated_at: "2026-05-29T00:00:00Z",
+          },
+        ]);
+      }
       if (url.endsWith("/projects/project-1/stages")) {
         return jsonResponse([
           {
@@ -318,6 +336,17 @@ describe("frontend API layer", () => {
 
     const state = await getProjectState("project-1");
 
+    expect(state.projects).toHaveLength(1);
+    expect(state.projects[0].id).toBe("project-1");
+    expect(state.memberships).toEqual([
+      {
+        id: "workspace-1-user-1",
+        workspace_id: "workspace-1",
+        user_id: "user-1",
+        role: "owner",
+        joined_at: "2026-05-29T00:00:00Z",
+      },
+    ]);
     expect(state.action_cards).toHaveLength(1);
     expect(state.action_cards[0].title).toBe("Confirm demo");
     expect(state.risks[0].evidence[0]).toEqual({

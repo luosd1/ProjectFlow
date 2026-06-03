@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useSyncExternalStore } from "react";
 import { motion } from "framer-motion";
-import { Home, LayoutDashboard, Plus, Menu, Users } from "lucide-react";
+import { ChevronDown, Home, Layers3, LayoutDashboard, Menu, Plus, Users } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -143,7 +143,7 @@ function NavLink({
         "inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
         active
           ? "bg-moss/10 text-moss"
-          : "text-ink/65 hover:bg-ink/5 hover:text-ink"
+          : "text-neutral-500 hover:bg-neutral-100 hover:text-neutral-800"
       )}
     >
       <Icon className="h-4 w-4" aria-hidden />
@@ -190,7 +190,7 @@ function MobileNav({ pathname, workspaceId }: { pathname: string; workspaceId: s
                       "inline-flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
                       active
                         ? "bg-moss/10 text-moss"
-                        : "text-ink/65 hover:bg-ink/5 hover:text-ink"
+                        : "text-neutral-500 hover:bg-neutral-100 hover:text-neutral-800"
                     )}
                   />
                 }
@@ -212,6 +212,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const storedUserId = useCurrentUserId();
   const members = useWorkspaceMembers();
 
+  // Check if current page uses three-column layout (project or workspace dashboard)
+  const isProjectDashboard =
+    (pathname.startsWith("/projects/") && pathname.split("/").length >= 3 && !pathname.includes("/new")) ||
+    (pathname.startsWith("/workspaces/") && pathname.split("/").length >= 3 && !pathname.includes("/new"));
+
   const navItems = workspaceId
     ? [
         { label: "首页", href: "/", icon: Home },
@@ -224,76 +229,85 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const activeUserId = currentMember?.user_id ?? null;
 
   return (
-    <div className="min-h-screen bg-paper text-ink">
-      <motion.header
-        initial={{ opacity: 0, y: -8 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.35, ease: "easeOut" }}
-        className="sticky top-0 z-40 border-b border-ink/8 bg-paper/90 backdrop-blur-md"
-      >
-        <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-5 lg:px-8">
-          <div className="flex items-center gap-6">
-            <Link href="/" className="flex items-center gap-2">
-              <span className="font-display text-lg font-black text-ink">
-                ProjectFlow
-              </span>
-            </Link>
+    <div className={cn("bg-paper text-ink", isProjectDashboard ? "h-screen overflow-hidden" : "min-h-screen")}>
+      {!isProjectDashboard && (
+        <>
+          <motion.header
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.35, ease: "easeOut" }}
+            className="sticky top-0 z-40 border-b border-neutral-200/70 bg-paper/90 backdrop-blur-md"
+          >
+            <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-5 lg:px-8">
+              <div className="flex items-center gap-6">
+                <Link href="/" className="flex items-center gap-2">
+                  <span className="flex h-7 w-7 items-center justify-center rounded-md bg-moss text-white shadow-sm shadow-moss/20">
+                    <Layers3 className="h-4 w-4" aria-hidden />
+                  </span>
+                  <span className="font-display text-xl font-normal text-neutral-900">
+                    ProjectFlow
+                  </span>
+                </Link>
 
-            <nav className="hidden items-center gap-1 md:flex">
-              {navItems.map((item) => (
-                <NavLink
-                  key={item.href}
-                  label={item.label}
-                  href={item.href}
-                  icon={item.icon}
-                  active={pathname === item.href || (item.href !== "/" && pathname.startsWith(item.href))}
-                />
-              ))}
-            </nav>
-          </div>
-
-          <div className="flex items-center gap-3">
-            {members.length > 0 && (
-              <DropdownMenu>
-                <DropdownMenuTrigger render={
-                  <Button variant="outline" size="sm" className="gap-2 text-xs">
-                    <Users className="h-3.5 w-3.5" />
-                    {currentMember?.display_name ?? "选择身份"}
-                  </Button>
-                } />
-                <DropdownMenuContent align="end" className="min-w-40">
-                  {members.map((member) => (
-                    <DropdownMenuItem
-                      key={member.user_id}
-                      onClick={() => setCurrentUserId(member.user_id)}
-                      className={cn(
-                        "cursor-pointer text-sm",
-                        member.user_id === activeUserId && "font-semibold text-moss",
-                      )}
-                    >
-                      {member.display_name}
-                      {member.user_id === activeUserId && " ✓"}
-                    </DropdownMenuItem>
+                <nav className="hidden items-center gap-1 md:flex">
+                  {navItems.map((item) => (
+                    <NavLink
+                      key={item.href}
+                      label={item.label}
+                      href={item.href}
+                      icon={item.icon}
+                      active={pathname === item.href || (item.href !== "/" && pathname.startsWith(item.href))}
+                    />
                   ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
-            )}
+                </nav>
+              </div>
 
-            <div className="hidden md:block" />
-          </div>
+              <div className="flex items-center gap-3">
+                {members.length > 0 && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger render={
+                      <Button variant="outline" size="sm" className="gap-2 text-xs">
+                        <Users className="h-3.5 w-3.5" />
+                        {currentMember?.display_name ?? "选择身份"}
+                        <ChevronDown className="h-3.5 w-3.5" />
+                      </Button>
+                    } />
+                    <DropdownMenuContent align="end" className="min-w-40">
+                      {members.map((member) => (
+                        <DropdownMenuItem
+                          key={member.user_id}
+                          onClick={() => setCurrentUserId(member.user_id)}
+                          className={cn(
+                            "cursor-pointer text-sm",
+                            member.user_id === activeUserId && "font-semibold text-moss",
+                          )}
+                        >
+                          {member.display_name}
+                          {member.user_id === activeUserId && " ✓"}
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
 
-          <div className="md:hidden">
-            <MobileNav pathname={pathname} workspaceId={workspaceId} />
-          </div>
-        </div>
-      </motion.header>
+                <div className="hidden md:block" />
+              </div>
 
-      <Separator className="opacity-40" />
+              <div className="md:hidden">
+                <MobileNav pathname={pathname} workspaceId={workspaceId} />
+              </div>
+            </div>
+          </motion.header>
+
+          <Separator className="opacity-40" />
+        </>
+      )}
 
       <motion.main
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.4, delay: 0.1 }}
+        className={isProjectDashboard ? "h-full" : ""}
       >
         {children}
       </motion.main>

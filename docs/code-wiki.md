@@ -1,6 +1,6 @@
 # ProjectFlow CodeWiki
 
-> 自动生成于 2026-06-02，基于代码库全量扫描
+> 自动生成于 2026-06-02，基于代码库全量扫描。Phase 28 更新于 2026-06-04。
 
 ---
 
@@ -62,18 +62,18 @@ ProjectFlow/
 │   │   │   ├── checkin/       # 签到表单
 │   │   │   ├── member/        # 成员管理弹窗
 │   │   │   ├── onboarding/    # 账号创建 + 成员资料向导
-│   │   │   ├── project/       # 项目仪表盘 + 项目创建 + 资源输入
+│   │   │   ├── project/       # 三栏布局(project-layout/sidebar/content/agent-sidebar) + 仪表盘 + 创建 + 资源 + 方向决策
 │   │   │   ├── risk/          # 风险卡 + 风险面板 + 重排对比
 │   │   │   ├── stage/         # 阶段计划看板
 │   │   │   ├── task/          # 任务拆解看板 + 状态更新
-│   │   │   └── workspace/     # 工作区创建 + 邀请成员
+│   │   │   └── workspace/     # 工作区创建 + 邀请成员 + workspace 内容视图
 │   │   ├── lib/
 │   │   │   ├── api.ts         # 所有 fetch 统一入口（35 个 API 函数）
 │   │   │   ├── types.ts       # 前端类型（25 个领域类型）
 │   │   │   ├── constants.ts   # 示例数据常量
 │   │   │   └── utils.ts       # cn() 工具函数
 │   │   └── styles/
-│   │       └── globals.css    # Tailwind + oklch 语义色变量
+│   │       └── globals.css    # Tailwind + 蓝金视觉体系(Instrument Serif + Inter 字体)
 │   └── package.json
 ├── backend/
 │   ├── app/
@@ -406,9 +406,9 @@ generate_structured_output()
 | `/onboarding` | OnboardingPage | 账号设置引导，渲染 `<AccountSetupForm />` |
 | `/onboarding/profile` | ProfilePage | 成员资料填写，渲染 `<MemberProfileWizard />` |
 | `/workspaces/new` | NewWorkspacePage | 新建工作区 |
-| `/workspaces/[workspaceId]` | WorkspaceDashboardPage | 工作台仪表盘（成员+项目列表+成员管理） |
+| `/workspaces/[workspaceId]` | WorkspaceTransitionPage | 跳转路由：有项目→第一个项目，无项目→新建项目 |
 | `/projects/new` | NewProjectPage | 新建项目 |
-| `/projects/[projectId]` | ProjectDashboardPage | **项目仪表盘核心页面**，管理所有 Agent 操作和回调 |
+| `/projects/[projectId]` | ProjectDashboardPage | **项目仪表盘核心页面**，三栏布局(ProjectSidebar + ProjectContent + AgentSidebar)，管理所有 Agent 操作和回调 |
 
 ### 6.2 核心组件
 
@@ -416,9 +416,23 @@ generate_structured_output()
 
 | 组件 | 职责 |
 |------|------|
-| `AppShell` | 全局外壳：导航栏（桌面/移动端）、身份切换下拉框、workspaceId 缓存 |
+| `AppShell` | 全局外壳：全高布局、导航栏（桌面/移动端）、身份切换下拉框、workspaceId 缓存 |
 | `ProjectFlowHome` | 首页 Hero：智能跳转或展示入口 |
-| `ProjectDashboard` | **项目仪表盘主组件**：项目头部 + Agent 操作面板(4 阶段 8 action) + 方向卡 + 阶段计划 + 任务拆解 + 分工流程 + Tab 面板 |
+| `ProjectDashboard` | **项目仪表盘主组件**：Agent 操作面板(4 阶段 8 action) + 方向卡 + 阶段计划 + 任务拆解 + 分工流程 + Tab 面板 |
+
+#### 三栏布局组件（Phase 28 新增）
+
+| 组件 | 职责 |
+|------|------|
+| `ProjectLayout` | 三栏布局容器：左 sidebar + 中 content + 右 agent sidebar |
+| `ProjectSidebar` | 左侧 workspace/project 导航树 |
+| `ProjectContent` | 中间内容区：渲染当前选中的视图 |
+| `AgentSidebar` | 右侧 Agent 操作面板 |
+| `WorkspaceContent` | workspace 概览视图（从 sidebar 进入） |
+| `NewProjectDialog` | 弹窗式新建项目 |
+| `NewWorkspaceDialog` | 弹窗式新建工作区 |
+| `CompactStat` | 紧凑统计展示组件 |
+| `DirectionDecisionView` | 方向卡决策视图 |
 
 #### Agent 面板组件
 
@@ -498,6 +512,8 @@ generate_structured_output()
 - `setCurrentUserId()` / `useCurrentUserId()` 管理当前用户身份
 - 项目仪表盘 `currentUserId` 优先取 localStorage，fallback 到 `project.created_by`
 - 首页 (`/`) 在跳转前会先验证 localStorage 中的 workspace 是否仍存在于后端；若不存在则自动清除记录，避免"加载工作台失败"
+- `/workspaces/[workspaceId]` 为跳转路由：有项目→第一个项目，无项目→新建项目页
+- 项目页采用三栏布局：`ProjectSidebar`(workspace/project 导航) + `ProjectContent`(内容) + `AgentSidebar`(Agent 操作)
 
 ---
 
@@ -664,10 +680,10 @@ Base URL: `http://localhost:8000/api`
 - vitest + @testing-library/react
 - 覆盖：api.ts、app-shell、projectflow-home、action-card、agent-proposal-panel、project-dashboard、task-status-update、error-boundaries
 
-### 验证基线
+### 验证基线（Phase 27 基线，Phase 28 待重新验证）
 
-- 后端 pytest：182 passing
-- 前端：15 tests passing, lint passing, build passing
+- 后端 pytest：218 passing
+- 前端：24 tests passing, lint passing, build passing
 
 ---
 
@@ -749,6 +765,11 @@ npm audit --omit=dev                # 安全审计
 | 21 | 测试分工文档 + 用户切换器 | ✅ 2026-05-31 |
 | 22 | T23.A 反馈修复 | ✅ 2026-06-02 |
 | 23 | Code Review Hardening | ✅ 2026-06-02 |
+| 24 | Agent Output Quality + Bug Fixes | ✅ 2026-06-03 |
+| 25 | T23.D 反馈修复 | ✅ 2026-06-03 |
+| 26 | T23.B 二轮修复 | ✅ 2026-06-03 |
+| 27 | Code Review Hardening | ✅ 2026-06-03 |
+| 28 | Frontend Redesign Migration | 🔲 2026-06-04 |
 
 ---
 

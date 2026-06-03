@@ -87,7 +87,7 @@ const PHASE_ACTIONS: Record<AgentPhase, AgentAction[]> = {
   monitoring: ["risk-analysis", "replan"],
 };
 
-const ACTION_LABELS: Record<AgentAction, string> = {
+export const ACTION_LABELS: Record<AgentAction, string> = {
   clarify: "澄清方向",
   plan: "生成阶段计划",
   breakdown: "分解任务",
@@ -123,7 +123,7 @@ function inferCurrentPhase(state: ProjectState): AgentPhase {
   return "execution";
 }
 
-function inferRecommendedAction(state: ProjectState): AgentAction | null {
+export function inferRecommendedAction(state: ProjectState): AgentAction | null {
   const { project, stages, tasks, assignment_proposals } = state;
   if (!project.direction_card) return "clarify";
   if (stages.length === 0) return "plan";

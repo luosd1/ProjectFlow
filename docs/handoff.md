@@ -1,6 +1,6 @@
 # ProjectFlow Handoff
 
-Status: current as of 2026-06-03.
+Status: current as of 2026-06-04.
 
 ## Completed
 
@@ -28,6 +28,36 @@ GitHub issue #21 (Real-Provider Verification and MVP Usable Runbook) is complete
 - Negotiation module rewrite: `build_request()` injects rejection/negotiation context, fallback uses real rejected proposal data, fixes `current_owner_user_id` fallback bug.
 - Documentation aligned: T23.B.md seed counts, handoff, runbook, CLAUDE.md, AGENTS.md, README.md updated. Phase 26 recorded.
 - Test baseline: 218 backend / 24 frontend.
+
+### Phase 28 — Frontend Redesign Migration (2026-06-04)
+
+Migrated frontend visual and layout foundation from `ProjectFlow_Frontend_Redesign` reference repo while preserving all existing backend-backed MVP flows.
+
+**Visual foundation:**
+- Replaced warm green tokens with blue/gold/cool-canvas design tokens in `globals.css`.
+- Added `Instrument_Serif` (display) + `Inter` (body) font stack via `next/font/google`.
+- Updated `tailwind.config.ts` with new color tokens, font variables, and animation presets.
+
+**Layout migration:**
+- `AppShell` redesigned with full-height behavior and simplified navigation.
+- `/workspaces/[workspaceId]` changed from standalone dashboard to transition route: redirects to first project or new-project page.
+- Project page migrated to three-column layout: `ProjectSidebar` (workspace/project nav), `ProjectContent` (center), `AgentSidebar` (right).
+
+**New components:**
+- `project-layout.tsx`, `project-sidebar.tsx`, `project-content.tsx`, `agent-sidebar.tsx` — three-column project layout.
+- `new-project-dialog.tsx`, `workspace-content.tsx`, `new-workspace-dialog.tsx` — dialog-based creation flows.
+- `compact-stat.tsx` — compact stat display component.
+- `direction-decision-view.tsx` — direction card decision view.
+
+**Preserved behavior:**
+- All API calls, types, and backend integration unchanged.
+- Agent proposal confirm/reject, assignment flow, check-in, risk, replan, action cards, export all functional.
+- `setLastWorkspaceId`, `setCurrentUserId`, `setWorkspaceMembers`, localStorage sync preserved.
+- Risk evidence Chinese rendering, replan proposal support, rejection reason display retained.
+
+**Files modified:** `globals.css`, `tailwind.config.ts`, `layout.tsx`, `app-shell.tsx`, `projectflow-home.tsx`, `project-dashboard.tsx`, `projects/[projectId]/page.tsx`, `workspaces/[workspaceId]/page.tsx`, `agent-proposal-panel.tsx`, `direction-card-panel.tsx`, `api.ts`, `types.ts`, `api.test.ts`, `app-shell.test.tsx`, `package.json`.
+
+**Files created:** `project-layout.tsx`, `project-sidebar.tsx`, `project-content.tsx`, `agent-sidebar.tsx`, `new-project-dialog.tsx`, `workspace-content.tsx`, `new-workspace-dialog.tsx`, `compact-stat.tsx`, `direction-decision-view.tsx`.
 
 ### Phase 27 — Code Review Hardening (2026-06-03, GitHub #31 review)
 
@@ -207,11 +237,12 @@ Backend:
 
 Frontend:
 
-- Implemented routes: `/`, `/onboarding`, `/onboarding/profile`, `/workspaces/new`, `/workspaces/[workspaceId]`, `/projects/new`, `/projects/[projectId]`.
+- Implemented routes: `/`, `/onboarding`, `/onboarding/profile`, `/workspaces/new`, `/workspaces/[workspaceId]` (transition route → project), `/projects/new`, `/projects/[projectId]`.
 - API base URL comes from `NEXT_PUBLIC_API_BASE_URL` or defaults to `http://localhost:8000/api`.
 - All API calls go through `frontend/src/lib/api.ts`.
 - All types defined in `frontend/src/lib/types.ts`.
 - Navigation: 首页 / 工作台（自动检测 workspace ID）/ 新建项目。Onboarding 不再常驻导航。
+- Project page uses three-column layout: `ProjectSidebar` (workspace/project nav), `ProjectContent` (center content), `AgentSidebar` (right panel).
 - 首页智能重定向：有 workspace 记录则先验证该 workspace 是否仍存在于后端，存在则跳转工作台，不存在则自动清除 localStorage 记录并展示欢迎页 + "加载演示数据"按钮。
 - Project dashboard composes project, workspace, resources, stages, tasks, users, profiles, action cards, check-ins, risks, replan diff, agent timeline, and export from implemented endpoints. Agent 操作按状态机 4 阶段分组（规划/分工/执行/监控），当前阶段高亮，自动推荐下一步。
 - UI 语言统一中文。表单组件统一使用 shadcn/ui（Input、Select、Textarea）。
@@ -371,7 +402,7 @@ Verification: backend 218/218 tests pass; frontend 24/24 tests pass; frontend li
 
 ## Next Work
 
-Core MVP phase scope is complete. Phase 10 (UI Structural Fix) completed 2026-05-29; MVP Usable #16/#17/#18/#19/#20/#21 are complete. Phase 17 (Code Review Hardening) completed 2026-05-30. Phase 18 (Frontend Bugfix) completed 2026-05-30. Phase 19 (Agent Prompt Refactor) completed 2026-05-31. Phase 20 (Workspace Member Management) completed 2026-05-31. Phase 21 (Test Docs + User Switcher) completed 2026-05-31. Phase 22 (T23.A Feedback Fixes) completed 2026-06-02. Phase 23 (Code Review Hardening) completed 2026-06-02. Phase 24 (Agent Output Quality + Bug Fixes) completed 2026-06-03. Phase 25 (T23.D Feedback Fixes) completed 2026-06-03. Phase 26 (T23.B Round 2 Fixes) completed 2026-06-03.
+Core MVP phase scope is complete. Phase 10 (UI Structural Fix) completed 2026-05-29; MVP Usable #16/#17/#18/#19/#20/#21 are complete. Phase 17 (Code Review Hardening) completed 2026-05-30. Phase 18 (Frontend Bugfix) completed 2026-05-30. Phase 19 (Agent Prompt Refactor) completed 2026-05-31. Phase 20 (Workspace Member Management) completed 2026-05-31. Phase 21 (Test Docs + User Switcher) completed 2026-05-31. Phase 22 (T23.A Feedback Fixes) completed 2026-06-02. Phase 23 (Code Review Hardening) completed 2026-06-02. Phase 24 (Agent Output Quality + Bug Fixes) completed 2026-06-03. Phase 25 (T23.D Feedback Fixes) completed 2026-06-03. Phase 26 (T23.B Round 2 Fixes) completed 2026-06-03. Phase 28 (Frontend Redesign Migration) in progress 2026-06-04.
 
 MVP Usable progress (see `.claude/epics/projectflow-mvp-usable-ready/`):
 - ✅ #18 Prompt and Schema Quality Hardening (2026-05-29)

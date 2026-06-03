@@ -306,6 +306,7 @@ export async function getProjectState(projectId: string): Promise<ProjectState> 
     tasks,
     allUsers,
     memberProfiles,
+    projects,
     agentProposals,
     assignmentProposals,
     assignmentResponses,
@@ -321,6 +322,7 @@ export async function getProjectState(projectId: string): Promise<ProjectState> 
     listTasksByProject(projectId),
     listUsers(),
     listMemberProfilesByWorkspace(project.workspace_id),
+    listProjectsByWorkspace(project.workspace_id),
     listAgentProposalsByProject(projectId),
     listAssignmentProposalsByProject(projectId),
     listAssignmentResponsesByProject(projectId),
@@ -335,13 +337,22 @@ export async function getProjectState(projectId: string): Promise<ProjectState> 
     ...memberProfiles.map((profile) => profile.user_id),
   ]);
   const members = allUsers.filter((user) => workspaceMemberIds.has(user.user_id));
+  const memberships: WorkspaceMembership[] = members.map((member) => ({
+    id: `${workspace.workspace_id}-${member.user_id}`,
+    workspace_id: workspace.workspace_id,
+    user_id: member.user_id,
+    role: member.user_id === workspace.owner_user_id ? "owner" : "member",
+    joined_at: workspace.created_at,
+  }));
 
   return {
     workspace,
     project,
     resources,
     members,
+    memberships,
     member_profiles: memberProfiles,
+    projects,
     stages,
     tasks,
     agent_proposals: agentProposals,

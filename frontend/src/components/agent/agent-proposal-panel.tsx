@@ -5,6 +5,7 @@ import { useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { DirectionDecisionView } from "@/components/agent/direction-decision-view";
 import type { AgentProposal } from "@/lib/types";
 
 const TYPE_LABELS: Record<string, string> = {
@@ -34,51 +35,7 @@ function ProposalContent({ proposal }: { proposal: AgentProposal }) {
       reason?: string;
     };
     return (
-      <div className="space-y-3 text-sm">
-        {p.reason && <p className="text-ink/60">{p.reason}</p>}
-        {p.problem && (
-          <div>
-            <p className="font-semibold text-ink">核心问题</p>
-            <p className="mt-1 text-ink/70">{p.problem}</p>
-          </div>
-        )}
-        {p.users && (
-          <div>
-            <p className="font-semibold text-ink">目标用户</p>
-            <p className="mt-1 text-ink/70">{p.users}</p>
-          </div>
-        )}
-        {p.value && (
-          <div>
-            <p className="font-semibold text-ink">核心价值</p>
-            <p className="mt-1 text-ink/70">{p.value}</p>
-          </div>
-        )}
-        {p.deliverables && p.deliverables.length > 0 && (
-          <div>
-            <p className="font-semibold text-ink">交付物</p>
-            <ul className="mt-1 list-inside list-disc space-y-1 text-ink/70">
-              {p.deliverables.map((d, i) => <li key={i}>{d}</li>)}
-            </ul>
-          </div>
-        )}
-        {p.boundaries && p.boundaries.length > 0 && (
-          <div>
-            <p className="font-semibold text-ink">边界</p>
-            <ul className="mt-1 list-inside list-disc space-y-1 text-ink/70">
-              {p.boundaries.map((b, i) => <li key={i}>{b}</li>)}
-            </ul>
-          </div>
-        )}
-        {p.risks && p.risks.length > 0 && (
-          <div>
-            <p className="font-semibold text-ink">风险</p>
-            <ul className="mt-1 list-inside list-disc space-y-1 text-coral/80">
-              {p.risks.map((r, i) => <li key={i}>{r}</li>)}
-            </ul>
-          </div>
-        )}
-      </div>
+      <DirectionDecisionView content={p} compact />
     );
   }
 
@@ -208,7 +165,7 @@ export function AgentProposalPanel({ proposals, pending, onConfirm, onReject }: 
   };
 
   return (
-    <section className="rounded-lg border border-ink/10 bg-white p-5 shadow-sm">
+    <section className="rounded-lg border border-ink/10 bg-white p-5">
       <div className="flex items-center gap-2">
         <Sparkles className="h-5 w-5 text-moss" />
         <h2 className="text-lg font-bold text-ink">Agent 提案</h2>
