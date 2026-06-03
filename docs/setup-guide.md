@@ -62,9 +62,9 @@ APP_ENV=development
 DATABASE_URL=sqlite:///./data/projectflow.sqlite
 LLM_PROVIDER=mock
 LLM_API_KEY=
-LLM_BASE_URL=https://api.openai.com/v1
-LLM_MODEL=gpt-4o-mini
-LLM_TIMEOUT_SECONDS=30.0
+LLM_BASE_URL=https://api.modelarts-maas.com/v2/chat/completions
+LLM_MODEL=glm-5.1
+LLM_TIMEOUT_SECONDS=60.0
 LLM_AGENT_TIMEOUT_SECONDS=120.0
 ```
 
@@ -265,21 +265,21 @@ Mock 模式下 Agent 返回确定性 fallback 数据，适合 UI 测试和演示
 编辑 `backend/.env`：
 
 ```bash
-LLM_PROVIDER=openai
+LLM_PROVIDER=huawei
 LLM_API_KEY=sk-你的真实key
-LLM_BASE_URL=https://api.openai.com/v1
-LLM_MODEL=gpt-4o-mini
-LLM_TIMEOUT_SECONDS=30.0
+LLM_BASE_URL=https://api.modelarts-maas.com/v2/chat/completions
+LLM_MODEL=glm-5.1
+LLM_TIMEOUT_SECONDS=60.0
 ```
 
-如果使用 OpenAI 兼容提供商：
+如果使用其他 OpenAI 兼容提供商：
 
 ```bash
 LLM_PROVIDER=openai-compatible
 LLM_API_KEY=你的提供商key
 LLM_BASE_URL=https://你的提供商地址/v1
 LLM_MODEL=模型名称
-LLM_TIMEOUT_SECONDS=30.0
+LLM_TIMEOUT_SECONDS=60.0
 ```
 
 ### 7.3 重启后端
@@ -299,7 +299,7 @@ curl http://localhost:8000/api/llm/diagnostic
 预期返回：
 
 ```json
-{"provider":"openai","model":"gpt-4o-mini","base_url":"...","status":"ok","detail":"Provider responded successfully"}
+{"provider":"huawei","model":"glm-5.1","base_url":"...","status":"ok","detail":"Provider responded successfully"}
 ```
 
 如果返回 `"status":"error"`，检查 API Key、Base URL 和网络连通性。
