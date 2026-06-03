@@ -29,7 +29,7 @@ Snapshot date: 2026-05-30.
 - GitHub issue #11 (Verification, Tests, and Demo Stability Hardening) is complete.
 - GitHub issue #16 (Real LLM Provider Readiness and Diagnostics) is complete.
 - GitHub issue #17 (Agent Output Persistence and Confirmation) is complete.
-- Implemented: FastAPI scaffold, SQLite configuration skeleton, `GET /api/health`, all 19 persistence tables/domain models with full enum alignment and auto table creation on startup, full CRUD APIs (users, workspaces, invitations, member-profiles, projects, resources, stages, tasks), WorkspaceState assembly endpoint (`GET /api/workspaces/{id}/state`), service layer, Pydantic schemas, agent coordinator infrastructure with structured output validation, mock/OpenAI-compatible LLM adapter, LLM diagnostic endpoints, prompt boundaries, JSON repair/retry/template fallback, AgentEvent timeline logging with status, `AgentProposal` confirm-to-persist flow for clarify/plan/breakdown, assignment proposal/response/finalize/negotiation APIs, action card APIs, check-in cycle/response APIs, risk APIs, confirmed replan API, agent HTTP endpoints, seed/reset/export endpoints, Next.js app shell with navigation, onboarding flow (account setup + member profile wizard), workspace creation + invite panel, project intake + resource input, planning and assignment dashboard UI, execution-loop dashboard UI, client-side project state composition over implemented endpoints, full domain types and API layer, shadcn/ui components, smoke tests, lint/build/test scripts, README, and runtime ignore rules.
+- Implemented: FastAPI scaffold, SQLite configuration skeleton, `GET /api/health`, all 19 persistence tables/domain models with full enum alignment and auto table creation on startup, full CRUD APIs (users, workspaces, invitations, member-profiles, projects, resources, stages, tasks), WorkspaceState assembly endpoint (`GET /api/workspaces/{id}/state`), service layer, Pydantic schemas, agent coordinator infrastructure with structured output validation, mock/OpenAI-compatible LLM adapter, LLM diagnostic endpoints, prompt boundaries, JSON repair/retry/template fallback, AgentEvent timeline logging with status, `AgentProposal` confirm-to-persist flow for clarify/plan/breakdown/replan, assignment proposal/response/finalize/negotiation APIs, action card APIs, check-in cycle/response APIs, risk APIs, confirmed replan API, agent HTTP endpoints, seed/reset/export endpoints, Next.js app shell with navigation, onboarding flow (account setup + member profile wizard), workspace creation + invite panel, project intake + resource input, planning and assignment dashboard UI, execution-loop dashboard UI, client-side project state composition over implemented endpoints, full domain types and API layer, shadcn/ui components, smoke tests, lint/build/test scripts, README, and runtime ignore rules.
 - Frontend routes: `/`, `/onboarding`, `/onboarding/profile`, `/workspaces/new`, `/workspaces/[workspaceId]`, `/projects/new`, `/projects/[projectId]`.
 - MVP implementation includes frontend wiring for execution-loop APIs, seed/reset data, review export, and a complete local demo flow.
 - All MVP phases are complete.
@@ -722,19 +722,20 @@ MVP 不需要做复杂多人拍卖式协调，只做一轮交换确认。
 
 ## 8.19 AgentProposal
 
-`AgentProposal` 暂存 clarify / plan / breakdown 这类高影响 Agent 输出，确认前不直接写入项目状态。
+`AgentProposal` 暂存 clarify / plan / breakdown / replan 这类高影响 Agent 输出，确认前不直接写入项目状态。
 
 | Field | Type | Description |
 |---|---|---|
 | id | UUID | proposal ID |
 | project_id | UUID | 所属项目 |
 | workspace_id | UUID | 所属 workspace |
-| proposal_type | enum | clarify / plan / breakdown |
+| proposal_type | enum | clarify / plan / breakdown / replan |
 | status | enum | pending / confirmed / rejected |
 | agent_event_id | UUID nullable | 来源 AgentEvent |
 | payload | json | 待确认的结构化输出 |
 | confirmed_by | UUID nullable | 确认人 |
 | confirmed_at | datetime nullable | 确认时间 |
+| rejection_reason | text nullable | 拒绝原因 |
 | created_at | datetime | 创建时间 |
 
 确认后的持久化规则：
@@ -742,6 +743,7 @@ MVP 不需要做复杂多人拍卖式协调，只做一轮交换确认。
 - `clarify` -> 更新 `Project.direction_card`
 - `plan` -> 创建 `Stage`
 - `breakdown` -> 创建 `Task`
+- `replan` -> 调用 `confirm_replan()` 应用已确认的阶段调整、任务变更和行动卡
 
 确认同时标记来源 `AgentEvent.user_confirmed = True`，并写入 timeline evidence。
 
@@ -827,7 +829,7 @@ Agent 每次运行必须读取最新 WorkspaceState。
 | Project    | 创建后进入 draft，方向卡确认后进入 active                     |
 | Stage      | 同一项目同一时间只有一个 active stage                       |
 | Assignment | AI 生成 proposal，成员响应后，负责人确认 finalized            |
-| AgentProposal | clarify / plan / breakdown 输出先进入 pending，显式确认后才写入项目状态 |
+| AgentProposal | clarify / plan / breakdown / replan 输出先进入 pending，显式确认后才写入项目状态 |
 | Task Owner | 只有 finalized assignment 才能写入 task.owner_user_id |
 | Check-in   | Check-in 只收集状态，不自动改任务 owner                     |
 | Risk       | Risk 可由 Agent 生成，但是否采纳建议需用户确认                   |
@@ -1450,7 +1452,7 @@ POST /api/agent-proposals/{proposal_id}/confirm
 POST /api/agent-proposals/{proposal_id}/reject
 ```
 
-Confirming a proposal persists its payload according to `proposal_type`: `clarify` updates `Project.direction_card`, `plan` creates `Stage` records, and `breakdown` creates `Task` records. Rejecting keeps the project state unchanged.
+Confirming a proposal persists its payload according to `proposal_type`: `clarify` updates `Project.direction_card`, `plan` creates `Stage` records, `breakdown` creates `Task` records, and `replan` applies confirmed stage/task/action-card changes through `confirm_replan()`. Rejecting keeps the project state unchanged.
 
 ---
 

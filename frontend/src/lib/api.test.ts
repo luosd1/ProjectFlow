@@ -145,7 +145,31 @@ describe("frontend API layer", () => {
       if (url.endsWith("/projects/project-1/assignment-responses")) return jsonResponse([]);
       if (url.endsWith("/projects/project-1/assignment-negotiations")) return jsonResponse([]);
       if (url.endsWith("/projects/project-1/checkin-cycles")) return jsonResponse([]);
-      if (url.endsWith("/projects/project-1/risks")) return jsonResponse([]);
+      if (url.endsWith("/projects/project-1/risks")) {
+        return jsonResponse([
+          {
+            id: "risk-1",
+            project_id: "project-1",
+            stage_id: "stage-1",
+            task_id: "task-1",
+            type: "dependency",
+            severity: "high",
+            title: "后端联调阻塞",
+            description: "接口阻塞前端联调。",
+            evidence: [
+              {
+                source: "签到",
+                detail: "Mia 报告 SQLite 外键约束报错",
+                task_id: "task-1",
+              },
+            ],
+            recommendation: "先排查外键写入顺序。",
+            status: "open",
+            created_by_agent: true,
+            created_at: "2026-05-29T00:00:00Z",
+          },
+        ]);
+      }
       if (url.endsWith("/projects/project-1/action-cards")) {
         return jsonResponse([
           {
@@ -174,5 +198,10 @@ describe("frontend API layer", () => {
 
     expect(state.action_cards).toHaveLength(1);
     expect(state.action_cards[0].title).toBe("Confirm demo");
+    expect(state.risks[0].evidence[0]).toEqual({
+      "来源": "签到",
+      "事实": "Mia 报告 SQLite 外键约束报错",
+    });
+    expect(JSON.stringify(state.risks[0].evidence[0])).not.toContain("task_id");
   });
 });

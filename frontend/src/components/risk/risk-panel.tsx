@@ -74,7 +74,7 @@ export function RiskPanel({ risks, onAccept, onIgnore, onResolve, pending }: Ris
       <div className="mt-4">
         {risks.length === 0 ? (
           <div className="rounded-lg border border-dashed border-ink/15 bg-paper/70 p-6 text-sm text-ink/55">
-            暂无识别到的风险。请在签到提交后运行风险分析。
+            暂无识别到的风险。需要任务状态、签到或截止日期证据后再分析。
           </div>
         ) : (
           <div className="grid gap-3">

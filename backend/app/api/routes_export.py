@@ -43,6 +43,12 @@ def _json_value(value: Any, default: Any) -> Any:
         return default
 
 
+def _enum_value(value: Any) -> str:
+    if value is None:
+        return "-"
+    return str(getattr(value, "value", value))
+
+
 @router.post("/projects/{project_id}/export/review-summary", response_model=ExportResponse)
 def export_review_summary(project_id: str, session: Session = Depends(get_session)):
     project = session.get(Project, project_id)
@@ -149,7 +155,7 @@ def export_review_summary(project_id: str, session: Session = Depends(get_sessio
         [
             "## 当前状态",
             "",
-            f"- **项目**：{project.name}（{project.status}）",
+            f"- **项目**：{project.name}（{_enum_value(project.status)}）",
             f"- **截止日期**：{project.deadline}",
             f"- **交付物**：{project.deliverables}",
         ]
@@ -164,13 +170,13 @@ def export_review_summary(project_id: str, session: Session = Depends(get_sessio
     lines.extend(["## 阶段概览", "", "| # | 阶段 | 状态 | 时间 |", "|---|------|------|------|"])
     for stage in stages:
         lines.append(
-            f"| {stage.order_index + 1} | {stage.name} | {stage.status} | {stage.start_date} ~ {stage.end_date} |"
+            f"| {stage.order_index + 1} | {stage.name} | {_enum_value(stage.status)} | {stage.start_date} ~ {stage.end_date} |"
         )
     lines.append("")
 
     lines.extend(["## 任务状态", ""])
     for priority in ["P0", "P1", "P2"]:
-        group = [task for task in tasks if task.priority == priority]
+        group = [task for task in tasks if _enum_value(task.priority) == priority]
         if not group:
             continue
         lines.extend(
@@ -184,7 +190,7 @@ def export_review_summary(project_id: str, session: Session = Depends(get_sessio
         for task in group:
             owner = member_map.get(task.owner_user_id, "未分配") if task.owner_user_id else "未分配"
             lines.append(
-                f"| {task.title} | {owner} | {task.status} | {task.due_date} | {task.estimated_hours}h |"
+                f"| {task.title} | {owner} | {_enum_value(task.status)} | {task.due_date} | {task.estimated_hours}h |"
             )
         lines.append("")
 
@@ -203,16 +209,23 @@ def export_review_summary(project_id: str, session: Session = Depends(get_sessio
             recommendation = risk.recommendation[:40]
             suffix = "..." if len(risk.recommendation) > 40 else ""
             lines.append(
-                f"| {risk.severity} | {risk.type} | {risk.title} | {risk.status} | {recommendation}{suffix} |"
+                f"| {_enum_value(risk.severity)} | {_enum_value(risk.type)} | {risk.title} | {_enum_value(risk.status)} | {recommendation}{suffix} |"
             )
         lines.extend(["", "### 风险详情", ""])
         for risk in risks:
             evidence = _json_value(risk.evidence, [])
-            lines.append(f"**{risk.title}**（{risk.severity}/{risk.type}）")
+            lines.append(f"**{risk.title}**（{_enum_value(risk.severity)}/{_enum_value(risk.type)}）")
             lines.append(f"- 描述：{risk.description}")
             lines.append("- 证据：")
             for item in evidence:
-                lines.append(f"  - {item}")
+                if isinstance(item, dict):
+                    # Format structured evidence as readable text
+                    source = item.get("source", item.get("来源", ""))
+                    detail = item.get("detail", item.get("text", item.get("事实", "")))
+                    parts = [p for p in [source, detail] if p]
+                    lines.append(f"  - {'；'.join(parts) if parts else str(item)}")
+                else:
+                    lines.append(f"  - {item}")
             lines.append(f"- 建议：{risk.recommendation}")
             lines.append("")
     else:
@@ -242,9 +255,18 @@ def export_review_summary(project_id: str, session: Session = Depends(get_sessio
 
     if timeline:
         lines.extend(["## Agent 决策时间线", ""])
+        status_labels = {
+            "success": "成功",
+            "repaired": "已修复",
+            "fallback": "基础建议",
+            "failed": "失败",
+        }
         for event in timeline:
-            confirmed = "confirmed" if event.user_confirmed else "pending"
-            lines.append(f"- **{event.event_type}** [{confirmed}]：{event.reasoning_summary}")
+            status_text = status_labels.get(event.status, event.status) if event.status else "未知"
+            confirmed = "已确认" if event.user_confirmed else "待确认"
+            lines.append(
+                f"- **{_enum_value(event.event_type)}** [{_enum_value(status_text)}/{confirmed}]：{event.reasoning_summary}"
+            )
         lines.append("")
 
     lines.extend(["---", f"*由 ProjectFlow Agent 生成于 {now_str}*"])

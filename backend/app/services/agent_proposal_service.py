@@ -6,6 +6,7 @@ from sqlmodel import Session, select
 from app.core.db_utils import require_row
 from app.agent.output_schemas import (
     DirectionCardOutput,
+    ReplanOutput,
     StagePlanOutput,
     TaskBreakdownOutput,
 )
@@ -86,6 +87,8 @@ def confirm_proposal(
         created_ids = _persist_stage_plan(session, proposal)
     elif proposal.proposal_type == "breakdown":
         created_ids = _persist_task_breakdown(session, proposal)
+    elif proposal.proposal_type == "replan":
+        created_ids = _persist_replan(session, proposal)
     else:
         raise ValueError(f"Unknown proposal type: {proposal.proposal_type}")
 
@@ -236,3 +239,67 @@ def _persist_task_breakdown(session: Session, proposal: AgentProposal) -> list[s
         session.flush()
         created_ids.append(task.id)
     return created_ids
+
+
+def _persist_replan(session: Session, proposal: AgentProposal) -> list[str]:
+    """Persist replan output by delegating to replan_service.confirm_replan."""
+    from app.schemas.replan import ReplanConfirmRequest, ReplanStageAdjustment, ReplanTaskChange
+    from app.schemas.action_card import ActionCardCreate
+    from app.services.replan_service import confirm_replan
+
+    payload = _get_payload(proposal)
+    output = ReplanOutput.model_validate(payload)
+
+    stage_adjustments = [
+        ReplanStageAdjustment(
+            stage_id=adj.stage_id,
+            new_start_date=adj.new_start_date,
+            new_end_date=adj.new_end_date,
+            reason=adj.reason,
+        )
+        for adj in output.stage_adjustments
+    ]
+    task_changes = [
+        ReplanTaskChange(
+            task_id=tc.task_id,
+            title=tc.title,
+            status=tc.status,
+            owner_user_id=tc.owner_user_id,
+            due_date=tc.due_date,
+            can_cut=tc.can_cut,
+            reason=tc.reason,
+        )
+        for tc in output.task_changes
+    ]
+    action_cards = [
+        ActionCardCreate(
+            project_id=proposal.project_id,
+            stage_id=card.stage_id,
+            user_id=card.user_id,
+            task_id=card.task_id,
+            type=card.type,
+            title=card.title,
+            content=card.content,
+            reason=card.reason,
+            goal=card.goal,
+            start_suggestion=card.start_suggestion,
+            completion_standard=card.completion_standard,
+            due_date=card.due_date,
+            created_by_agent=True,
+        )
+        for card in output.action_cards
+    ]
+
+    request = ReplanConfirmRequest(
+        project_id=proposal.project_id,
+        before=output.before,
+        after=output.after,
+        impact=output.impact,
+        reason=output.reason,
+        requires_confirmation=output.requires_confirmation,
+        stage_adjustments=stage_adjustments,
+        task_changes=task_changes,
+        action_cards=action_cards,
+    )
+    result = confirm_replan(session, request, auto_commit=False)
+    return result.applied_stage_ids + result.applied_task_ids + result.created_action_card_ids

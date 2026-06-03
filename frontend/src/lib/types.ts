@@ -243,6 +243,8 @@ export type CheckInResponse = {
 };
 
 // --- Risk ---
+export type RiskEvidence = string | Record<string, unknown>;
+
 export type Risk = {
   id: string;
   project_id: string;
@@ -252,7 +254,7 @@ export type Risk = {
   severity: "low" | "medium" | "high";
   title: string;
   description: string;
-  evidence: string[];
+  evidence: RiskEvidence[];
   recommendation: string;
   status: "open" | "accepted" | "ignored" | "resolved";
   created_by_agent: boolean;
@@ -285,6 +287,7 @@ export type AgentEvent = {
   project_id: string;
   workspace_id: string;
   event_type: "clarify" | "plan" | "breakdown" | "assign" | "negotiate" | "push" | "checkin" | "risk" | "replan" | "export";
+  status: "success" | "repaired" | "fallback" | "failed";
   input_snapshot: Record<string, unknown>;
   output_snapshot: Record<string, unknown>;
   reasoning_summary: string;
@@ -322,12 +325,13 @@ export type AgentProposal = {
   id: string;
   project_id: string;
   workspace_id: string;
-  proposal_type: "clarify" | "plan" | "breakdown";
+  proposal_type: "clarify" | "plan" | "breakdown" | "replan";
   status: "pending" | "confirmed" | "rejected";
   agent_event_id: string;
   payload: Record<string, unknown>;
   confirmed_by: string | null;
   confirmed_at: string | null;
+  rejection_reason?: string | null;
   created_at: string;
 };
 

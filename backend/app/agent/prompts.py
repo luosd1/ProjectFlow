@@ -44,8 +44,8 @@ Each risk must use exact keys: "type" deadline/dependency/workload/scope/review/
 Do not use risk_type, mitigation, or affected_task_ids.""",
     AgentEventType.risk: """RiskAnalysisOutput JSON object:
 Required keys: "risks" array, "reason" string, optional "requires_confirmation" boolean.
-Each risk: "type" one of deadline/dependency/workload/scope/review/assignment/checkin, "severity" one of low/medium/high, "title" string, "description" string, "evidence" non-empty object array, "recommendation" string, optional "stage_id" existing stage id or null, optional "task_id" existing task id or null.
-Return exactly 1 highest-risk item when any concrete risk exists; otherwise return an empty risks array. Set requires_confirmation true when severity is high.""",
+Each risk: "type" one of deadline/dependency/workload/scope/review/assignment/checkin, "severity" one of low/medium/high, "title" string, "description" string, "evidence" non-empty string array (readable Chinese sentences, not dicts or IDs), "recommendation" string, optional "stage_id" existing stage id or null, optional "task_id" existing task id or null.
+Return up to 3 concrete risks with different types when evidence exists; otherwise return an empty risks array. Each risk must have actual evidence from task status, check-ins, deadlines, dependencies, workload, or review pressure. Do not fabricate evidence. Set requires_confirmation true when severity is high.""",
     AgentEventType.replan: """ReplanOutput JSON object:
 Required keys: "before", "after", "impact" string, "stage_adjustments" array, "task_changes" array, "action_cards" array, "reason" string, "requires_confirmation" true.
 Stage adjustment: "stage_id" existing stage id, optional "new_start_date", optional "new_end_date", "reason" string.

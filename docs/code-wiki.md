@@ -91,7 +91,7 @@ ProjectFlow/
 │   │   │   ├── output_schemas.py # Agent 输出 Pydantic 校验模型
 │   │   │   └── modules/       # 9 个能力模块
 │   │   ├── seed/              # Demo 种子数据
-│   │   └── tests/             # pytest 测试（16 个测试文件）
+│   │   └── tests/             # pytest 测试（17 个 test_*.py 文件）
 │   └── pyproject.toml
 └── .agents/                   # Skills 和 Plugins 配置
 ```
@@ -139,7 +139,7 @@ Stage 完成后 → 下一阶段 → 重新触发阶段性分工推荐
 | Active Push | 项目状态、阶段、分工 | 行动卡（7 种类型） | 直接持久化 |
 | Check-in Analysis | 签到响应 | 状态摘要 + 可能风险 | 直接持久化 |
 | Risk Analysis | 任务、签到、截止日期、分工 | 风险卡（7 种类型 × 3 级严重度） | 直接持久化 |
-| Replanning | 风险、项目状态 | 重排提案（before/after/影响） | ✅ 需确认后才改任务/阶段 |
+| Replanning | 风险、项目状态 | 重排提案（before/after/影响） | ✅ 进入 AgentProposal，确认后才改任务/阶段/行动卡 |
 
 ### Agent 稳定性规则
 
@@ -261,7 +261,7 @@ Project ──1:N──> AgentEvent
 | `CheckInResponse` | cycle_id, user_id, what_done, blocker, available_hours_next_cycle, mood_or_confidence | 签到响应 |
 | `Risk` | project_id, stage/task_id, type, severity, title, description, evidence(JSON), recommendation, status | 风险条目 |
 | `ActionCard` | project_id, stage/task/user_id, type, title, content, reason, goal, start_suggestion, completion_standard, due_date, status | 行动卡 |
-| `AgentProposal` | project_id, workspace_id, proposal_type, status, payload(JSON), confirmed_by, rejection_reason | Agent 提案（确认前不写入项目状态；reject 时记录原因） |
+| `AgentProposal` | project_id, workspace_id, proposal_type, status, payload(JSON), confirmed_by, rejection_reason | Agent 提案（clarify/plan/breakdown/replan；确认前不写入项目状态；reject 时记录原因） |
 | `AgentEvent` | project_id, workspace_id, event_type, status, input/output_snapshot, reasoning_summary, user_confirmed | Agent 决策日志 |
 
 ### 5.3 Schema 层
@@ -424,7 +424,7 @@ generate_structured_output()
 
 | 组件 | 职责 |
 |------|------|
-| `AgentProposalPanel` | Agent 提案面板，按类型渲染不同 payload，支持确认/拒绝 |
+| `AgentProposalPanel` | 方向卡/阶段/任务 Agent 提案面板，按类型渲染不同 payload，支持确认/拒绝；replan 由 `ReplanDiff` 专门展示 |
 | `DirectionCardPanel` | 方向卡展示 + 运行澄清按钮 |
 | `ActionCardItem` / `ActionCardsList` | 单张/列表行动卡渲染 |
 | `TeamActionsPanel` | 团队类型行动卡筛选 |
@@ -547,7 +547,7 @@ Base URL: `http://localhost:8000/api`
 | POST | /agent/active-push | 主动推送 → ActionCard |
 | POST | /agent/check-in-analysis | 签到分析 → Risk/ActionCard |
 | POST | /agent/risk-analysis | 风险分析 → Risk |
-| POST | /agent/replan | 重排建议 → 需确认 |
+| POST | /agent/replan | 重排建议 → AgentProposal(replan)，需确认 |
 
 ### 提案确认
 
@@ -654,6 +654,7 @@ Base URL: `http://localhost:8000/api`
 | test_issue4_smoke.py | Issue 4 回归 |
 | test_llm_provider.py | LLM Provider |
 | test_models.py | 模型基础 |
+| test_replan_proposal_flow.py | Replan 提案持久化、确认/拒绝、导出回归 |
 | test_request_validation.py | 请求校验 |
 | test_seed_reset_export.py | 种子/重置/导出 |
 | test_usability_pass_20.py | 可用性验证 |
@@ -661,12 +662,12 @@ Base URL: `http://localhost:8000/api`
 ### 前端测试
 
 - vitest + @testing-library/react
-- 覆盖：api.ts、app-shell、projectflow-home、action-card、project-dashboard、task-status-update、error-boundaries
+- 覆盖：api.ts、app-shell、projectflow-home、action-card、agent-proposal-panel、project-dashboard、task-status-update、error-boundaries
 
 ### 验证基线
 
-- 后端 pytest：170 passing（1 pre-existing failure in test_llm_provider）
-- 前端：13 tests passing, lint passing, build passing, audit 0 vulnerabilities
+- 后端 pytest：182 passing
+- 前端：15 tests passing, lint passing, build passing
 
 ---
 
@@ -757,7 +758,7 @@ npm audit --omit=dev                # 安全审计
 |------|------|
 | SQLite 而非 PostgreSQL | 本地演示优先，零配置，比赛 Demo 稳定 |
 | 单 Coordinator Agent | 避免多 Agent 调试复杂、成本上升、演示不稳定 |
-| AgentProposal 确认机制 | 高影响 AI 输出（方向卡/阶段/任务）必须人工确认后才持久化 |
+| AgentProposal 确认机制 | 高影响 AI 输出（方向卡/阶段/任务/重规划）必须人工确认后才持久化 |
 | LLM Provider Adapter | 便于切换 Deepseek/华为云/国产模型 |
 | 前端无全局状态库 | MVP 规模不需要，React state + localStorage 足够 |
 | urllib 直接调 HTTP | 避免引入 openai SDK 的依赖链，保持轻量 |

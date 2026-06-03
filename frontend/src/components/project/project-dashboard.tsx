@@ -178,6 +178,9 @@ export function ProjectDashboard({
 
   const currentPhase = inferCurrentPhase(state);
   const recommendedAction = inferRecommendedAction(state);
+  const latestPendingReplan = state.agent_proposals
+    .filter((p) => p.proposal_type === "replan" && p.status === "pending")
+    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0] ?? null;
 
   const phaseOrder: AgentPhase[] = ["planning", "assignment", "execution", "monitoring"];
   const currentPhaseIndex = phaseOrder.indexOf(currentPhase);
@@ -486,7 +489,15 @@ export function ProjectDashboard({
               onIgnore={onIgnoreRisk}
               pending={Boolean(pendingAction)}
             />
-            <ReplanDiff before={[]} after={[]} proposal={null} />
+            <ReplanDiff
+              before={[]}
+              after={[]}
+              proposal={null}
+              pendingProposal={latestPendingReplan}
+              onConfirmReplan={onConfirmProposal}
+              onRejectReplan={onRejectProposal}
+              pending={Boolean(pendingAction)}
+            />
           </TabsContent>
 
           <TabsContent value="timeline" className="space-y-5">

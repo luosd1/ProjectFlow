@@ -8,10 +8,11 @@ def build_request(workspace_state: WorkspaceStateResponse) -> AgentModuleRequest
         event_type=AgentEventType.risk,
         user_prompt=(
             "Analyze the current stage for deadline, dependency, workload, scope, review, assignment, and check-in risks. "
-            "Return only the single highest risk with concrete evidence from WorkspaceState. "
+            "Return up to 3 concrete risks with different types when evidence exists. "
+            "Each risk must have actual evidence from task status, check-ins, deadlines, dependencies, workload, or review pressure. "
             "Evidence should cite task titles, member names (not IDs), stage status, due_date, hours, or detail. "
             "ALL user-facing text (title, description, evidence, recommendation) MUST be written in Chinese. "
-            "Do not fabricate IDs."
+            "Do not fabricate evidence or IDs. If no concrete evidence exists, return an empty risks array."
         ),
         fallback_payload={
             "risks": [],

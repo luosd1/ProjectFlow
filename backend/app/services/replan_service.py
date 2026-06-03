@@ -8,7 +8,12 @@ from app.models.enums import AssignmentProposalStatus
 from app.schemas.replan import ReplanConfirmRead, ReplanConfirmRequest
 
 
-def confirm_replan(session: Session, data: ReplanConfirmRequest) -> ReplanConfirmRead:
+def confirm_replan(
+    session: Session,
+    data: ReplanConfirmRequest,
+    *,
+    auto_commit: bool = True,
+) -> ReplanConfirmRead:
     if not data.requires_confirmation:
         raise ValueError("Replan confirmation requires a proposal marked requires_confirmation")
 
@@ -95,5 +100,8 @@ def confirm_replan(session: Session, data: ReplanConfirmRequest) -> ReplanConfir
         applied_task_ids=applied_task_ids,
         created_action_card_ids=created_action_card_ids,
     )
-    session.commit()
+    if auto_commit:
+        session.commit()
+    else:
+        session.flush()
     return result

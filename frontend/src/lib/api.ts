@@ -49,6 +49,25 @@ type BackendWorkspaceState = {
 };
 type BackendRisk = Omit<Risk, "evidence"> & { evidence: unknown[] | Record<string, unknown> };
 
+const EVIDENCE_LABELS: Record<string, string> = {
+  source: "来源",
+  detail: "事实",
+  text: "事实",
+  task_title: "任务",
+  task_status: "任务状态",
+  stage_name: "阶段",
+  member_name: "成员",
+  blocker: "阻塞",
+  due_date: "截止日期",
+  deadline: "截止日期",
+  status: "状态",
+  severity: "严重度",
+  type: "类型",
+  available_hours_next_cycle: "下周期可用时间",
+  available_hours: "可用时间",
+  recommendation: "建议",
+};
+
 function normalizeUser(user: BackendUser): User {
   return {
     ...user,
@@ -70,15 +89,31 @@ function normalizeInvitation(invitation: BackendInvitation): Invitation {
   };
 }
 
+function normalizeEvidenceItem(item: unknown): Risk["evidence"][number] {
+  if (typeof item === "string") return item;
+  if (typeof item !== "object" || item === null) return String(item);
+
+  const readable: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(item as Record<string, unknown>)) {
+    if (value === null || value === undefined || value === "") continue;
+    if (key.endsWith("_id") || key === "id") continue;
+    const label = EVIDENCE_LABELS[key] ?? key;
+    readable[label] = value;
+  }
+
+  if (Object.keys(readable).length === 0) {
+    return "证据来自项目状态，暂无可展示的详细字段。";
+  }
+  return readable;
+}
+
 function normalizeRisk(risk: BackendRisk): Risk {
   const evidenceItems = Array.isArray(risk.evidence)
     ? risk.evidence
-    : Object.entries(risk.evidence).map(([key, value]) => `${key}: ${String(value)}`);
+    : [risk.evidence];
   return {
     ...risk,
-    evidence: evidenceItems.map((item) =>
-      typeof item === "string" ? item : JSON.stringify(item),
-    ),
+    evidence: evidenceItems.map(normalizeEvidenceItem),
   };
 }
 

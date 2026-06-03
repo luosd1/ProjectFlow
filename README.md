@@ -23,8 +23,9 @@ All MVP phases and MVP Usable tasks complete. Phase 24 (Agent Output Quality + B
 - Phase 20 — Workspace Member Management (2026-05-31)
 - Phase 21 — Test Docs + User Switcher (2026-05-31)
 - Phase 22 — T23.A Feedback Fixes (2026-06-02)
+- Phase 25 — T23.D Feedback Fixes (2026-06-03)
 
-Implemented: FastAPI backend (70 endpoint method/path pairs, 19 persistence tables/domain models), agent infrastructure with mock/OpenAI-compatible provider diagnostics, confirm-to-persist `AgentProposal` flow, seed/reset/export, Next.js frontend (7 routes, project resources panel, user identity switcher), 166 backend tests passing, 13 frontend tests passing, frontend lint+build+audit clean.
+Implemented: FastAPI backend (70 endpoint method/path pairs, 19 persistence tables/domain models), agent infrastructure with mock/OpenAI-compatible provider diagnostics, confirm-to-persist `AgentProposal` flow including replan proposals, seed/reset/export, Next.js frontend (7 routes, project resources panel, user identity switcher), 182 backend tests passing, 15 frontend tests passing, frontend lint+build clean.
 
 ## Stack
 
@@ -103,8 +104,9 @@ npm audit --omit=dev
 - [Code wiki](docs/code-wiki.md)
 - [Current handoff](docs/handoff.md)
 - [T23 test docs](docs/T23/)
-- [T23.A feedback](docs/T23/T23.A.md)
-- [Bug log](docs/T23/T23-C-feedback.md)
+- [T23.A feedback](docs/T23/T23.A.feedback.md)
+- [T23.C feedback](docs/T23/T23.C.feedback.md)
+- [T23.D feedback](docs/T23/T23D.feedback.md)
 - [Issue #11 verification report](docs/issue-11-status-report.md)
 
 ## Runtime Files

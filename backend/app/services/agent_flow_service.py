@@ -9,6 +9,7 @@ from app.agent.output_schemas import (
     CheckInAnalysisOutput,
     DirectionCardOutput,
     OUTPUT_SCHEMA_BY_EVENT_TYPE,
+    ReplanOutput,
     RiskAnalysisOutput,
     StagePlanOutput,
     TaskBreakdownOutput,
@@ -150,6 +151,11 @@ def _persist_agent_output(
 
     if isinstance(output, RiskAnalysisOutput):
         created_ids.extend(_persist_risks(session, project_id, output.risks))
+
+    if isinstance(output, ReplanOutput):
+        proposal_id = _create_agent_proposal(
+            session, workspace_state, project_id, "replan", output
+        )
 
     session.commit()
     return created_ids, proposal_id

@@ -173,7 +173,7 @@ Backend:
 - Implemented routes: 70 endpoint method/path pairs covering health, LLM diagnostics, users, workspaces, invitations, member-profiles, projects, resources, stages, tasks, workspace-state, agent, agent-proposals, assignments, action-cards, check-ins, risks, replans, seed/reset, timeline, export, and demo reset.
 - Domain models/persistence tables implemented (19 tables, all enums).
 - AgentEvent now records `status` for success, repaired, fallback, or failed agent runs.
-- AgentProposal stores pending clarify/plan/breakdown outputs; confirmation persists to project state.
+- AgentProposal stores pending clarify/plan/breakdown/replan outputs; confirmation persists to project state.
 - Service layer implemented for all CRUD domains plus assignment, action-card, check-in, risk, replan, agent-flow orchestration, and agent-proposal confirm/reject.
 - Pydantic schemas implemented for all CRUD and execution-loop domains.
 - WorkspaceState endpoint returns members, project, stages, tasks for Agent consumption.
@@ -286,7 +286,7 @@ T23.C full verification with real LLM (DeepSeek V4-pro) drove 4 blocking bugs to
 
 **Documentation:**
 
-- `T23-C-feedback.md` created in `docs/T23/` with all identified bugs (BUG-001 through BUG-009), root cause analysis, fix records, and fix status. BUG-002 and BUG-003 removed (superseded); bugs renumbered to close gaps.
+- `T23.C.feedback.md` created in `docs/T23/` with all identified bugs (BUG-001 through BUG-009), root cause analysis, fix records, and fix status. BUG-002 and BUG-003 removed (superseded); bugs renumbered to close gaps.
 
 Full codebase review identified 56 issues across backend and frontend. Fixed 18 issues (all P0/P1/P2 that were confirmed real), leaving 2 P0 + 9 P1 + 10 P2 for post-MVP.
 
@@ -308,13 +308,28 @@ Fixes applied:
 - **Shared utility**: `core/db_utils.py` extracted `require_row()` to replace duplicated `_require` functions across 6 service files.
 - **Invitation accept**: `accept_invitation` now accepts `user_id` parameter; creates a User record when no user_id is provided instead of using a placeholder.
 
-Verification: backend 146/146 tests pass, frontend build passes.
+Verification: backend 182/182 tests pass; frontend 15/15 tests pass; frontend lint and build pass.
 
 Unfixed issues documented in `.trae/documents/code-review-unfixed-issues.md`.
 
+### Phase 25 — T23.D Feedback Fixes (2026-06-03)
+
+T23.D feedback fixes closed the risk -> replan -> confirm/reject -> push/checkin/risk loop breakpoints found in `docs/T23/T23D.feedback.md`.
+
+- Replan agent output now creates pending `AgentProposal(proposal_type="replan")` records and is confirmed/rejected through the same `/api/agent-proposals/{id}/confirm|reject` lifecycle as clarify/plan/breakdown.
+- Confirming a replan proposal delegates to `confirm_replan()` in one transaction and can apply stage adjustments, task changes, and action cards; rejecting keeps project state unchanged.
+- Replan fallback now derives a minimal actionable proposal from check-in blockers when evidence exists: at most one stage adjustment, one task change, and one risk-action card.
+- Risk analysis prompt/contract allows up to 3 evidence-grounded risks, while empty-data fallback still returns no fabricated risks.
+- Frontend risk cards show high-risk confirmation semantics, allow accepted -> resolved, and render structured evidence as readable Chinese without raw JSON/internal IDs.
+- `ReplanDiff` displays the latest pending replan proposal with before/after, impact, reason, stage/task/action details, change-count badges, and confirm/reject controls.
+- Agent timeline and run result UI show `success`, `repaired`, `fallback`, and `failed` distinctly.
+- Review export renders enum values and structured evidence as readable Markdown without `None`/`null`/Python enum reprs.
+
+Verification: backend 182/182 tests pass; frontend 15/15 tests pass; frontend lint and build pass.
+
 ## Next Work
 
-Core MVP phase scope is complete. Phase 10 (UI Structural Fix) completed 2026-05-29; MVP Usable #16/#17/#18/#19/#20/#21 are complete. Phase 17 (Code Review Hardening) completed 2026-05-30. Phase 18 (Frontend Bugfix) completed 2026-05-30. Phase 19 (Agent Prompt Refactor) completed 2026-05-31. Phase 20 (Workspace Member Management) completed 2026-05-31. Phase 21 (Test Docs + User Switcher) completed 2026-05-31. Phase 22 (T23.A Feedback Fixes) completed 2026-06-02. Phase 23 (Code Review Hardening) completed 2026-06-02. Phase 24 (Agent Output Quality + Bug Fixes) completed 2026-06-03.
+Core MVP phase scope is complete. Phase 10 (UI Structural Fix) completed 2026-05-29; MVP Usable #16/#17/#18/#19/#20/#21 are complete. Phase 17 (Code Review Hardening) completed 2026-05-30. Phase 18 (Frontend Bugfix) completed 2026-05-30. Phase 19 (Agent Prompt Refactor) completed 2026-05-31. Phase 20 (Workspace Member Management) completed 2026-05-31. Phase 21 (Test Docs + User Switcher) completed 2026-05-31. Phase 22 (T23.A Feedback Fixes) completed 2026-06-02. Phase 23 (Code Review Hardening) completed 2026-06-02. Phase 24 (Agent Output Quality + Bug Fixes) completed 2026-06-03. Phase 25 (T23.D Feedback Fixes) completed 2026-06-03.
 
 MVP Usable progress (see `.claude/epics/projectflow-mvp-usable-ready/`):
 - ✅ #18 Prompt and Schema Quality Hardening (2026-05-29)
@@ -330,9 +345,9 @@ T23.A test audit completed (2026-06-02) with feedback documented in `docs/T23/T2
 - A-18: 真实 LLM 超时/失败兜底链路待补测（需用户提供 API）
 - 自动化测试隔离：真实 `.env` 配置影响 mock 测试（需 `LLM_PROVIDER=mock` 强制环境变量）
 
-T23.B/C/D 测试待执行。
+T23.B full manual test remains pending. T23.C feedback fixes are documented in `docs/T23/T23.C.feedback.md`. T23.D feedback fixes are implemented and documented in `docs/T23/T23D.feedback.md`; a full mock + real-LLM manual rerun of D1-D17 is still pending.
 
-Post-MVP: auth, deployment, collaboration permissions, broader UI hardening, remaining code review issues (2 P0 + 9 P1 + 10 P2 documented in `.trae/documents/code-review-unfixed-issues.md`), and outstanding bugs (see `docs/T23/T23-C-feedback.md`).
+Post-MVP: auth, deployment, collaboration permissions, broader UI hardening, remaining code review issues (2 P0 + 9 P1 + 10 P2 documented in `.trae/documents/code-review-unfixed-issues.md`), and outstanding bugs/feedback tracked in `docs/T23/T23.C.feedback.md` and `docs/T23/T23D.feedback.md`.
 
 ## Local Cleanup Notes
 

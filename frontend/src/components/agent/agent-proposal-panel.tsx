@@ -181,8 +181,9 @@ export function AgentProposalPanel({ proposals, pending, onConfirm, onReject }: 
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
 
   const safeProposals = proposals ?? [];
-  const pendingProposals = safeProposals.filter((p) => p.status === "pending");
-  const confirmedProposals = safeProposals.filter((p) => p.status === "confirmed");
+  const displayableProposals = safeProposals.filter((p) => p.proposal_type !== "replan");
+  const pendingProposals = displayableProposals.filter((p) => p.status === "pending");
+  const confirmedProposals = displayableProposals.filter((p) => p.status === "confirmed");
 
   if (pendingProposals.length === 0 && confirmedProposals.length === 0) {
     return null;

@@ -1,6 +1,6 @@
 # ProjectFlow API Contract
 
-Status: current as of 2026-06-02. All planned MVP endpoints are implemented; confirmation-to-persist flow for clarify/plan/breakdown; structured assignment citations and action card fields; resource CRUD; reject endpoint accepts empty body and persists rejection_reason; confirmed_by validated against User table.
+Status: current as of 2026-06-03. All planned MVP endpoints are implemented; confirmation-to-persist flow for clarify/plan/breakdown/replan; structured assignment citations and action card fields; resource CRUD; reject endpoint accepts empty body and persists rejection_reason; confirmed_by validated against User table.
 
 This document records the implemented MVP API surface. Post-MVP ideas should be tracked in roadmap docs, not mixed into this contract.
 
@@ -187,9 +187,9 @@ POST /api/agent/risk-analysis
 POST /api/agent/replan
 ```
 
-Agent outputs are validated before persistence. Clarification, stage planning, and task breakdown outputs create `AgentProposal` records (pending confirmation) instead of directly mutating project state. Assignment, active-push, check-in-analysis, and risk-analysis endpoints persist their validated proposals or records through services. Replan returns a proposal and does not apply changes until `/api/replans/confirm`.
+Agent outputs are validated before persistence. Clarification, stage planning, task breakdown, and replan outputs create `AgentProposal` records (pending confirmation) instead of directly mutating project state. Assignment, active-push, check-in-analysis, and risk-analysis endpoints persist their validated proposals or records through services. Replan proposals do not apply changes until they are confirmed through `/api/agent-proposals/{proposal_id}/confirm`, which delegates to the same deterministic replan service used by `/api/replans/confirm`.
 
-The agent response now includes `proposal_id` for clarify, plan, and breakdown outputs:
+The agent response now includes `proposal_id` for clarify, plan, breakdown, and replan outputs:
 
 ```json
 {
@@ -214,13 +214,14 @@ POST /api/agent-proposals/{proposal_id}/reject
 
 Agent proposals store pending high-impact agent outputs before human confirmation:
 
-- `proposal_type`: `clarify` | `plan` | `breakdown`
+- `proposal_type`: `clarify` | `plan` | `breakdown` | `replan`
 - `status`: `pending` → `confirmed` | `rejected`
 
 Confirming a proposal persists its payload to project state:
 - `clarify` → updates `Project.direction_card`
 - `plan` → creates `Stage` records
 - `breakdown` → creates `Task` records
+- `replan` → applies confirmed stage adjustments, task changes, and action cards through `confirm_replan()`
 
 Confirming also marks the source `AgentEvent.user_confirmed = True` and records a confirmation timeline event with the source event ID.
 

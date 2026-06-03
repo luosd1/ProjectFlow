@@ -67,6 +67,35 @@ function typeClass(type: Risk["type"]) {
   }
 }
 
+const EVIDENCE_LABELS: Record<string, string> = {
+  source: "来源",
+  detail: "事实",
+  text: "事实",
+  task_title: "任务",
+  task_status: "任务状态",
+  stage_name: "阶段",
+  member_name: "成员",
+  blocker: "阻塞",
+  due_date: "截止日期",
+  deadline: "截止日期",
+  status: "状态",
+  severity: "严重度",
+  type: "类型",
+  available_hours_next_cycle: "下周期可用时间",
+  available_hours: "可用时间",
+  recommendation: "建议",
+};
+
+function evidenceLabel(key: string) {
+  return EVIDENCE_LABELS[key] ?? key;
+}
+
+function evidenceValue(value: unknown) {
+  if (Array.isArray(value)) return value.join("、");
+  if (typeof value === "object" && value !== null) return "结构化项目证据";
+  return String(value);
+}
+
 /** Render a single evidence item — handles both string and dict formats */
 function renderEvidenceItem(item: string | Record<string, unknown>, index: number) {
   if (typeof item === "string") {
@@ -77,7 +106,10 @@ function renderEvidenceItem(item: string | Record<string, unknown>, index: numbe
     );
   }
   // Structured evidence dict
-  const entries = Object.entries(item);
+  const entries = Object.entries(item).filter(([key, value]) => {
+    if (value === null || value === undefined || value === "") return false;
+    return !key.endsWith("_id") && key !== "id";
+  });
   const detail = item.detail as string | undefined;
   const dataEntries = detail !== undefined ? entries.filter(([k]) => k !== "detail") : entries;
 
@@ -86,7 +118,7 @@ function renderEvidenceItem(item: string | Record<string, unknown>, index: numbe
       {dataEntries.map(([key, value], i) => (
         <span key={i}>
           {i > 0 && ", "}
-          <span className="font-medium text-ink/70">{key}</span>: {String(value)}
+          <span className="font-medium text-ink/70">{evidenceLabel(key)}</span>: {evidenceValue(value)}
         </span>
       ))}
       {detail && <span className="ml-1 text-ink/50">— {detail}</span>}
@@ -95,14 +127,21 @@ function renderEvidenceItem(item: string | Record<string, unknown>, index: numbe
 }
 
 export function RiskCard({ risk, onAccept, onIgnore, onResolve, pending }: RiskCardProps) {
+  const isOpen = risk.status === "open";
+  const isAccepted = risk.status === "accepted";
+  const isHighRisk = risk.severity === "high";
+
   return (
-    <article className="rounded-lg border border-ink/10 bg-paper/60 p-4">
+    <article className={`rounded-lg border bg-paper/60 p-4 ${isHighRisk ? "border-coral/30" : "border-ink/10"}`}>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <AlertTriangle className="h-4 w-4 text-coral" />
+            <AlertTriangle className={`h-4 w-4 ${isHighRisk ? "text-coral" : "text-ink/40"}`} />
             <h3 className="font-semibold text-ink">{risk.title}</h3>
             <Badge className={severityClass(risk.severity)}>{severityLabel(risk.severity)}</Badge>
+            {isHighRisk && (
+              <Badge className="bg-coral/20 text-coral font-semibold">高危</Badge>
+            )}
             <Badge className={typeClass(risk.type)}>{typeLabel(risk.type)}</Badge>
             <Badge
               className={
@@ -110,7 +149,9 @@ export function RiskCard({ risk, onAccept, onIgnore, onResolve, pending }: RiskC
                   ? "bg-coral/15 text-coral"
                   : risk.status === "resolved"
                     ? "bg-moss/15 text-moss"
-                    : "bg-ink/8 text-ink/55"
+                    : risk.status === "accepted"
+                      ? "bg-citron/40 text-ink"
+                      : "bg-ink/8 text-ink/55"
               }
             >
               {statusLabel(risk.status)}
@@ -132,9 +173,15 @@ export function RiskCard({ risk, onAccept, onIgnore, onResolve, pending }: RiskC
               <span className="font-semibold text-ink/70">建议：</span> {risk.recommendation}
             </div>
           )}
+
+          {isHighRisk && isOpen && (
+            <div className="mt-2 rounded-md bg-coral/5 px-3 py-2 text-xs text-coral">
+              高危风险需人工确认后才会触发计划调整。接受风险仅记录认知，不会自动执行建议。
+            </div>
+          )}
         </div>
 
-        {risk.status === "open" && (
+        {(isOpen || isAccepted) && (
           <div className="flex gap-2">
             <Button
               size="sm"
@@ -145,24 +192,28 @@ export function RiskCard({ risk, onAccept, onIgnore, onResolve, pending }: RiskC
               <ShieldCheck className="h-4 w-4" />
               解决
             </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={pending}
-              onClick={() => onAccept?.(risk.id)}
-            >
-              <CheckCircle2 className="h-4 w-4" />
-              接受
-            </Button>
-            <Button
-              size="sm"
-              variant="ghost"
-              disabled={pending}
-              onClick={() => onIgnore?.(risk.id)}
-            >
-              <EyeOff className="h-4 w-4" />
-              忽略
-            </Button>
+            {isOpen && (
+              <>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={pending}
+                  onClick={() => onAccept?.(risk.id)}
+                >
+                  <CheckCircle2 className="h-4 w-4" />
+                  接受
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  disabled={pending}
+                  onClick={() => onIgnore?.(risk.id)}
+                >
+                  <EyeOff className="h-4 w-4" />
+                  忽略
+                </Button>
+              </>
+            )}
           </div>
         )}
       </div>

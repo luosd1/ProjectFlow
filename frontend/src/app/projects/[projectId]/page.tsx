@@ -30,7 +30,7 @@ import {
   updateRiskStatus,
   updateTaskStatus,
 } from "@/lib/api";
-import type { AddResourceRequest, ProjectState } from "@/lib/types";
+import type { AddResourceRequest, AgentFlowResult, ProjectState } from "@/lib/types";
 
 const AGENT_RUNNERS: Record<AgentAction, (projectId: string) => Promise<unknown>> = {
   clarify: runClarification,
@@ -111,9 +111,18 @@ export default function ProjectDashboardPage() {
     setActionError(null);
     setActionSuccess(null);
     try {
-      await AGENT_RUNNERS[action](projectId);
+      const result = (await AGENT_RUNNERS[action](projectId)) as AgentFlowResult;
       await reloadProject();
-      setActionSuccess(`${AGENT_ACTION_LABELS[action]}已完成`);
+      // Show status-based feedback
+      if (result?.status === "fallback") {
+        setActionSuccess(`${AGENT_ACTION_LABELS[action]}已完成（已使用基础建议）`);
+      } else if (result?.status === "repaired") {
+        setActionSuccess(`${AGENT_ACTION_LABELS[action]}已完成（已修复格式后完成）`);
+      } else if (result?.status === "failed") {
+        setActionError(`${AGENT_ACTION_LABELS[action]}失败，请重试。`);
+      } else {
+        setActionSuccess(`${AGENT_ACTION_LABELS[action]}已完成`);
+      }
     } catch (err: unknown) {
       let msg = "Agent 操作失败，请稍后重试。";
       if (err instanceof Error) {

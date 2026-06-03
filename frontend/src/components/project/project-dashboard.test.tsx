@@ -193,6 +193,7 @@ const projectState: ProjectState = {
       project_id: "project-1",
       workspace_id: "workspace-1",
       event_type: "clarify",
+      status: "success",
       input_snapshot: {},
       output_snapshot: {
         suggested_questions: ["Who is the first demo user?"],
@@ -212,6 +213,7 @@ describe("ProjectDashboard", () => {
     render(
       <ProjectDashboard
         state={projectState}
+        currentUserId="user-lead"
         onRunAgent={vi.fn()}
         onRespondToAssignment={vi.fn()}
         onStartNegotiation={vi.fn()}
@@ -258,5 +260,72 @@ describe("ProjectDashboard", () => {
     expect(screen.getByText("偏好任务")).toBeTruthy();
     expect(screen.getByText("原因")).toBeTruthy();
     expect(screen.getByRole("button", { name: "提交拒绝" })).toBeTruthy();
+  });
+
+  it("shows the latest pending replan proposal in the risk adjustment panel", () => {
+    render(
+      <ProjectDashboard
+        state={{
+          ...projectState,
+          agent_proposals: [
+            {
+              id: "proposal-old",
+              project_id: "project-1",
+              workspace_id: "workspace-1",
+              proposal_type: "replan",
+              status: "pending",
+              agent_event_id: "event-old",
+              payload: {
+                before: { summary: "旧调整前" },
+                after: { summary: "旧调整后" },
+                impact: "旧影响",
+                reason: "旧重排建议",
+                requires_confirmation: true,
+                stage_adjustments: [],
+                task_changes: [],
+                action_cards: [],
+              },
+              confirmed_by: null,
+              confirmed_at: null,
+              created_at: "2026-06-03T00:00:00Z",
+            },
+            {
+              id: "proposal-new",
+              project_id: "project-1",
+              workspace_id: "workspace-1",
+              proposal_type: "replan",
+              status: "pending",
+              agent_event_id: "event-new",
+              payload: {
+                before: { summary: "最新调整前" },
+                after: { summary: "最新调整后" },
+                impact: "最新影响",
+                reason: "最新重排建议",
+                requires_confirmation: true,
+                stage_adjustments: [],
+                task_changes: [
+                  {
+                    task_id: "task-1",
+                    title: "Build assignment board",
+                    status: "blocked",
+                    reason: "任务受阻",
+                  },
+                ],
+                action_cards: [],
+              },
+              confirmed_by: null,
+              confirmed_at: null,
+              created_at: "2026-06-03T01:00:00Z",
+            },
+          ],
+        }}
+        onRunAgent={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("tab", { name: "风险与调整" }));
+
+    expect(screen.getByText("最新重排建议")).toBeTruthy();
+    expect(screen.queryByText("旧重排建议")).toBeNull();
   });
 });

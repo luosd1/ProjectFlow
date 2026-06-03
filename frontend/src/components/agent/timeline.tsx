@@ -67,6 +67,31 @@ function eventLabel(type: AgentEvent["event_type"]) {
   return labels[type];
 }
 
+function statusLabel(status: AgentEvent["status"]) {
+  const labels: Record<AgentEvent["status"], string> = {
+    success: "成功",
+    repaired: "已修复",
+    fallback: "基础建议",
+    failed: "失败",
+  };
+  return labels[status];
+}
+
+function statusClass(status: AgentEvent["status"]) {
+  switch (status) {
+    case "success":
+      return "bg-moss/15 text-moss";
+    case "repaired":
+      return "bg-citron/40 text-ink";
+    case "fallback":
+      return "bg-harbor/15 text-harbor";
+    case "failed":
+      return "bg-coral/15 text-coral";
+    default:
+      return "bg-ink/8 text-ink/55";
+  }
+}
+
 function eventClass(type: AgentEvent["event_type"]) {
   switch (type) {
     case "clarify":
@@ -203,6 +228,9 @@ export function AgentTimeline({ events }: AgentTimelineProps) {
                         </span>
                         <Badge className={eventClass(event.event_type)}>
                           {eventLabel(event.event_type)}
+                        </Badge>
+                        <Badge className={statusClass(event.status)}>
+                          {statusLabel(event.status)}
                         </Badge>
                         <span className="text-xs text-ink/50">
                           {formatDate(event.created_at)}
