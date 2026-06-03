@@ -18,6 +18,32 @@ GitHub issue #16 (Real LLM Provider Readiness and Diagnostics) is complete.
 GitHub issue #17 (Agent Output Persistence and Confirmation) is complete.
 GitHub issue #21 (Real-Provider Verification and MVP Usable Runbook) is complete.
 
+### Phase 26 — T23.B Round 2 Fixes (2026-06-03, GitHub #31)
+
+- Skill name Chinese mapping: `SKILL_NAME_CN_MAP` in common.py (12 English→Chinese), `_normalize_user_facing_text()` post-processing in output_schemas.py, assignment_recommendation prompt guidance.
+- JSON strictness: temperature lowered from 0.2→0.05, explicit JSON format in system prompt.
+- Negotiate Agent endpoint: `POST /api/agent/negotiate` backend + `runAgentNegotiate()` frontend.
+- Stage override for assign: `AgentFlowRequest.stage_id` allows non-active stage, `assignable_tasks()` accepts stage_id override, coordinator deep-copies workspace_state with overridden current_stage_id.
+- Test isolation: conftest.py forces `LLM_API_KEY=""` to prevent real .env leakage.
+- Negotiation module rewrite: `build_request()` injects rejection/negotiation context, fallback uses real rejected proposal data, fixes `current_owner_user_id` fallback bug.
+- Documentation aligned: T23.B.md seed counts, handoff, runbook, CLAUDE.md, AGENTS.md, README.md updated. Phase 26 recorded.
+- Test baseline: 218 backend / 24 frontend.
+
+### Phase 27 — Code Review Hardening (2026-06-03, GitHub #31 review)
+
+- `_normalize_user_facing_text`: `str.replace()` → `re.sub()` with ASCII word-boundary regex, preventing substring corruption (e.g. "redesign" → "reUI 设计").
+- `_validate_references`: replaced inline reimplementation with `common.py` helpers (`active_stage_id`, `blocked_assignment_task_ids`, `assignable_tasks`, `rejected_assignment_pairs`), eliminating two-sources-of-truth drift.
+- `_validate_references`: removed rejected-pair hard error that caused 500 when all members rejected a task (fallback picked best member → validation rejected that pair → unresolvable).
+- `create_assignment_negotiation_from_proposal`: added `proposal.status == owner_rejected` gate.
+- `score_member_for_task`: added Chinese constraint keywords (不可用/不能/避免/不想/不愿意/没空/冲突), fixed docstring (+1/word not +2).
+- Assignment recommendation reason: resolves stage name from workspace_state instead of embedding raw stage_id.
+- Negotiation no-rejection fallback: `fallback_current_owner` now uses actual task owner instead of defaulting to first member.
+- `prompts.py`: `AgentEventType.assign` added to stage/task filter set so assign events only send active-stage data to LLM.
+- `agent_flow_service.py`: `_persist_agent_output` now handles `AssignmentNegotiationOutput`, persisting negotiation suggestions as AgentProposals.
+- `_build_user_facing_assignment`: merged single-member and multi-member branches into unified flow with conditional fragments.
+- `create_assignment_response` / `create_assignment_negotiation_from_proposal`: error messages use safe enum display (`.value`) and Chinese text.
+- Test baseline: 218 backend / 24 frontend (unchanged, all passing).
+
 ### Phase 18 — Frontend Bugfix (2026-05-30)
 
 - Fixed DirectionCard type field names to match backend: `target_users/core_value/constraints/out_of_scope/initial_risks` → `users/value/boundaries/risks/suggested_questions`.
