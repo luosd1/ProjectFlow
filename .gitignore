@@ -25,3 +25,5 @@ scripts/
 
 # Agent config (codex not tracked)
 .codex/
+.codegraph/
+backend/tmp-logs/
