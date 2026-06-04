@@ -27,3 +27,6 @@ scripts/
 .codex/
 .codegraph/
 backend/tmp-logs/
+
+# Worktrees
+.worktrees/
