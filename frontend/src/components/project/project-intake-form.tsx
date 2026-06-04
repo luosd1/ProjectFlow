@@ -351,7 +351,7 @@ export function ProjectIntakeForm({
                   setTouched((prev) => ({ ...prev, createdBy: true }))
                   validateField("createdBy", createdBy)
                 }}
-                placeholder="UUID of project creator"
+                placeholder="选填，默认使用当前用户"
                 className={cn("h-10", errors.createdBy && "border-destructive")}
               />
             </FormField>

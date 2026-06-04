@@ -404,6 +404,44 @@ Verification: backend 218/218 tests pass; frontend 24/24 tests pass; frontend li
 
 Core MVP phase scope is complete. Phase 10 (UI Structural Fix) completed 2026-05-29; MVP Usable #16/#17/#18/#19/#20/#21 are complete. Phase 17 (Code Review Hardening) completed 2026-05-30. Phase 18 (Frontend Bugfix) completed 2026-05-30. Phase 19 (Agent Prompt Refactor) completed 2026-05-31. Phase 20 (Workspace Member Management) completed 2026-05-31. Phase 21 (Test Docs + User Switcher) completed 2026-05-31. Phase 22 (T23.A Feedback Fixes) completed 2026-06-02. Phase 23 (Code Review Hardening) completed 2026-06-02. Phase 24 (Agent Output Quality + Bug Fixes) completed 2026-06-03. Phase 25 (T23.D Feedback Fixes) completed 2026-06-03. Phase 26 (T23.B Round 2 Fixes) completed 2026-06-03. Phase 28 (Frontend Redesign Migration) completed 2026-06-04.
 
+### Phase 29 — UI Critique Fixes (2026-06-04)
+
+Impeccable critique review of project sidebar and 8 views (overview/direction/stages/my-tasks/team-tasks/checkin/risks/retro). Score: 31/40 (Good).
+
+**Fixes applied:**
+- **Uppercase eyebrow removal (4 locations)**: `agent-sidebar.tsx` ("所有操作"/"最近活动" headers), `workspace-content.tsx` ("工作区" header), `new/page.tsx` ("ProjectFlow" brand text). Removed `uppercase tracking-wider` / `uppercase tracking-[0.18em]` per impeccable absolute ban on SaaS-template AI slop.
+- **Ghost-card removal (3 locations)**: `workspace-content.tsx` StatCard `prominent` shadow removed; two Card components (`成员`/`项目` panels) shadow-sm removed. Border-only cards per impeccable rule (no border+shadow decoration).
+- **Workspace noise reduction**: Removed "暂无其他工作区" gray placeholder text from sidebar workspace dropdown.
+- **Disabled state clarity**: Sidebar disabled menu items now use `opacity-60` for clear visual distinction from active items.
+- **Direction card description**: Updated from "项目目标和方向澄清" to "明确项目目标、边界和关键决策" for better first-time user comprehension.
+
+**Verification**: frontend lint pass, frontend build pass.
+
+### Phase 30 — Workspace Page Critique Fixes (2026-06-04)
+
+Impeccable critique review of workspace page (`workspace-content.tsx`). Initial score: 25/40 (Acceptable); post-fix score: 30/40 (Good).
+
+**Round 1 fixes applied:**
+- **P0 — Native `<select>` replacement**: `member-management-dialog.tsx` skill level selector changed from native `<select>` to shadcn `<Select>` component for form consistency and keyboard accessibility.
+- **P1 — Search/filter for members and projects**: Added `Input` search boxes to both members and projects panels with real-time filtering by name/role.
+- **P1 — Member list click interaction**: Member `<li>` items now have `cursor-pointer` and `onClick` opening the member management dialog.
+- **P2 — Technical placeholder fixed**: `project-intake-form.tsx` `createdBy` placeholder changed from "UUID of project creator" to "选填，默认使用当前用户".
+- **P2 — Delete confirmation softened**: Copy changed from "此操作不可恢复" to "该成员的分工记录将保留，但无法再访问此工作区"; cancel button relabeled from "取消" to "保留成员".
+- **Minor — activeProjects filter semantics**: Filter changed from `!== "completed"` to `=== "active"` for accurate "活跃项目" count.
+- **Minor — StatCard visual hierarchy**: Removed redundant `prominent` prop from "活跃项目" and "已完成" cards; only "团队成员" remains prominent.
+- **Minor — Dead state cleanup**: Removed unused `refreshKey` state and its setters from `WorkspaceContent`.
+- **Accessibility**: Added `aria-label={`打开项目 ${p.name}`}` to project card buttons.
+
+**Round 2 fixes applied:**
+- **P2 — Error hint visual hierarchy**: All field-level errors in `member-management-dialog.tsx` now use unified `bg-destructive/10` background + `AlertTriangle` icon + rounded container, matching the dialog-level error style.
+- **P2 — StatCard action links**: Added `action` prop to `StatCard`; "活跃项目" and "已完成" cards display "查看项目"/"查看归档" links when count > 0.
+- **P3 — Skill badge truncation removed**: Member list in dialog now shows all skills (removed `.slice(0, 4)`); badge key deduplicated.
+- **Minor — Uppercase eyebrow removed**: Workspace header "工作区" label no longer uses `uppercase tracking-wider`.
+- **Minor — Ghost-card pattern eliminated**: Removed `shadow-sm` from `StatCard` (border-only); added explicit `bg-white` to project list buttons.
+- **Minor — Header density improved**: Reduced `mb-8` to `mb-6`, tightened description margin, simplified default copy by removing "Agent" jargon.
+
+**Verification**: frontend lint pass, frontend build pass (Next.js 16.2.6 + Turbopack).
+
 MVP Usable progress (see `.claude/epics/projectflow-mvp-usable-ready/`):
 - ✅ #18 Prompt and Schema Quality Hardening (2026-05-29)
 - ✅ #20 Assignment, Push, Risk, and Replan Usability Pass (2026-05-29)
