@@ -300,7 +300,7 @@ export function ProjectIntakeForm({
                   if (errors.createdBy)
                     setErrors((prev) => ({ ...prev, createdBy: "" }))
                 }}
-                placeholder="UUID of project creator"
+                placeholder="选填，默认使用当前用户"
                 className="h-10"
               />
             </FormField>

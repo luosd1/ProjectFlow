@@ -25,6 +25,13 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { createUser, upsertMemberProfile, removeMember, addWorkspaceMember } from "@/lib/api"
 import type { Skill, User, MemberProfile, WorkspaceMembership } from "@/lib/types"
 
@@ -233,17 +240,18 @@ function MemberForm({
               className="h-10"
             />
           </div>
-          <select
-            value={newSkillLevel}
-            onChange={(e) => setNewSkillLevel(e.target.value)}
-            className="h-10 rounded-md border bg-background px-2 text-sm"
-          >
-            <option value="1">Lv.1</option>
-            <option value="2">Lv.2</option>
-            <option value="3">Lv.3</option>
-            <option value="4">Lv.4</option>
-            <option value="5">Lv.5</option>
-          </select>
+          <Select value={newSkillLevel} onValueChange={(v) => setNewSkillLevel(v ?? "3")}>
+            <SelectTrigger className="h-10 w-20">
+              <SelectValue placeholder="等级" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="1">Lv.1</SelectItem>
+              <SelectItem value="2">Lv.2</SelectItem>
+              <SelectItem value="3">Lv.3</SelectItem>
+              <SelectItem value="4">Lv.4</SelectItem>
+              <SelectItem value="5">Lv.5</SelectItem>
+            </SelectContent>
+          </Select>
           <Button type="button" variant="outline" onClick={addSkill} disabled={!newSkillName.trim()} className="h-10">
             添加
           </Button>
@@ -594,14 +602,13 @@ export function MemberManagementDialog({
                 <p className="text-sm text-muted-foreground">
                   {(() => {
                     const selected = getSelectedMember()
-                    return selected ? `将删除成员：${selected.user.display_name}` : ""
+                    return selected ? `将移除成员：${selected.user.display_name}。该成员的分工记录将保留，但无法再访问此工作区。` : ""
                   })()}
                 </p>
-                <p className="text-xs text-muted-foreground">此操作不可恢复</p>
               </div>
               <div className="flex gap-2">
                 <Button variant="outline" className="flex-1" onClick={() => setView("list")}>
-                  取消
+                  保留成员
                 </Button>
                 <Button variant="destructive" className="flex-1" onClick={handleDelete} disabled={loading}>
                   {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
