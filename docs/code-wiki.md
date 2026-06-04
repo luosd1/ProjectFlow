@@ -769,7 +769,7 @@ npm audit --omit=dev                # 安全审计
 | 25 | T23.D 反馈修复 | ✅ 2026-06-03 |
 | 26 | T23.B 二轮修复 | ✅ 2026-06-03 |
 | 27 | Code Review Hardening | ✅ 2026-06-03 |
-| 28 | Frontend Redesign Migration | 🔲 2026-06-04 |
+| 28 | Frontend Redesign Migration | ✅ 2026-06-04 |
 
 ---
 

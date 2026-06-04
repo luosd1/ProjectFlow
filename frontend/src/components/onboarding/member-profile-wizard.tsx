@@ -452,8 +452,9 @@ export function MemberProfileWizard({
                   key={s}
                   type="button"
                   onClick={() => {
-                    setNewSkillName(s)
-                    setNewSkillLevel("3")
+                    if (!skills.some((sk) => sk.name.toLowerCase() === s.toLowerCase())) {
+                      setSkills([...skills, { name: s, level: 3 }])
+                    }
                   }}
                   className="rounded-full border px-2.5 py-0.5 text-xs transition-colors hover:bg-accent"
                 >
@@ -558,22 +559,11 @@ export function MemberProfileWizard({
   return (
     <div className="mx-auto max-w-lg space-y-6 p-4">
       <div>
-        <h1 className="text-2xl font-bold">完善成员资料</h1>
+        <h2 className="text-xl font-semibold">完善资料</h2>
         <p className="text-sm text-muted-foreground">
           完善资料可获得更精准的分工建议
         </p>
       </div>
-
-      <CompletionBar
-        percentage={completion}
-        label="资料完成度"
-        showPercentage
-      />
-      {completion < 80 && (
-        <p className="text-xs text-amber-600">
-          完善资料可获得更精准的分工建议
-        </p>
-      )}
 
       <StepIndicator steps={steps} currentStep={currentStep} />
 

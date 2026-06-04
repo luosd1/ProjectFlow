@@ -54,13 +54,14 @@ export function WorkspaceCreateForm({
   const [submitting, setSubmitting] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
   const [errors, setErrors] = React.useState<Record<string, string>>({})
+  const [touched, setTouched] = React.useState<Record<string, boolean>>({})
 
   const steps = [
     { label: "基本信息", description: "工作区名称和描述" },
     { label: "团队上下文", description: "规模和场景" },
   ]
 
-  const validateStep = (s: number): boolean => {
+  const validateStep = React.useCallback((s: number): boolean => {
     const newErrors: Record<string, string> = {}
     if (s === 0) {
       if (!name.trim()) newErrors.name = "请输入工作区名称"
@@ -73,7 +74,25 @@ export function WorkspaceCreateForm({
     }
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
-  }
+  }, [name, ownerId, teamSize, useCase])
+
+  const validateField = React.useCallback((field: string, value: string) => {
+    const newErrors: Record<string, string> = {}
+    if (field === "name") {
+      if (!value.trim()) newErrors.name = "请输入工作区名称"
+      else if (value.trim().length < 2) newErrors.name = "至少 2 个字符"
+    }
+    if (field === "ownerId" && !value.trim()) {
+      newErrors.ownerId = "请输入所有者 ID"
+    }
+    if (field === "teamSize" && !value) {
+      newErrors.teamSize = "请选择团队规模"
+    }
+    if (field === "useCase" && !value) {
+      newErrors.useCase = "请选择主要场景"
+    }
+    setErrors((prev) => ({ ...prev, ...newErrors }))
+  }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -102,10 +121,10 @@ export function WorkspaceCreateForm({
       className="mx-auto max-w-lg space-y-6 p-4"
     >
       <div>
-        <h1 className="flex items-center gap-2 text-2xl font-bold">
+        <h2 className="flex items-center gap-2 text-2xl font-bold">
           <FolderOpen className="h-6 w-6 text-emerald-500" />
           创建工作区
-        </h1>
+        </h2>
         <p className="text-sm text-muted-foreground">
           为你的团队创建一个协作空间
         </p>
@@ -121,11 +140,14 @@ export function WorkspaceCreateForm({
                 value={name}
                 onChange={(e) => {
                   setName(e.target.value)
-                  if (errors.name)
-                    setErrors((prev) => ({ ...prev, name: "" }))
+                  if (touched.name) validateField("name", e.target.value)
+                }}
+                onBlur={() => {
+                  setTouched((prev) => ({ ...prev, name: true }))
+                  validateField("name", name)
                 }}
                 placeholder="例如：2024 春季开发小队"
-                className="h-10"
+                className={cn("h-10", errors.name && "border-destructive")}
               />
             </FormField>
             <FormField label="工作区描述" hint="简单描述团队或项目方向">
@@ -143,11 +165,14 @@ export function WorkspaceCreateForm({
                   value={ownerId}
                   onChange={(e) => {
                     setOwnerId(e.target.value)
-                    if (errors.ownerId)
-                      setErrors((prev) => ({ ...prev, ownerId: "" }))
+                    if (touched.ownerId) validateField("ownerId", e.target.value)
+                  }}
+                  onBlur={() => {
+                    setTouched((prev) => ({ ...prev, ownerId: true }))
+                    validateField("ownerId", ownerId)
                   }}
                   placeholder="UUID of the team lead"
-                  className="h-10"
+                  className={cn("h-10", errors.ownerId && "border-destructive")}
                 />
               </FormField>
             )}
@@ -164,7 +189,8 @@ export function WorkspaceCreateForm({
                     type="button"
                     onClick={() => {
                       setTeamSize(size.id)
-                      if (errors.teamSize) setErrors((prev) => ({ ...prev, teamSize: "" }))
+                      setTouched((prev) => ({ ...prev, teamSize: true }))
+                      validateField("teamSize", size.id)
                     }}
                     className={cn(
                       "rounded-lg border-2 px-3 py-2 text-sm font-medium transition-colors",
@@ -189,7 +215,7 @@ export function WorkspaceCreateForm({
                       type="button"
                       onClick={() => {
                         setUseCase(uc.id)
-                        if (errors.useCase) setErrors((prev) => ({ ...prev, useCase: "" }))
+                        validateField("useCase", uc.id)
                       }}
                       className={cn(
                         "flex items-center gap-2 rounded-lg border-2 px-3 py-2 text-sm font-medium transition-colors",

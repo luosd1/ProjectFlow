@@ -402,7 +402,7 @@ Verification: backend 218/218 tests pass; frontend 24/24 tests pass; frontend li
 
 ## Next Work
 
-Core MVP phase scope is complete. Phase 10 (UI Structural Fix) completed 2026-05-29; MVP Usable #16/#17/#18/#19/#20/#21 are complete. Phase 17 (Code Review Hardening) completed 2026-05-30. Phase 18 (Frontend Bugfix) completed 2026-05-30. Phase 19 (Agent Prompt Refactor) completed 2026-05-31. Phase 20 (Workspace Member Management) completed 2026-05-31. Phase 21 (Test Docs + User Switcher) completed 2026-05-31. Phase 22 (T23.A Feedback Fixes) completed 2026-06-02. Phase 23 (Code Review Hardening) completed 2026-06-02. Phase 24 (Agent Output Quality + Bug Fixes) completed 2026-06-03. Phase 25 (T23.D Feedback Fixes) completed 2026-06-03. Phase 26 (T23.B Round 2 Fixes) completed 2026-06-03. Phase 28 (Frontend Redesign Migration) in progress 2026-06-04.
+Core MVP phase scope is complete. Phase 10 (UI Structural Fix) completed 2026-05-29; MVP Usable #16/#17/#18/#19/#20/#21 are complete. Phase 17 (Code Review Hardening) completed 2026-05-30. Phase 18 (Frontend Bugfix) completed 2026-05-30. Phase 19 (Agent Prompt Refactor) completed 2026-05-31. Phase 20 (Workspace Member Management) completed 2026-05-31. Phase 21 (Test Docs + User Switcher) completed 2026-05-31. Phase 22 (T23.A Feedback Fixes) completed 2026-06-02. Phase 23 (Code Review Hardening) completed 2026-06-02. Phase 24 (Agent Output Quality + Bug Fixes) completed 2026-06-03. Phase 25 (T23.D Feedback Fixes) completed 2026-06-03. Phase 26 (T23.B Round 2 Fixes) completed 2026-06-03. Phase 28 (Frontend Redesign Migration) completed 2026-06-04.
 
 MVP Usable progress (see `.claude/epics/projectflow-mvp-usable-ready/`):
 - ✅ #18 Prompt and Schema Quality Hardening (2026-05-29)

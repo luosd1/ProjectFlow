@@ -50,8 +50,8 @@ import { TaskBreakdownBoard } from "@/components/task/task-breakdown-board";
 import { TaskStatusUpdateList } from "@/components/task/task-status-update";
 import { WorkspaceContent } from "./workspace-content";
 import type { AddResourceRequest, ProjectState, Task } from "@/lib/types";
-import { ACTION_LABELS, inferRecommendedAction } from "./project-dashboard";
-import type { AgentAction } from "./project-dashboard";
+import { ACTION_LABELS, inferRecommendedAction } from "./project-actions";
+import type { AgentAction } from "./project-actions";
 import type { ProjectView } from "./project-sidebar";
 
 const VIEW_META: Record<

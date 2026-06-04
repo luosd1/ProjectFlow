@@ -7,6 +7,8 @@ import {
   UserPlus,
   AlertCircle,
   Mail,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -14,6 +16,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { FormField } from "@/components/ui/form-field"
+import { StepIndicator } from "@/components/ui/step-indicator"
 import { cn } from "@/lib/utils"
 import { useRouter } from "next/navigation"
 import { createUser, listUsers } from "@/lib/api"
@@ -28,6 +31,14 @@ export function AccountSetupForm() {
   const [submitting, setSubmitting] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
   const [errors, setErrors] = React.useState<Record<string, string>>({})
+  const [showAllUsers, setShowAllUsers] = React.useState(false)
+
+  const steps = [
+    { label: "选择身份", description: "创建新账号或选择现有用户" },
+    { label: "创建工作区", description: "设置团队空间" },
+    { label: "完善资料", description: "补充个人信息" },
+    { label: "新建项目", description: "开始第一个项目" },
+  ]
 
   React.useEffect(() => {
     let ignore = false;
@@ -38,7 +49,7 @@ export function AccountSetupForm() {
     return () => { ignore = true; };
   }, [])
 
-  const validate = (): boolean => {
+  const validate = React.useCallback((): boolean => {
     const newErrors: Record<string, string> = {}
     if (!displayName.trim()) {
       newErrors.displayName = "请输入显示名称"
@@ -57,6 +68,42 @@ export function AccountSetupForm() {
 
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
+  }, [displayName, email])
+
+  const handleDisplayNameChange = (value: string) => {
+    setDisplayName(value)
+    if (value.trim() || email.trim()) {
+      const newErrors: Record<string, string> = {}
+      if (!value.trim()) {
+        newErrors.displayName = "请输入显示名称"
+      } else if (value.trim().length < 2) {
+        newErrors.displayName = "至少 2 个字符"
+      } else if (value.trim().length > 30) {
+        newErrors.displayName = "最多 30 个字符"
+      }
+      if (email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+        newErrors.email = "邮箱格式不正确"
+      }
+      setErrors(newErrors)
+    }
+  }
+
+  const handleEmailChange = (value: string) => {
+    setEmail(value)
+    if (displayName.trim() || value.trim()) {
+      const newErrors: Record<string, string> = {}
+      if (!displayName.trim()) {
+        newErrors.displayName = "请输入显示名称"
+      } else if (displayName.trim().length < 2) {
+        newErrors.displayName = "至少 2 个字符"
+      } else if (displayName.trim().length > 30) {
+        newErrors.displayName = "最多 30 个字符"
+      }
+      if (value.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim())) {
+        newErrors.email = "邮箱格式不正确"
+      }
+      setErrors(newErrors)
+    }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -92,11 +139,15 @@ export function AccountSetupForm() {
       animate={{ opacity: 1, y: 0 }}
       className="mx-auto max-w-lg space-y-6 p-4"
     >
+      <StepIndicator
+        steps={steps}
+        currentStep={0}
+      />
       <div>
-        <h1 className="flex items-center gap-2 text-2xl font-bold">
+        <h2 className="flex items-center gap-2 text-2xl font-bold">
           <UserPlus className="h-6 w-6 text-primary" />
           创建账号
-        </h1>
+        </h2>
         <p className="text-sm text-muted-foreground">
           创建你的 ProjectFlow 账号，开始团队协作
         </p>
@@ -113,11 +164,7 @@ export function AccountSetupForm() {
               <Input
                 id="displayName"
                 value={displayName}
-                onChange={(e) => {
-                  setDisplayName(e.target.value)
-                  if (errors.displayName)
-                    setErrors((prev) => ({ ...prev, displayName: "" }))
-                }}
+                onChange={(e) => handleDisplayNameChange(e.target.value)}
                 placeholder="你的姓名"
                 className={cn(
                   "h-10",
@@ -132,11 +179,7 @@ export function AccountSetupForm() {
                   id="email"
                   type="email"
                   value={email}
-                  onChange={(e) => {
-                    setEmail(e.target.value)
-                    if (errors.email)
-                      setErrors((prev) => ({ ...prev, email: "" }))
-                  }}
+                  onChange={(e) => handleEmailChange(e.target.value)}
                   placeholder="you@example.com"
                   className={cn(
                     "h-10 pl-9",
@@ -171,11 +214,11 @@ export function AccountSetupForm() {
         <>
           <Separator />
           <div>
-            <p className="mb-3 text-sm font-semibold text-muted-foreground">
+            <p className="mb-3 text-sm font-medium text-muted-foreground">
               或选择现有演示用户：
             </p>
             <div className="space-y-2">
-              {users.map((user) => (
+              {(showAllUsers ? users : users.slice(0, 4)).map((user) => (
                 <a
                   key={user.user_id}
                   href={`/workspaces/new?ownerId=${user.user_id}`}
@@ -187,6 +230,25 @@ export function AccountSetupForm() {
                   </Badge>
                 </a>
               ))}
+              {users.length > 4 && (
+                <button
+                  type="button"
+                  onClick={() => setShowAllUsers(!showAllUsers)}
+                  className="flex w-full items-center justify-center gap-1 rounded-lg border border-dashed p-2 text-sm text-muted-foreground transition hover:bg-muted"
+                >
+                  {showAllUsers ? (
+                    <>
+                      <ChevronUp className="h-4 w-4" />
+                      收起
+                    </>
+                  ) : (
+                    <>
+                      <ChevronDown className="h-4 w-4" />
+                      查看全部 {users.length} 个用户
+                    </>
+                  )}
+                </button>
+              )}
             </div>
           </div>
         </>

@@ -1,0 +1,87 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - banner [ref=e3]:
+      - generic [ref=e5]:
+        - link "ProjectFlow" [ref=e6] [cursor=pointer]:
+          - /url: /
+          - img [ref=e8]
+          - generic [ref=e12]: ProjectFlow
+        - navigation [ref=e13]:
+          - link "首页" [ref=e14] [cursor=pointer]:
+            - /url: /
+            - img [ref=e15]
+            - text: 首页
+    - separator
+    - main [ref=e18]:
+      - generic [ref=e19]:
+        - generic [ref=e20]:
+          - paragraph [ref=e21]: ProjectFlow
+          - heading "新建项目" [level=1] [ref=e22]
+          - paragraph [ref=e23]: 填写项目想法、截止日期和预期交付物。
+        - generic [ref=e24]:
+          - generic [ref=e25]:
+            - heading "新建项目" [level=1] [ref=e26]:
+              - img [ref=e27]
+              - text: 新建项目
+            - paragraph [ref=e29]: 填写项目信息，AI 将为你生成阶段规划和任务分解
+          - generic [ref=e30]:
+            - generic [ref=e31]:
+              - generic [ref=e33]: 项目基本信息
+              - generic [ref=e34]:
+                - generic [ref=e35]:
+                  - generic [ref=e36]:
+                    - generic [ref=e37]:
+                      - text: 项目名称
+                      - generic [ref=e38]: "*"
+                    - textbox "例如：校园二手交易平台" [ref=e39]
+                  - generic [ref=e40]:
+                    - generic [ref=e41]:
+                      - text: 截止日期
+                      - generic [ref=e42]: "*"
+                    - textbox [ref=e43]
+                - generic [ref=e44]:
+                  - generic [ref=e45]:
+                    - text: 项目想法
+                    - generic [ref=e46]: "*"
+                  - textbox "我们想做一款帮助大学生..." [ref=e47]
+                  - paragraph [ref=e48]: 描述项目背景、目标和预期成果
+                - generic [ref=e49]:
+                  - generic [ref=e50]:
+                    - text: 创建者 ID
+                    - generic [ref=e51]: "*"
+                  - textbox "UUID of project creator" [ref=e52]
+            - generic [ref=e53]:
+              - generic [ref=e55]: 项目详情
+              - generic [ref=e56]:
+                - generic [ref=e57]:
+                  - generic [ref=e58]: 项目类型
+                  - generic [ref=e59]:
+                    - button "课程作业" [ref=e60] [cursor=pointer]:
+                      - img [ref=e61]
+                      - generic [ref=e63]: 课程作业
+                    - button "比赛" [ref=e64] [cursor=pointer]:
+                      - img [ref=e65]
+                      - generic [ref=e71]: 比赛
+                    - button "创业" [ref=e72] [cursor=pointer]:
+                      - img [ref=e73]
+                      - generic [ref=e78]: 创业
+                    - button "研究" [ref=e79] [cursor=pointer]:
+                      - img [ref=e80]
+                      - generic [ref=e82]: 研究
+                - generic [ref=e83]:
+                  - generic [ref=e84]:
+                    - generic [ref=e85]: 团队规模
+                    - spinbutton [ref=e86]
+                    - paragraph [ref=e87]: 预计参与人数
+                  - generic [ref=e88]:
+                    - generic [ref=e89]: 预期交付物
+                    - textbox "输入后按回车添加" [ref=e92]
+                    - paragraph [ref=e93]: 项目最终要产出什么
+            - generic [ref=e96] [cursor=pointer]:
+              - text: 资源与约束
+              - img [ref=e97]
+            - generic [ref=e99]:
+              - button "清空" [ref=e100] [cursor=pointer]
+              - button "开始规划 →" [disabled]
+  - button "Open Next.js Dev Tools" [ref=e106] [cursor=pointer]:
+    - img [ref=e107]

@@ -24,7 +24,7 @@ import {
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import type { ProjectState, AgentEvent } from "@/lib/types";
-import type { AgentAction } from "./project-dashboard";
+import type { AgentAction } from "./project-actions";
 import type { ProjectView } from "./project-sidebar";
 
 const ALL_AGENT_ACTIONS: {

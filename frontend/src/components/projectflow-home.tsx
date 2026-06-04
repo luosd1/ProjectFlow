@@ -90,7 +90,7 @@ export function ProjectFlowHome() {
         initial={{ opacity: 0, y: 24 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
-        className="site-container relative flex min-h-[82dvh] flex-col items-center justify-center py-16 text-center"
+        className="site-container relative flex min-h-[60dvh] flex-col items-center justify-center py-12 text-center"
       >
         <div className="mb-6 inline-flex items-center gap-2 rounded-full bg-moss/10 px-4 py-1.5 text-sm font-medium text-moss">
           <Sparkles className="h-4 w-4" />
@@ -110,14 +110,14 @@ export function ProjectFlowHome() {
         <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
           <Button
             onClick={() => router.push("/onboarding")}
-            className="bg-moss text-white hover:bg-primary-strong"
+            className="bg-moss px-8 text-white hover:bg-primary-strong"
             size="lg"
           >
             开始使用
             <ArrowRight className="ml-1 h-4 w-4" />
           </Button>
-          <Button
-            variant="outline"
+          <button
+            type="button"
             disabled={isLoadingDemo}
             aria-busy={isLoadingDemo}
             onClick={async () => {
@@ -140,17 +140,17 @@ export function ProjectFlowHome() {
                 setIsLoadingDemo(false);
               }
             }}
-            size="lg"
+            className="inline-flex h-11 items-center justify-center gap-2 rounded-md px-4 text-sm font-medium text-neutral-600 transition hover:text-moss disabled:opacity-50"
           >
             {isLoadingDemo ? (
               <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                正在加载演示数据...
+                <Loader2 className="h-4 w-4 animate-spin" />
+                正在加载...
               </>
             ) : (
               "加载演示数据"
             )}
-          </Button>
+          </button>
         </div>
         {demoError && (
           <div className="mt-4 max-w-md rounded-lg border border-coral/20 bg-coral/10 px-4 py-3 text-sm text-coral">
@@ -178,7 +178,7 @@ export function ProjectFlowHome() {
         )}
       </motion.div>
 
-      <section className="site-container grid gap-6 pb-24 pt-8 sm:grid-cols-2 lg:grid-cols-4">
+      <section className="site-container grid gap-6 pb-20 pt-4 sm:grid-cols-2 lg:grid-cols-4">
         {[
           { icon: Compass, title: "规划", text: "澄清方向、拆解阶段、分解任务", tone: "text-moss bg-moss/10" },
           { icon: Users, title: "分工", text: "按技能、时间和意向推荐 owner", tone: "text-yellow-700 bg-citron/25" },

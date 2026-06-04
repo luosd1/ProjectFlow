@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { AlertCircle, Loader2 } from "lucide-react";
 
-import type { AgentAction } from "@/components/project/project-dashboard";
+import type { AgentAction } from "@/components/project/project-actions";
 import { ProjectLayout } from "@/components/project/project-layout";
 import { Button } from "@/components/ui/button";
 import { setLastWorkspaceId, useCurrentUserId, setCurrentUserId, setWorkspaceMembers } from "@/components/app-shell";

@@ -6,7 +6,7 @@ import { ProjectSidebar } from "./project-sidebar";
 import { AgentSidebar } from "./agent-sidebar";
 import { ProjectContent } from "./project-content";
 import type { AddResourceRequest, ProjectState } from "@/lib/types";
-import type { AgentAction } from "./project-dashboard";
+import type { AgentAction } from "./project-actions";
 
 interface ProjectLayoutProps {
   projectId: string;

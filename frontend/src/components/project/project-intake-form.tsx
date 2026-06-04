@@ -60,6 +60,7 @@ export function ProjectIntakeForm({
   const [submitting, setSubmitting] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
   const [errors, setErrors] = React.useState<Record<string, string>>({})
+  const [touched, setTouched] = React.useState<Record<string, boolean>>({})
 
   // Load draft from localStorage on mount
   const [name, setName] = React.useState(() => {
@@ -147,7 +148,7 @@ export function ProjectIntakeForm({
     localStorage.setItem(DRAFT_KEY, JSON.stringify(draft))
   }, [name, idea, deadline, projectType, teamSize, deliverableTags, createdBy])
 
-  const validate = (): boolean => {
+  const validate = React.useCallback((): boolean => {
     const newErrors: Record<string, string> = {}
     if (!name.trim()) {
       newErrors.name = "请输入项目名称"
@@ -182,7 +183,45 @@ export function ProjectIntakeForm({
 
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
-  }
+  }, [name, idea, deadline, createdBy])
+
+  const validateField = React.useCallback((field: string, value: string) => {
+    const newErrors: Record<string, string> = {}
+    if (field === "name") {
+      if (!value.trim()) {
+        newErrors.name = "请输入项目名称"
+      } else if (value.trim().length < 2) {
+        newErrors.name = "项目名称至少 2 个字符"
+      } else if (value.trim().length > 50) {
+        newErrors.name = "项目名称最多 50 个字符"
+      }
+    }
+    if (field === "idea") {
+      if (!value.trim()) {
+        newErrors.idea = "请输入项目想法"
+      } else if (value.trim().length < 10) {
+        newErrors.idea = "项目想法至少 10 个字符"
+      } else if (value.trim().length > 500) {
+        newErrors.idea = "项目想法最多 500 个字符"
+      }
+    }
+    if (field === "deadline") {
+      if (!value) {
+        newErrors.deadline = "请选择截止日期"
+      } else {
+        const deadlineDate = new Date(value)
+        const now = new Date()
+        now.setHours(0, 0, 0, 0)
+        if (deadlineDate < now) {
+          newErrors.deadline = "截止日期必须在今天之后"
+        }
+      }
+    }
+    if (field === "createdBy" && !value.trim()) {
+      newErrors.createdBy = "请输入创建者 ID"
+    }
+    setErrors((prev) => ({ ...prev, ...newErrors }))
+  }, [])
 
   const clearDraft = () => {
     localStorage.removeItem(DRAFT_KEY)
@@ -236,10 +275,10 @@ export function ProjectIntakeForm({
       className="mx-auto max-w-2xl space-y-6 p-4"
     >
       <div>
-        <h1 className="flex items-center gap-2 text-2xl font-bold">
+        <h2 className="flex items-center gap-2 text-2xl font-bold">
           <Lightbulb className="h-6 w-6 text-amber-500" />
           新建项目
-        </h1>
+        </h2>
         <p className="text-sm text-muted-foreground">
           填写项目信息，AI 将为你生成阶段规划和任务分解
         </p>
@@ -253,11 +292,14 @@ export function ProjectIntakeForm({
                 value={name}
                 onChange={(e) => {
                   setName(e.target.value)
-                  if (errors.name)
-                    setErrors((prev) => ({ ...prev, name: "" }))
+                  if (touched.name) validateField("name", e.target.value)
+                }}
+                onBlur={() => {
+                  setTouched((prev) => ({ ...prev, name: true }))
+                  validateField("name", name)
                 }}
                 placeholder="例如：校园二手交易平台"
-                className="h-10"
+                className={cn("h-10", errors.name && "border-destructive")}
               />
             </FormField>
             <FormField label="截止日期" required error={errors.deadline}>
@@ -266,10 +308,13 @@ export function ProjectIntakeForm({
                 value={deadline}
                 onChange={(e) => {
                   setDeadline(e.target.value)
-                  if (errors.deadline)
-                    setErrors((prev) => ({ ...prev, deadline: "" }))
+                  if (touched.deadline) validateField("deadline", e.target.value)
                 }}
-                className="h-10"
+                onBlur={() => {
+                  setTouched((prev) => ({ ...prev, deadline: true }))
+                  validateField("deadline", deadline)
+                }}
+                className={cn("h-10", errors.deadline && "border-destructive")}
               />
             </FormField>
           </div>
@@ -283,12 +328,15 @@ export function ProjectIntakeForm({
               value={idea}
               onChange={(e) => {
                 setIdea(e.target.value)
-                if (errors.idea)
-                  setErrors((prev) => ({ ...prev, idea: "" }))
+                if (touched.idea) validateField("idea", e.target.value)
+              }}
+              onBlur={() => {
+                setTouched((prev) => ({ ...prev, idea: true }))
+                validateField("idea", idea)
               }}
               placeholder="我们想做一款帮助大学生..."
               rows={4}
-              className="resize-none"
+              className={cn("resize-none", errors.idea && "border-destructive")}
             />
           </FormField>
           {!defaultCreatedBy && (
@@ -297,11 +345,14 @@ export function ProjectIntakeForm({
                 value={createdBy}
                 onChange={(e) => {
                   setCreatedBy(e.target.value)
-                  if (errors.createdBy)
-                    setErrors((prev) => ({ ...prev, createdBy: "" }))
+                  if (touched.createdBy) validateField("createdBy", e.target.value)
+                }}
+                onBlur={() => {
+                  setTouched((prev) => ({ ...prev, createdBy: true }))
+                  validateField("createdBy", createdBy)
                 }}
                 placeholder="UUID of project creator"
-                className="h-10"
+                className={cn("h-10", errors.createdBy && "border-destructive")}
               />
             </FormField>
           )}
