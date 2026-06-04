@@ -228,7 +228,7 @@ export function AgentSidebar({
 
               {/* All Actions */}
               <div className="mb-4">
-                <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-neutral-400">
+                <h3 className="mb-2 text-xs font-semibold text-neutral-400">
                   所有操作
                 </h3>
                 <div className="space-y-1">
@@ -327,7 +327,7 @@ export function AgentSidebar({
               {/* Recent Activity */}
               {recentEvents.length > 0 && (
                 <div>
-                  <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-neutral-400">
+                  <h3 className="mb-2 text-xs font-semibold text-neutral-400">
                     最近活动
                   </h3>
                   <div className="space-y-2">

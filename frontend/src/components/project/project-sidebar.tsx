@@ -328,11 +328,6 @@ export function ProjectSidebar({
                     <span className="truncate">{workspace.name}</span>
                   </button>
 
-                  {/* Placeholder for other workspaces */}
-                  <div className="px-2 py-1 text-xs text-neutral-400">
-                    暂无其他工作区
-                  </div>
-
                   {/* New workspace button */}
                   <button
                     type="button"
@@ -494,7 +489,7 @@ function MenuItem({
           isActive
             ? "bg-moss/10 text-moss"
             : disabled
-              ? "cursor-not-allowed text-neutral-300"
+              ? "cursor-not-allowed text-neutral-300 opacity-60"
               : "text-neutral-500 hover:bg-neutral-50 hover:text-neutral-800",
           !isExpanded && "justify-center px-0"
         )}

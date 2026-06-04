@@ -13,7 +13,7 @@ function ProjectNewContent() {
   return (
     <div className="mx-auto max-w-lg px-5 py-12">
       <header className="mb-8 text-center">
-        <p className="text-xs font-bold uppercase tracking-[0.18em] text-moss">ProjectFlow</p>
+        <p className="text-xs font-semibold text-moss">ProjectFlow</p>
         <h1 className="font-display mt-2 text-3xl font-black leading-tight">新建项目</h1>
         <p className="mt-2 text-sm text-ink/60">
           填写项目想法、截止日期和预期交付物。

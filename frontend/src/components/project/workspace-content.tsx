@@ -49,9 +49,7 @@ function StatCard({
 
   return (
     <div
-      className={`flex items-center gap-4 rounded-2xl border border-neutral-200 bg-white p-5 ${
-        prominent ? "shadow-sm" : ""
-      }`}
+      className="flex items-center gap-4 rounded-2xl border border-neutral-200 bg-white p-5"
     >
       <span
         className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${accentStyles[accent]}`}
@@ -107,7 +105,7 @@ export function WorkspaceContent({ state, currentUserId, onNavigateToProject }: 
         <div className="min-w-0">
           <div className="flex items-center gap-2 text-neutral-400 mb-1">
             <Users className="h-4 w-4" />
-            <span className="text-xs font-medium uppercase tracking-wider">
+            <span className="text-xs font-medium text-neutral-400">
               工作区
             </span>
           </div>
@@ -154,7 +152,7 @@ export function WorkspaceContent({ state, currentUserId, onNavigateToProject }: 
       {/* Main content */}
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Members */}
-        <Card className="border-neutral-200 bg-white shadow-sm">
+        <Card className="border-neutral-200 bg-white">
           <CardHeader className="flex flex-row items-center justify-between border-b border-neutral-100 pb-4">
             <CardTitle className="flex items-center gap-2 text-lg">
               <Users className="h-5 w-5 text-primary" />
@@ -234,7 +232,7 @@ export function WorkspaceContent({ state, currentUserId, onNavigateToProject }: 
         </Card>
 
         {/* Projects */}
-        <Card className="border-neutral-200 bg-white shadow-sm">
+        <Card className="border-neutral-200 bg-white">
           <CardHeader className="border-b border-neutral-100 pb-4">
             <CardTitle className="flex items-center gap-2 text-lg">
               <FolderOpen className="h-5 w-5 text-emerald-500" />
