@@ -91,14 +91,14 @@ def _build_replan_fallback_payload(workspace_state: WorkspaceStateResponse) -> d
 
 def _unchanged_fallback_payload() -> dict[str, Any]:
     return {
-            "before": {"summary": "Keep the current plan unchanged."},
-            "after": {"summary": "No automatic replan is applied."},
-            "impact": "No schedule, ownership, or scope change is applied without confirmation.",
+            "before": {"summary": "当前计划保持不变。"},
+            "after": {"summary": "不自动应用重规划调整。"},
+            "impact": "不做任何进度、负责人或范围的自动变更，等待人工确认。",
             "stage_adjustments": [],
             "task_changes": [],
             "action_cards": [],
             "requires_confirmation": True,
-            "reason": "Fallback avoids changing the plan without stronger evidence.",
+            "reason": "回退方案：没有足够证据支持自动调整计划，保持当前规划不变。",
     }
 
 

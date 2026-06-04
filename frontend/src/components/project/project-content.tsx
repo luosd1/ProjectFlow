@@ -362,6 +362,7 @@ function ViewRenderer({
           {/* Agent Proposals — collapsed when none pending */}
           <AgentProposalPanel
             proposals={state.agent_proposals}
+            timeline={state.timeline}
             pending={Boolean(pendingAction)}
             onConfirm={onConfirmProposal}
             onReject={onRejectProposal}

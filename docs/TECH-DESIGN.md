@@ -15,7 +15,7 @@
 
 ## 1.1 Current Implementation Snapshot
 
-Snapshot date: 2026-05-30.
+Snapshot date: 2026-06-05.
 
 - Phase 0 / GitHub issue #2 is completed and closed.
 - Phase 1 (models) / GitHub issue #3 is completed and closed.
@@ -29,7 +29,7 @@ Snapshot date: 2026-05-30.
 - GitHub issue #11 (Verification, Tests, and Demo Stability Hardening) is complete.
 - GitHub issue #16 (Real LLM Provider Readiness and Diagnostics) is complete.
 - GitHub issue #17 (Agent Output Persistence and Confirmation) is complete.
-- Implemented: FastAPI scaffold, SQLite configuration skeleton, `GET /api/health`, all 19 persistence tables/domain models with full enum alignment and auto table creation on startup, full CRUD APIs (users, workspaces, invitations, member-profiles, projects, resources, stages, tasks), WorkspaceState assembly endpoint (`GET /api/workspaces/{id}/state`), service layer, Pydantic schemas, agent coordinator infrastructure with structured output validation, mock/OpenAI-compatible LLM adapter, LLM diagnostic endpoints, prompt boundaries, JSON repair/retry/template fallback, AgentEvent timeline logging with status, `AgentProposal` confirm-to-persist flow for clarify/plan/breakdown/replan, assignment proposal/response/finalize/negotiation APIs, action card APIs, check-in cycle/response APIs, risk APIs, confirmed replan API, agent HTTP endpoints, seed/reset/export endpoints, Next.js app shell with navigation, onboarding flow (account setup + member profile wizard), workspace creation + invite panel, project intake + resource input, planning and assignment dashboard UI, execution-loop dashboard UI, client-side project state composition over implemented endpoints, full domain types and API layer, shadcn/ui components, smoke tests, lint/build/test scripts, README, and runtime ignore rules.
+- Implemented: FastAPI scaffold, SQLite configuration skeleton, `GET /api/health`, all 19 persistence tables/domain models with full enum alignment and auto table creation on startup, full CRUD APIs (users, workspaces, invitations, member-profiles, projects, resources, stages, tasks), WorkspaceState assembly endpoint (`GET /api/workspaces/{id}/state`) with current date/time/timezone and project resource context, service layer, Pydantic schemas, agent coordinator infrastructure with structured output validation, mock/OpenAI-compatible LLM adapter, LLM diagnostic endpoints, prompt boundaries, JSON repair/retry/template fallback, AgentEvent timeline logging with status, `AgentProposal` confirm-to-persist flow for clarify/plan/breakdown/replan, timeline-only negotiate agent output, assignment proposal/response/finalize/negotiation APIs, action card APIs, check-in cycle/response APIs, risk APIs, confirmed replan API, agent HTTP endpoints, seed/reset/export endpoints, Next.js app shell with navigation, onboarding flow (account setup + member profile wizard), workspace creation + invite panel, project intake + resource input, planning and assignment dashboard UI, execution-loop dashboard UI, client-side project state composition over implemented endpoints, full domain types and API layer, shadcn/ui components, smoke tests, lint/build/test scripts, README, and runtime ignore rules.
 - Frontend routes: `/`, `/onboarding`, `/onboarding/profile`, `/workspaces/new`, `/workspaces/[workspaceId]`, `/projects/new`, `/projects/[projectId]`.
 - MVP implementation includes frontend wiring for execution-loop APIs, seed/reset data, review export, and a complete local demo flow.
 - All MVP phases are complete.
@@ -37,7 +37,7 @@ Snapshot date: 2026-05-30.
 - MVP Usable #20 (Assignment, Push, Risk, and Replan Usability Pass) is complete: assignment citations, push card goal/start/done-when, risk structured evidence, replan before/after/impact/confirmation, finalized-assignment guard.
 - MVP Usable #19 (Frontend Agent Status and Review UX) is complete.
 - MVP Usable #21 (Real-Provider Verification and MVP Usable Runbook) is complete: frontend test fixes, runbook with mock/real-provider modes and manual verification checklist, final status report.
-- Current verification baseline: backend pytest 166 passing, frontend 10 tests passing, frontend lint passing, frontend build passing, frontend audit 0 vulnerabilities.
+- Current verification baseline: backend pytest 221 passing, frontend 26 tests passing, frontend lint passing, frontend build passing, frontend audit 0 vulnerabilities.
 
 ---
 
@@ -795,11 +795,14 @@ WorkspaceState = {
   task_status_updates,
   risks,
   action_cards,
-  agent_timeline
+  agent_timeline,
+  current_date,
+  current_datetime,
+  timezone
 }
 ```
 
-Agent 每次运行必须读取最新 WorkspaceState。
+Agent 每次运行必须读取最新 WorkspaceState。clarify/plan/breakdown 还必须接收 project resources 的 compact summary；所有 Agent prompt 都必须接收当前日期/时间/时区，避免周期和截止日期误判。
 
 ---
 
@@ -895,11 +898,11 @@ stateDiagram-v2
 
 | Module                    | Input                                      | Output                                | Writes DB?              |
 | ------------------------- | ------------------------------------------ | ------------------------------------- | ----------------------- |
-| Clarification             | project idea, resources, workspace members | questions, direction card             | after confirm           |
+| Clarification             | project idea, resources, workspace members, current time | direction card + source/assumption/unknown/MVP boundary fields | after confirm           |
 | Planning                  | direction card, deadline, deliverables     | stages, milestones                    | after confirm           |
 | Breakdown                 | stages, deliverables, resources            | tasks, dependencies, priorities       | after confirm           |
 | Assignment Recommendation | tasks, member profiles                     | assignment proposals                  | yes as proposals        |
-| Assignment Negotiation    | rejection, desired task, current proposal  | swap proposal / coordination message  | yes as negotiation      |
+| Assignment Negotiation    | rejection, desired task, current proposal  | swap proposal / coordination message  | timeline-only for agent output; assignment flow owns negotiation records |
 | Active Push               | project state, stage, assignments, tasks   | action cards, reminders, kickoff tips | yes                     |
 | Check-in Analysis         | check-in responses                         | status summary, possible risks        | yes as timeline / risks |
 | Risk Analysis             | tasks, check-ins, deadlines, assignments   | risk cards                            | yes                     |
@@ -921,8 +924,17 @@ stateDiagram-v2
   "boundaries": ["string"],
   "risks": ["string"],
   "suggested_questions": ["string"],
+  "source_summary": "string | null",
+  "assumptions": ["string"],
+  "unknowns": ["string"],
+  "mvp_boundary": {
+    "must_have": ["string"],
+    "defer": ["string"],
+    "out_of_scope": ["string"]
+  },
+  "decision_points": ["string"],
   "reason": "string",
-  "requires_confirmation": false
+  "requires_confirmation": true
 }
 ```
 
@@ -934,7 +946,11 @@ Field descriptions:
 - `boundaries`: explicit scope boundaries — what is out of scope
 - `risks`: known risks grounded in project context
 - `suggested_questions`: high-value clarification questions only
-```
+- `source_summary`: where the direction came from, such as project idea, project resources, and member context
+- `assumptions`: assumptions the Agent is making while planning
+- `unknowns`: missing information that can affect planning or MVP scope
+- `mvp_boundary`: structured must-have / defer / out-of-scope boundary
+- `decision_points`: choices the team must still make
 
 ### Planning Output
 
@@ -1393,6 +1409,12 @@ POST /api/agent/breakdown
 POST /api/agent/assign
 ```
 
+### Generate Assignment Negotiation Message
+
+```http
+POST /api/agent/negotiate
+```
+
 ### Generate Active Push Cards
 
 ```http
@@ -1439,7 +1461,7 @@ All agent responses include structured persistence metadata:
 }
 ```
 
-For `clarify`, `plan`, and `breakdown`, `proposal_id` points to a pending `AgentProposal`. These routes do not directly mutate `Project.direction_card`, `Stage`, or `Task`; mutation happens only after proposal confirmation.
+For `clarify`, `plan`, `breakdown`, and `replan`, `proposal_id` points to a pending `AgentProposal`. These routes do not directly mutate `Project.direction_card`, `Stage`, `Task`, or replan targets; mutation happens only after proposal confirmation. For `negotiate`, `proposal_id` is null: the Agent output is logged in timeline only because generic proposal confirmation cannot apply negotiation payloads.
 
 ---
 
@@ -2205,11 +2227,14 @@ Acceptance:
 ## 17.4 Agent Rules
 
 - Agent 读取 WorkspaceState。
+- WorkspaceState 必须包含当前日期/时间/时区和项目资源上下文。
+- 方向澄清输出可以包含依据摘要、假设、未知项、MVP 边界和待决策点。
 - Agent 生成 proposal，不直接 finalize。
 - Agent 所有建议必须有 reason。
 - Agent 不能编造成员、任务、阶段。
 - Agent 失败必须 fallback。
 - Agent 高风险建议必须等待人工确认。
+- AgentProposal 仅用于 clarify/plan/breakdown/replan；negotiate 不进入通用 AgentProposal。
 
 ---
 

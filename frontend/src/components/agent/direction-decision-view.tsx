@@ -14,6 +14,15 @@ export type DirectionDecisionContent = {
   boundaries?: string[];
   risks?: string[];
   suggested_questions?: string[];
+  source_summary?: string;
+  assumptions?: string[];
+  unknowns?: string[];
+  mvp_boundary?: {
+    must_have?: string[];
+    defer?: string[];
+    out_of_scope?: string[];
+  };
+  decision_points?: string[];
   reason?: string;
 };
 
@@ -54,8 +63,15 @@ export function DirectionDecisionView({ content, compact }: DirectionDecisionVie
   const boundaries = safeStringList(content.boundaries);
   const risks = safeStringList(content.risks);
   const questions = safeStringList(content.suggested_questions);
+  const assumptions = safeStringList(content.assumptions);
+  const unknowns = safeStringList(content.unknowns);
+  const decisionPoints = safeStringList(content.decision_points);
+  const mustHave = safeStringList(content.mvp_boundary?.must_have);
+  const defer = safeStringList(content.mvp_boundary?.defer);
+  const outOfScope = safeStringList(content.mvp_boundary?.out_of_scope);
   const hasAudienceOrValue = Boolean(content.users || content.value);
   const hasConstraints = boundaries.length > 0 || risks.length > 0;
+  const hasMvpBoundary = mustHave.length > 0 || defer.length > 0 || outOfScope.length > 0;
 
   return (
     <article className={cn("space-y-6", compact && "space-y-4")}>
@@ -63,6 +79,14 @@ export function DirectionDecisionView({ content, compact }: DirectionDecisionVie
         <p className="rounded-md bg-moss/5 px-3 py-2 text-sm leading-6 text-ink/65">
           {content.reason}
         </p>
+      )}
+
+      {content.source_summary && (
+        <section className="border-b border-ink/8 pb-4">
+          <FieldBlock label="依据摘要">
+            {content.source_summary}
+          </FieldBlock>
+        </section>
       )}
 
       {(content.problem || hasAudienceOrValue) && (
@@ -149,6 +173,91 @@ export function DirectionDecisionView({ content, compact }: DirectionDecisionVie
           )}
         </section>
       )}
+
+      {(assumptions.length > 0 || unknowns.length > 0) && (
+        <section className="grid gap-5 border-t border-ink/8 pt-5 md:grid-cols-2">
+          {assumptions.length > 0 && (
+            <div>
+              <SectionTitle>当前假设</SectionTitle>
+              <ul className="mt-2 grid gap-2 text-sm leading-6 text-ink/75">
+                {assumptions.map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {unknowns.length > 0 && (
+            <div>
+              <SectionTitle>关键信息缺口</SectionTitle>
+              <ul className="mt-2 grid gap-2 text-sm leading-6 text-coral/85">
+                {unknowns.map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </section>
+      )}
+
+      {(hasMvpBoundary || decisionPoints.length > 0) && (
+        <section className="grid gap-5 border-t border-ink/8 pt-5 md:grid-cols-2">
+          {hasMvpBoundary && (
+            <div>
+              <SectionTitle>MVP 边界</SectionTitle>
+              <div className="mt-2 grid gap-3 text-sm leading-6 text-ink/75">
+                {mustHave.length > 0 && (
+                  <BoundaryGroup label="必须完成" items={mustHave} tone="moss" />
+                )}
+                {defer.length > 0 && (
+                  <BoundaryGroup label="可推迟" items={defer} tone="ink" />
+                )}
+                {outOfScope.length > 0 && (
+                  <BoundaryGroup label="不做" items={outOfScope} tone="coral" />
+                )}
+              </div>
+            </div>
+          )}
+          {decisionPoints.length > 0 && (
+            <div>
+              <SectionTitle>待决策点</SectionTitle>
+              <ul className="mt-2 grid gap-2 text-sm leading-6 text-ink/75">
+                {decisionPoints.map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </section>
+      )}
     </article>
+  );
+}
+
+function BoundaryGroup({
+  label,
+  items,
+  tone,
+}: {
+  label: string;
+  items: string[];
+  tone: "moss" | "ink" | "coral";
+}) {
+  const toneClass = {
+    moss: "border-moss/20 bg-moss/5 text-moss",
+    ink: "border-ink/10 bg-ink/3 text-ink/65",
+    coral: "border-coral/20 bg-coral/5 text-coral",
+  }[tone];
+
+  return (
+    <div>
+      <Badge variant="outline" className={cn("mb-1 border px-2 py-0.5", toneClass)}>
+        {label}
+      </Badge>
+      <ul className="grid gap-1">
+        {items.map((item) => (
+          <li key={item}>{item}</li>
+        ))}
+      </ul>
+    </div>
   );
 }

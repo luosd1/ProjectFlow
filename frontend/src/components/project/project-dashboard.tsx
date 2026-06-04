@@ -398,6 +398,7 @@ export function ProjectDashboard({
         />
         <AgentProposalPanel
           proposals={state.agent_proposals}
+          timeline={state.timeline}
           pending={Boolean(pendingAction)}
           onConfirm={onConfirmProposal}
           onReject={onRejectProposal}

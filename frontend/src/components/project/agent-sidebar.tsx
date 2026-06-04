@@ -22,6 +22,7 @@ import {
   CheckCircle2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { ProjectState, AgentEvent } from "@/lib/types";
 import type { AgentAction } from "./project-dashboard";
@@ -55,6 +56,20 @@ const VIEW_RECOMMENDATIONS: Record<
   checkin: { action: "analyze-checkins", reason: "分析签到数据" },
   risks: { action: "risk-analysis", reason: "识别新风险" },
   retro: { action: "push", reason: "生成项目复盘报告" },
+};
+
+const EVENT_STATUS_LABELS: Record<AgentEvent["status"], string> = {
+  success: "成功",
+  repaired: "已修复",
+  fallback: "基础建议",
+  failed: "失败",
+};
+
+const EVENT_STATUS_CLASSES: Record<AgentEvent["status"], string> = {
+  success: "bg-moss/15 text-moss",
+  repaired: "bg-citron/40 text-ink",
+  fallback: "bg-harbor/15 text-harbor",
+  failed: "bg-coral/15 text-coral",
 };
 
 interface AgentSidebarProps {
@@ -341,7 +356,15 @@ export function AgentSidebar({
                           <Icon className="mt-0.5 h-3.5 w-3.5 shrink-0 text-neutral-400" />
                           <div className="min-w-0">
                             <p className="text-neutral-700">
-                              {getEventLabel(event.event_type)}
+                              <span>{getEventLabel(event.event_type)}</span>
+                              <Badge
+                                className={cn(
+                                  "ml-1 px-1.5 py-0 text-[10px]",
+                                  EVENT_STATUS_CLASSES[event.status]
+                                )}
+                              >
+                                {EVENT_STATUS_LABELS[event.status]}
+                              </Badge>
                               {event.user_confirmed && (
                                 <span className="ml-1 text-moss">已确认</span>
                               )}

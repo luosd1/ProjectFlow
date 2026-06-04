@@ -39,6 +39,13 @@ class DirectionCardOutput(AgentOutputBase):
     boundaries: list[str] = Field(default_factory=list, description="Explicit scope boundaries — what is out of scope")
     risks: list[str] = Field(default_factory=list, description="Known risks grounded in project context")
     suggested_questions: list[str] = Field(default_factory=list, description="High-value clarification questions only")
+
+    # Optional enrichment fields; defaults keep older persisted payloads valid.
+    source_summary: str | None = Field(default=None, description="Summary of where the direction came from (project idea, resources, members)")
+    assumptions: list[str] = Field(default_factory=list, description="Key assumptions made during clarification")
+    unknowns: list[str] = Field(default_factory=list, description="Important unknowns that could affect the plan")
+    mvp_boundary: dict | None = Field(default=None, description="MVP scope boundary with must_have, defer, out_of_scope")
+    decision_points: list[str] = Field(default_factory=list, description="Key decisions the team needs to make")
     requires_confirmation: bool = True
 
     @model_validator(mode="after")

@@ -1,4 +1,5 @@
 import json
+from datetime import datetime
 from enum import Enum
 
 from sqlmodel import Session, select
@@ -14,6 +15,7 @@ from app.models import (
     AssignmentProposal,
     AssignmentResponse,
     AssignmentNegotiation,
+    ProjectResource,
 )
 from app.models.checkin import CheckInCycle, CheckInResponse
 from app.schemas.workspace_state import (
@@ -25,6 +27,7 @@ from app.schemas.workspace_state import (
     AssignmentProposalState,
     AssignmentResponseState,
     AssignmentNegotiationState,
+    ResourceState,
     ProjectState,
     WorkspaceStateResponse,
 )
@@ -186,6 +189,20 @@ def get_workspace_state(session: Session, workspace_id: str) -> WorkspaceStateRe
             status=n.status.value if isinstance(n.status, Enum) else n.status,
         ) for n in assignment_negotiation_rows]
 
+        # Resources
+        resource_rows = session.exec(
+            select(ProjectResource).where(ProjectResource.project_id == project_row.id)
+        ).all()
+        resources = [ResourceState(
+            id=r.id,
+            type=r.type,
+            title=r.title,
+            content_text=r.content_text[:200] if r.content_text else None,
+            file_name=r.file_name,
+            url=r.url,
+            created_at=r.created_at.isoformat(),
+        ) for r in resource_rows]
+
         project_state = ProjectState(
             id=project_row.id, name=project_row.name, idea=project_row.idea,
             deadline=project_row.deadline,
@@ -199,11 +216,27 @@ def get_workspace_state(session: Session, workspace_id: str) -> WorkspaceStateRe
             assignment_proposals=assignment_proposals,
             assignment_responses=assignment_responses,
             assignment_negotiations=assignment_negotiations,
+            resources=resources,
         )
+
+    # Determine current date/time with timezone awareness
+    # The project operates in Asia/Shanghai timezone for display consistency
+    try:
+        from zoneinfo import ZoneInfo
+        tz = ZoneInfo("Asia/Shanghai")
+        timezone_name = "Asia/Shanghai"
+    except (ImportError, KeyError, ModuleNotFoundError):
+        from datetime import timedelta, timezone as dt_tz
+        tz = dt_tz(timedelta(hours=8))
+        timezone_name = "UTC+8"
+    now_local = datetime.now(tz)
 
     return WorkspaceStateResponse(
         workspace_id=workspace.id,
         workspace_name=workspace.name,
         members=members,
         project=project_state,
+        current_date=now_local.strftime("%Y-%m-%d"),
+        current_datetime=now_local.isoformat(),
+        timezone=timezone_name,
     )

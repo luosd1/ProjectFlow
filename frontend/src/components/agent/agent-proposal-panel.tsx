@@ -6,7 +6,7 @@ import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DirectionDecisionView } from "@/components/agent/direction-decision-view";
-import type { AgentProposal } from "@/lib/types";
+import type { AgentProposal, AgentEvent } from "@/lib/types";
 
 const TYPE_LABELS: Record<string, string> = {
   clarify: "方向卡",
@@ -18,6 +18,20 @@ const TYPE_DESCRIPTIONS: Record<string, string> = {
   clarify: "Agent 分析了项目信息，生成了方向建议",
   plan: "Agent 根据方向卡规划了项目阶段",
   breakdown: "Agent 将阶段拆解为具体任务",
+};
+
+const STATUS_LABELS: Record<string, string> = {
+  success: "成功",
+  repaired: "已修复",
+  fallback: "基础建议",
+  failed: "失败",
+};
+
+const STATUS_CLASSES: Record<string, string> = {
+  success: "bg-moss/15 text-moss",
+  repaired: "bg-citron/40 text-ink",
+  fallback: "bg-harbor/15 text-harbor",
+  failed: "bg-coral/15 text-coral",
 };
 
 function ProposalContent({ proposal }: { proposal: AgentProposal }) {
@@ -126,18 +140,47 @@ function ProposalContent({ proposal }: { proposal: AgentProposal }) {
   return <pre className="text-xs text-ink/60">{JSON.stringify(payload, null, 2)}</pre>;
 }
 
+/** Build a map from agent_event_id → AgentEvent status */
+function buildStatusMap(
+  proposals: AgentProposal[],
+  timeline: AgentEvent[],
+): Record<string, string> {
+  const map: Record<string, string> = {};
+  const eventById: Record<string, AgentEvent> = {};
+  for (const event of timeline) {
+    eventById[event.id] = event;
+  }
+  for (const proposal of proposals) {
+    if (proposal.agent_event_id && eventById[proposal.agent_event_id]) {
+      map[proposal.id] = eventById[proposal.agent_event_id].status;
+    }
+  }
+  return map;
+}
+
+function StatusBadge({ status }: { status?: string }) {
+  if (!status) return null;
+  return (
+    <Badge className={STATUS_CLASSES[status] ?? "bg-ink/8 text-ink/55"}>
+      {STATUS_LABELS[status] ?? status}
+    </Badge>
+  );
+}
+
 type AgentProposalPanelProps = {
   proposals: AgentProposal[];
   pending?: boolean;
+  timeline?: AgentEvent[];
   onConfirm?: (proposalId: string) => void | Promise<void>;
   onReject?: (proposalId: string) => void | Promise<void>;
 };
 
-export function AgentProposalPanel({ proposals, pending, onConfirm, onReject }: AgentProposalPanelProps) {
+export function AgentProposalPanel({ proposals, pending, timeline = [], onConfirm, onReject }: AgentProposalPanelProps) {
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
 
   const safeProposals = proposals ?? [];
+  const statusMap = buildStatusMap(safeProposals, timeline ?? []);
   const displayableProposals = safeProposals.filter((p) => p.proposal_type !== "replan");
   const pendingProposals = displayableProposals.filter((p) => p.status === "pending");
   const confirmedProposals = displayableProposals.filter((p) => p.status === "confirmed");
@@ -192,6 +235,7 @@ export function AgentProposalPanel({ proposals, pending, onConfirm, onReject }: 
               >
                 <div className="flex items-center gap-2">
                   <Badge className="bg-moss/15 text-moss">{TYPE_LABELS[proposal.proposal_type] ?? proposal.proposal_type}</Badge>
+                  <StatusBadge status={statusMap[proposal.id]} />
                   <span className="text-sm text-ink/60">{TYPE_DESCRIPTIONS[proposal.proposal_type]}</span>
                 </div>
                 {isExpanded ? <ChevronUp className="h-4 w-4 text-ink/40" /> : <ChevronDown className="h-4 w-4 text-ink/40" />}
@@ -238,6 +282,7 @@ export function AgentProposalPanel({ proposals, pending, onConfirm, onReject }: 
                 <div key={proposal.id} className="flex items-center gap-2 text-sm text-ink/45">
                   <CheckCircle className="h-3.5 w-3.5 text-moss" />
                   <Badge className="bg-ink/10 text-ink/50 text-[10px]">{TYPE_LABELS[proposal.proposal_type]}</Badge>
+                  <StatusBadge status={statusMap[proposal.id]} />
                   <span>{new Date(proposal.confirmed_at ?? proposal.created_at).toLocaleString()}</span>
                 </div>
               ))}

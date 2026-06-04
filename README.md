@@ -4,7 +4,7 @@ ProjectFlow is a local-first active project agent MVP for college project teams.
 
 ## Current Status
 
-All MVP phases and MVP Usable tasks complete. Phase 24 (Agent Output Quality + Bug Fixes) and Phase 25 (T23.D Feedback Fixes) complete (2026-06-03). Phase 26 (T23.B Round 2 Fixes: skill name normalization, JSON strictness, negotiate endpoint, stage override, negotiation context, stage_id validation threading) complete (2026-06-03). Phase 27 (Code Review Hardening: regex word-boundary normalization, _validate_references reuse, all-rejected fallback fix, proposal status validation, Chinese constraint keywords, negotiation persistence, assign stage filter) complete (2026-06-03).
+All MVP phases and MVP Usable tasks complete. Phase 24 (Agent Output Quality + Bug Fixes) and Phase 25 (T23.D Feedback Fixes) complete (2026-06-03). Phase 26 (T23.B Round 2 Fixes: skill name normalization, JSON strictness, negotiate endpoint, stage override, negotiation context, stage_id validation threading) complete (2026-06-03). Phase 27 (Code Review Hardening: regex word-boundary normalization, _validate_references reuse, all-rejected fallback fix, proposal status validation, Chinese constraint keywords, assign stage filter) complete (2026-06-03). Phase 28 (Frontend Redesign Migration) complete (2026-06-04). Phase 29 (Agent time/resource context, direction-clarification enrichment, negotiate timeline-only, fallback Chinese hardening, and output status transparency) complete (2026-06-05).
 
 - Phase 0 / GitHub #2 — Guardrails & Setup
 - Phase 1 / GitHub #3 — Account / Workspace / Member Profile
@@ -26,8 +26,9 @@ All MVP phases and MVP Usable tasks complete. Phase 24 (Agent Output Quality + B
 - Phase 25 — T23.D Feedback Fixes (2026-06-03)
 - Phase 27 — Code Review Hardening (2026-06-03)
 - Phase 28 — Frontend Redesign Migration (2026-06-04)
+- Phase 29 — Agent Output Quality & Reliability Hardening (2026-06-05)
 
-Implemented: FastAPI backend (70 endpoint method/path pairs, 19 persistence tables/domain models), agent infrastructure with mock/OpenAI-compatible provider diagnostics, confirm-to-persist `AgentProposal` flow including replan proposals, seed/reset/export, Next.js frontend (7 routes, project resources panel, user identity switcher), 218 backend tests passing, 24 frontend tests passing, frontend lint+build clean.
+Implemented: FastAPI backend (70 endpoint method/path pairs, 19 persistence tables/domain models), agent infrastructure with mock/OpenAI-compatible provider diagnostics, current time/resource-aware WorkspaceState prompts, enriched direction clarification, confirm-to-persist `AgentProposal` flow for clarify/plan/breakdown/replan, timeline-only negotiate agent output, seed/reset/export, Next.js frontend (7 routes, project resources panel, user identity switcher, Agent proposal/timeline status badges), 221 backend tests passing, 26 frontend tests passing, frontend lint+build clean.
 
 ## Stack
 

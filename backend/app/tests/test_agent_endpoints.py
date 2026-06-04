@@ -108,5 +108,13 @@ def test_agent_endpoints_exist_and_persist_execution_proposals(client: TestClien
 
     negotiate_response = client.post("/api/agent/negotiate", json={"workspace_id": workspace["id"]})
     assert negotiate_response.status_code == 200
-    assert negotiate_response.json()["event_type"] == "negotiate"
-    assert negotiate_response.json()["output"]["reason"]
+    negotiate_payload = negotiate_response.json()
+    assert negotiate_payload["event_type"] == "negotiate"
+    assert negotiate_payload["output"]["reason"]
+    assert negotiate_payload["proposal_id"] is None
+
+    agent_proposals = client.get(
+        "/api/agent-proposals",
+        params={"project_id": project["id"]},
+    ).json()
+    assert all(proposal["proposal_type"] != "negotiate" for proposal in agent_proposals)

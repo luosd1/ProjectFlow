@@ -19,7 +19,7 @@ def build_request(workspace_state: WorkspaceStateResponse) -> AgentModuleRequest
         user_prompt=(
             "Break the current or first stage into exactly 3 prioritized tasks. "
             "Use existing stage_id, P0/P1/P2 priorities, realistic hours, real dependencies only, and due dates before the stage/project deadline. "
-            "Each reason must cite stage goal, member skills, or deadline."
+            "Each reason must cite stage goal, member skills, project resources, or deadline."
         ),
         fallback_payload={
             "tasks": [
