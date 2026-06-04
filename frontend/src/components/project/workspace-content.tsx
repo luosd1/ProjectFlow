@@ -36,12 +36,14 @@ function StatCard({
   icon,
   accent = "primary",
   prominent = false,
+  action,
 }: {
   value: number | string;
   label: string;
   icon: React.ReactNode;
   accent?: "primary" | "emerald" | "citron";
   prominent?: boolean;
+  action?: { label: string; onClick: () => void };
 }) {
   const accentStyles = {
     primary: "bg-primary/10 text-primary",
@@ -51,16 +53,14 @@ function StatCard({
 
   return (
     <div
-      className={`flex items-center gap-4 rounded-2xl border border-neutral-200 bg-white p-5 ${
-        prominent ? "shadow-sm" : ""
-      }`}
+      className={`flex items-center gap-4 rounded-2xl border border-neutral-200 bg-white p-5`}
     >
       <span
         className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${accentStyles[accent]}`}
       >
         {icon}
       </span>
-      <div className="min-w-0">
+      <div className="min-w-0 flex-1">
         <p
           className={`font-bold text-neutral-900 ${
             prominent ? "text-3xl" : "text-2xl"
@@ -69,6 +69,14 @@ function StatCard({
           {value}
         </p>
         <p className="text-sm text-neutral-500">{label}</p>
+        {action && (
+          <button
+            onClick={action.onClick}
+            className="mt-1 text-xs font-medium text-primary hover:underline"
+          >
+            {action.label}
+          </button>
+        )}
       </div>
     </div>
   );
@@ -124,19 +132,19 @@ export function WorkspaceContent({ state, currentUserId, onNavigateToProject }: 
       className="h-full overflow-y-auto custom-scrollbar p-6"
     >
       {/* Header */}
-      <header className="mb-8 flex flex-wrap items-end justify-between gap-4">
+      <header className="mb-6 flex flex-wrap items-end justify-between gap-4">
         <div className="min-w-0">
           <div className="flex items-center gap-2 text-neutral-400 mb-1">
             <Users className="h-4 w-4" />
-            <span className="text-xs font-medium uppercase tracking-wider">
+            <span className="text-xs font-medium">
               工作区
             </span>
           </div>
           <h1 className="font-display text-3xl font-normal leading-tight text-neutral-900 md:text-4xl">
             {workspace.name}
           </h1>
-          <p className="mt-1.5 text-sm text-neutral-500">
-            {workspace.description || "团队项目、成员能力和 Agent 推进状态集中在这里。"}
+          <p className="mt-1 text-sm text-neutral-500">
+            {workspace.description || "团队项目、成员能力和推进状态集中在这里。"}
           </p>
         </div>
         <Button
@@ -162,12 +170,22 @@ export function WorkspaceContent({ state, currentUserId, onNavigateToProject }: 
           label="活跃项目"
           icon={<FolderOpen className="h-5 w-5" />}
           accent="emerald"
+          action={
+            activeProjects.length > 0
+              ? { label: "查看项目", onClick: () => setNewProjectOpen(true) }
+              : undefined
+          }
         />
         <StatCard
           value={completedProjects.length}
           label="已完成"
           icon={<Archive className="h-5 w-5" />}
           accent="citron"
+          action={
+            completedProjects.length > 0
+              ? { label: "查看归档", onClick: () => setNewProjectOpen(true) }
+              : undefined
+          }
         />
       </section>
 
@@ -314,7 +332,7 @@ export function WorkspaceContent({ state, currentUserId, onNavigateToProject }: 
                       onNavigateToProject?.();
                       router.push(`/projects/${p.id}`);
                     }}
-                    className="group flex w-full items-center justify-between rounded-xl border border-neutral-100 px-3 py-3 text-left transition-colors hover:border-primary/40 hover:bg-primary/5"
+                    className="group flex w-full items-center justify-between rounded-xl border border-neutral-100 bg-white px-3 py-3 text-left transition-colors hover:border-primary/40 hover:bg-primary/5"
                     aria-label={`打开项目 ${p.name}`}
                   >
                     <div className="flex items-center gap-3 min-w-0">

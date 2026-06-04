@@ -158,7 +158,12 @@ function MemberForm({
           placeholder="成员姓名"
           className="h-10"
         />
-        {errors.name && <p className="text-sm text-destructive">{errors.name}</p>}
+        {errors.name && (
+          <div className="flex items-center gap-1.5 rounded-md bg-destructive/10 px-2.5 py-1.5 text-sm text-destructive">
+            <AlertTriangle className="h-3.5 w-3.5" />
+            {errors.name}
+          </div>
+        )}
       </div>
 
       <div className="space-y-2">
@@ -185,7 +190,12 @@ function MemberForm({
           placeholder="例如：前端开发、产品经理"
           className="h-10"
         />
-        {errors.role && <p className="text-sm text-destructive">{errors.role}</p>}
+        {errors.role && (
+          <div className="flex items-center gap-1.5 rounded-md bg-destructive/10 px-2.5 py-1.5 text-sm text-destructive">
+            <AlertTriangle className="h-3.5 w-3.5" />
+            {errors.role}
+          </div>
+        )}
       </div>
 
       <div className="space-y-2">
@@ -201,14 +211,24 @@ function MemberForm({
           className="h-10"
         />
         <p className="text-xs text-muted-foreground">通常学生项目投入 5-20 小时</p>
-        {errors.hours && <p className="text-sm text-destructive">{errors.hours}</p>}
+        {errors.hours && (
+          <div className="flex items-center gap-1.5 rounded-md bg-destructive/10 px-2.5 py-1.5 text-sm text-destructive">
+            <AlertTriangle className="h-3.5 w-3.5" />
+            {errors.hours}
+          </div>
+        )}
       </div>
 
       <div className="space-y-2">
         <label className="text-sm font-medium">
           技能 <span className="text-destructive">*</span>
         </label>
-        {errors.skills && <p className="text-sm text-destructive">{errors.skills}</p>}
+        {errors.skills && (
+          <div className="flex items-center gap-1.5 rounded-md bg-destructive/10 px-2.5 py-1.5 text-sm text-destructive">
+            <AlertTriangle className="h-3.5 w-3.5" />
+            {errors.skills}
+          </div>
+        )}
         {skills.length > 0 && (
           <div className="flex flex-wrap gap-2">
             {skills.map((skill) => (
@@ -493,8 +513,8 @@ export function MemberManagementDialog({
                       )}
                       {profile?.skills?.length ? (
                         <div className="mt-1 flex flex-wrap gap-1">
-                          {profile.skills.slice(0, 4).map((skill, i) => (
-                            <Badge key={`${skill.name}-${skill.level}-${i}`} variant="secondary" className="text-[10px]">
+                          {profile.skills.map((skill) => (
+                            <Badge key={`${skill.name}-${skill.level}`} variant="secondary" className="text-[10px]">
                               {skill.name} Lv.{skill.level}
                             </Badge>
                           ))}
