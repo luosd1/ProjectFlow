@@ -66,7 +66,7 @@ const VIEW_META: Record<
   direction: {
     title: "方向卡",
     icon: Compass,
-    description: "项目目标和方向澄清",
+    description: "明确项目目标、边界和关键决策",
   },
   stages: {
     title: "阶段计划",
