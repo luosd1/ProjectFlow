@@ -1,7 +1,6 @@
 "use client"
 
 import * as React from "react"
-import { useRouter } from "next/navigation"
 import { motion } from "framer-motion"
 import {
   Loader2,
@@ -56,7 +55,6 @@ export function ProjectIntakeForm({
   defaultCreatedBy,
   onCreated,
 }: ProjectIntakeFormProps) {
-  const router = useRouter()
   const [resources, setResources] = React.useState<AddResourceRequest[]>([])
   const [submitting, setSubmitting] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
@@ -261,7 +259,6 @@ export function ProjectIntakeForm({
       }
       clearDraft()
       onCreated?.(project)
-      router.push(`/projects/${project.id}`)
     } catch {
       setError("创建项目失败，请重试")
     } finally {

@@ -24,7 +24,6 @@ export default function OnboardingPage() {
             { label: "选择身份", description: "创建新账号或选择现有用户" },
             { label: "创建工作区", description: "设置团队空间" },
             { label: "完善资料", description: "补充个人信息" },
-            { label: "新建项目", description: "开始第一个项目" },
           ]}
           currentStep={0}
           className="mb-8"

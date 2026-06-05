@@ -50,6 +50,8 @@ interface MemberProfileWizardProps {
 
 type SubmitState = "idle" | "loading" | "error" | "success"
 
+const steps = ["基本信息", "技能与经验", "可用时间"]
+
 const POPULAR_SKILLS = [
   "Python",
   "JavaScript",
@@ -252,13 +254,6 @@ export function MemberProfileWizard({
                 className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-5 py-3 text-sm font-bold text-primary-foreground transition hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-ring"
               >
                 进入工作台
-                <ArrowRight className="h-4 w-4" />
-              </Link>
-              <Link
-                href={`/projects/new?workspaceId=${workspaceId}&createdBy=${userId}`}
-                className="inline-flex items-center justify-center gap-2 rounded-lg border-2 border-primary px-5 py-3 text-sm font-bold text-primary transition hover:bg-primary/5 focus:outline-none focus:ring-2 focus:ring-ring"
-              >
-                新建项目
                 <ArrowRight className="h-4 w-4" />
               </Link>
             </div>

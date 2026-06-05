@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -60,7 +60,7 @@ const MENU_ITEMS: {
     label: "我的任务",
     icon: ListTodo,
     badge: (state, currentUserId) =>
-      state.tasks.filter(
+      (state.tasks ?? []).filter(
         (t) =>
           t.owner_user_id === currentUserId && t.status !== "done"
       ).length,
@@ -69,14 +69,14 @@ const MENU_ITEMS: {
     id: "team-tasks",
     label: "团队任务",
     icon: Users,
-    badge: (state) => state.tasks.filter((t) => t.status !== "done").length,
+    badge: (state) => (state.tasks ?? []).filter((t) => t.status !== "done").length,
   },
   { id: "checkin", label: "签到与状态", icon: ClipboardCheck },
   {
     id: "risks",
     label: "风险预警",
     icon: AlertTriangle,
-    badge: (state) => state.risks.filter((r) => r.status === "open").length,
+    badge: (state) => (state.risks ?? []).filter((r) => r.status === "open").length,
   },
   { id: "retro", label: "项目复盘", icon: BarChart3 },
 ];
@@ -97,6 +97,9 @@ interface ProjectSidebarProps {
   onToggle: () => void;
   showWorkspace: boolean;
   onShowWorkspace: (show: boolean) => void;
+  onSelectProject?: (projectId: string) => void;
+  onNavigateView?: (view: ProjectView) => void;
+  workspaceState?: import("@/lib/types").WorkspaceState;
 }
 
 export function ProjectSidebar({
@@ -107,8 +110,12 @@ export function ProjectSidebar({
   onToggle,
   showWorkspace,
   onShowWorkspace,
+  onSelectProject,
+  onNavigateView,
+  workspaceState,
 }: ProjectSidebarProps) {
   const router = useRouter();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
   const currentView = (searchParams.get("view") as ProjectView) || "overview";
   const [hovered, setHovered] = useState(false);
@@ -119,16 +126,11 @@ export function ProjectSidebar({
   const handleNavigate = useCallback(
     (view: ProjectView) => {
       onShowWorkspace(false);
-      const params = new URLSearchParams(searchParams.toString());
-      if (view === "overview") {
-        params.delete("view");
-      } else {
-        params.set("view", view);
+      if (onNavigateView) {
+        onNavigateView(view);
       }
-      const query = params.toString();
-      router.push(`/projects/${projectId}${query ? `?${query}` : ""}`);
     },
-    [projectId, router, searchParams, onShowWorkspace]
+    [onShowWorkspace, onNavigateView]
   );
 
   // Keyboard shortcut: Ctrl+B to toggle sidebar
@@ -145,7 +147,7 @@ export function ProjectSidebar({
 
   const isExpanded = !collapsed || hovered;
 
-  const workspace = state.workspace;
+  const workspace = state.workspace ?? { workspace_id: "", name: "工作区", owner_user_id: "" };
   const otherProjects = state.projects?.filter((p) => p.id !== projectId) ?? [];
   const currentMembership = state.memberships?.find((m) => m.user_id === currentUserId);
   const isOwner = currentMembership?.role === "owner";
@@ -233,7 +235,7 @@ export function ProjectSidebar({
                         key={p.id}
                         onClick={() => {
                           onShowWorkspace(false);
-                          router.push(`/projects/${p.id}`);
+                          onSelectProject?.(p.id);
                         }}
                         className="cursor-pointer gap-2"
                       >
@@ -244,11 +246,10 @@ export function ProjectSidebar({
                   )}
                   <DropdownMenuSeparator />
                   <DropdownMenuItem
-                    onClick={() =>
-                      router.push(
-                        `/projects/new?workspaceId=${workspace.workspace_id}&createdBy=${workspace.owner_user_id}`
-                      )
-                    }
+                    onClick={() => {
+                      // In unified layout, open workspace view where new project dialog is available
+                      onShowWorkspace(true);
+                    }}
                     className="cursor-pointer gap-2 text-moss"
                   >
                     <Plus className="h-4 w-4" />
@@ -429,7 +430,7 @@ export function ProjectSidebar({
                 exit={{ opacity: 0 }}
                 className="overflow-hidden whitespace-nowrap"
               >
-                {state.members.find((m) => m.user_id === currentUserId)
+                {(state.members ?? []).find((m) => m.user_id === currentUserId)
                   ?.display_name ?? "负责人"}
               </motion.span>
             )}
@@ -442,9 +443,9 @@ export function ProjectSidebar({
         workspaceId={workspace.workspace_id}
         open={memberMgmtOpen}
         onOpenChange={setMemberMgmtOpen}
-        members={state.members}
+        members={state.members ?? []}
         memberships={state.memberships ?? []}
-        profiles={state.member_profiles}
+        profiles={state.member_profiles ?? []}
         onMembersChanged={() => window.location.reload()}
       />
 
@@ -453,7 +454,11 @@ export function ProjectSidebar({
         open={newWorkspaceOpen}
         onOpenChange={setNewWorkspaceOpen}
         onCreated={(ws) => {
-          router.push(`/workspaces/${ws.workspace_id}`);
+          if (router) {
+            router.push(`/workspaces/${ws.workspace_id}`);
+          } else if (typeof window !== "undefined") {
+            window.location.href = `/workspaces/${ws.workspace_id}`;
+          }
         }}
       />
     </motion.aside>

@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import {
   Users,
@@ -21,7 +20,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { MemberManagementDialog } from "@/components/member/member-management-dialog";
 import { NewProjectDialog } from "./new-project-dialog";
-import type { ProjectState } from "@/lib/types";
+import type { ProjectState, WorkspaceState } from "@/lib/types";
 
 const statusLabelMap: Record<string, string> = {
   draft: "草稿",
@@ -83,13 +82,12 @@ function StatCard({
 }
 
 interface WorkspaceContentProps {
-  state: ProjectState;
+  state: ProjectState | WorkspaceState;
   currentUserId?: string;
-  onNavigateToProject?: () => void;
+  onNavigateToProject?: (projectId: string) => void;
 }
 
 export function WorkspaceContent({ state, currentUserId, onNavigateToProject }: WorkspaceContentProps) {
-  const router = useRouter();
   const [memberMgmtOpen, setMemberMgmtOpen] = useState(false);
   const [newProjectOpen, setNewProjectOpen] = useState(false);
   const [memberSearch, setMemberSearch] = useState("");
@@ -314,10 +312,6 @@ export function WorkspaceContent({ state, currentUserId, onNavigateToProject }: 
                 }
                 title="还没有项目"
                 description="创建第一个项目，开始你的团队协作之旅"
-                action={{
-                  label: "新建项目",
-                  onClick: () => setNewProjectOpen(true),
-                }}
               />
             ) : filteredProjects.length === 0 ? (
               <div className="py-8 text-center text-sm text-neutral-400">
@@ -329,8 +323,7 @@ export function WorkspaceContent({ state, currentUserId, onNavigateToProject }: 
                   <button
                     key={p.id}
                     onClick={() => {
-                      onNavigateToProject?.();
-                      router.push(`/projects/${p.id}`);
+                      onNavigateToProject?.(p.id);
                     }}
                     className="group flex w-full items-center justify-between rounded-xl border border-neutral-100 bg-white px-3 py-3 text-left transition-colors hover:border-primary/40 hover:bg-primary/5"
                     aria-label={`打开项目 ${p.name}`}
@@ -407,8 +400,7 @@ export function WorkspaceContent({ state, currentUserId, onNavigateToProject }: 
         open={newProjectOpen}
         onOpenChange={setNewProjectOpen}
         onCreated={(project) => {
-          onNavigateToProject?.();
-          router.push(`/projects/${project.id}`);
+          onNavigateToProject?.(project.id);
         }}
       />
     </motion.div>

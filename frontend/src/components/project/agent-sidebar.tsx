@@ -59,6 +59,8 @@ const VIEW_RECOMMENDATIONS: Record<
 
 interface AgentSidebarProps {
   state: ProjectState;
+  selectedProjectId?: string | null;
+  hasProject?: boolean;
   pendingAction?: AgentAction | null;
   actionSuccess?: string | null;
   actionError?: string | null;
@@ -68,6 +70,8 @@ interface AgentSidebarProps {
 
 export function AgentSidebar({
   state,
+  selectedProjectId,
+  hasProject = true,
   pendingAction,
   actionSuccess,
   actionError,
@@ -98,7 +102,7 @@ export function AgentSidebar({
   const recommendation = VIEW_RECOMMENDATIONS[currentView];
 
   // Get recent activity from timeline
-  const recentEvents = state.timeline.slice(0, 5);
+  const recentEvents = (state.timeline ?? []).slice(0, 5);
 
   const formatTimeAgo = (dateStr: string) => {
     const date = new Date(dateStr);
@@ -195,8 +199,15 @@ export function AgentSidebar({
               transition={{ duration: 0.15 }}
               className="p-3"
             >
+              {!hasProject && (
+                <div className="mb-4 rounded-xl border border-neutral-200 bg-neutral-50 p-4 text-center">
+                  <Bot className="mx-auto mb-2 h-6 w-6 text-neutral-300" />
+                  <p className="text-sm text-neutral-500">选择一个项目以查看 Agent 建议</p>
+                </div>
+              )}
+
               {/* Context-Aware Recommendation */}
-              {recommendation && (
+              {hasProject && recommendation && (
                 <div className="mb-4 rounded-xl border border-moss/20 bg-moss/5 p-3">
                   <div className="flex items-center gap-1.5 text-xs font-semibold text-moss">
                     <Sparkles className="h-3.5 w-3.5" />
@@ -227,80 +238,82 @@ export function AgentSidebar({
               )}
 
               {/* All Actions */}
-              <div className="mb-4">
-                <h3 className="mb-2 text-xs font-semibold text-neutral-400">
-                  所有操作
-                </h3>
-                <div className="space-y-1">
-                  {ALL_AGENT_ACTIONS.map((action) => {
-                    const isExpandedAction = expandedAction === action.id;
-                    const isPending = pendingAction === action.id;
-                    return (
-                      <div key={action.id}>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setExpandedAction(
-                              isExpandedAction ? null : action.id
-                            )
-                          }
-                          className={cn(
-                            "flex w-full items-center gap-2 rounded-lg px-2 py-2 text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-moss/30",
-                            isExpandedAction
-                              ? "bg-neutral-50 text-neutral-900"
-                              : "text-neutral-600 hover:bg-neutral-50 hover:text-neutral-900"
-                          )}
-                        >
-                          <action.icon className="h-4 w-4 shrink-0" />
-                          <span className="flex-1 text-left">
-                            {action.label}
-                          </span>
-                          <ChevronRight
+              {hasProject && (
+                <div className="mb-4">
+                  <h3 className="mb-2 text-xs font-semibold text-neutral-400">
+                    所有操作
+                  </h3>
+                  <div className="space-y-1">
+                    {ALL_AGENT_ACTIONS.map((action) => {
+                      const isExpandedAction = expandedAction === action.id;
+                      const isPending = pendingAction === action.id;
+                      return (
+                        <div key={action.id}>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setExpandedAction(
+                                isExpandedAction ? null : action.id
+                              )
+                            }
                             className={cn(
-                              "h-3 w-3 shrink-0 transition-transform",
-                              isExpandedAction && "rotate-90"
+                              "flex w-full items-center gap-2 rounded-lg px-2 py-2 text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-moss/30",
+                              isExpandedAction
+                                ? "bg-neutral-50 text-neutral-900"
+                                : "text-neutral-600 hover:bg-neutral-50 hover:text-neutral-900"
                             )}
-                          />
-                        </button>
-                        <AnimatePresence>
-                          {isExpandedAction && (
-                            <motion.div
-                              initial={{ height: 0, opacity: 0 }}
-                              animate={{ height: "auto", opacity: 1 }}
-                              exit={{ height: 0, opacity: 0 }}
-                              transition={{ duration: 0.2 }}
-                              className="overflow-hidden"
-                            >
-                              <div className="px-2 pb-2 pt-1">
-                                <p className="mb-2 text-xs text-neutral-500">
-                                  {action.description}
-                                </p>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  className="h-7 w-full text-xs"
-                                  disabled={Boolean(pendingAction)}
-                                  onClick={() => {
-                                    onRunAgent(action.id);
-                                    setExpandedAction(null);
-                                  }}
-                                >
-                                  {isPending ? (
-                                    <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-                                  ) : (
-                                    <PlayCircle className="mr-1 h-3 w-3" />
-                                  )}
-                                  {isPending ? "运行中..." : "执行"}
-                                </Button>
-                              </div>
-                            </motion.div>
-                          )}
-                        </AnimatePresence>
-                      </div>
-                    );
-                  })}
+                          >
+                            <action.icon className="h-4 w-4 shrink-0" />
+                            <span className="flex-1 text-left">
+                              {action.label}
+                            </span>
+                            <ChevronRight
+                              className={cn(
+                                "h-3 w-3 shrink-0 transition-transform",
+                                isExpandedAction && "rotate-90"
+                              )}
+                            />
+                          </button>
+                          <AnimatePresence>
+                            {isExpandedAction && (
+                              <motion.div
+                                initial={{ height: 0, opacity: 0 }}
+                                animate={{ height: "auto", opacity: 1 }}
+                                exit={{ height: 0, opacity: 0 }}
+                                transition={{ duration: 0.2 }}
+                                className="overflow-hidden"
+                              >
+                                <div className="px-2 pb-2 pt-1">
+                                  <p className="mb-2 text-xs text-neutral-500">
+                                    {action.description}
+                                  </p>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-7 w-full text-xs"
+                                    disabled={Boolean(pendingAction)}
+                                    onClick={() => {
+                                      onRunAgent(action.id);
+                                      setExpandedAction(null);
+                                    }}
+                                  >
+                                    {isPending ? (
+                                      <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                                    ) : (
+                                      <PlayCircle className="mr-1 h-3 w-3" />
+                                    )}
+                                    {isPending ? "运行中..." : "执行"}
+                                  </Button>
+                                </div>
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
+              )}
 
               {/* Status messages */}
               {actionSuccess && (
@@ -377,7 +390,7 @@ export function AgentSidebar({
         </AnimatePresence>
 
         {/* Collapsed state: show icons only */}
-        {!isExpanded && (
+        {!isExpanded && hasProject && (
           <div className="flex flex-col items-center gap-2 py-3">
             {ALL_AGENT_ACTIONS.map((action) => (
               <button

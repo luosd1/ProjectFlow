@@ -152,13 +152,13 @@ With the backend running, reset the local demo data:
 curl -X POST http://localhost:8000/api/demo/reset
 ```
 
-The response includes `workspace_id` and `project_id`. Open the returned project in the frontend:
+The response includes `workspace_id` and `project_id`. Open the returned workspace in the frontend:
 
 ```text
-http://localhost:3000/projects/<project_id>
+http://localhost:3000/workspaces/<workspace_id>
 ```
 
-The dashboard also exposes a Reset demo button. It calls the same endpoint and navigates to the seeded project.
+The dashboard also exposes a Reset demo button. It calls the same endpoint and navigates to the seeded workspace.
 
 ## Demo Path
 
@@ -418,17 +418,18 @@ Use this checklist to manually verify the full MVP flow. It covers both mock mod
 - [ ] Click "开始使用" — redirects to onboarding page
 - [ ] Fill in account setup form (display name) — form validates and submits
 - [ ] Complete member profile wizard (3 steps: basic info / skills & experience / availability)
-- [ ] Create a workspace — 2-step wizard (basic info + team context)
+- [ ] Click "进入工作台" — lands on `/workspaces/<id>` (three-column layout)
+- [ ] Create a workspace — 2-step wizard (basic info + team context) if no workspace exists
 - [ ] Invite a member — copy-link feedback works
 
 ### Project Intake
 
-- [ ] Navigate to "新建项目" — project intake form loads
+- [ ] In workspace dashboard, click "新建项目" — project intake dialog opens
 - [ ] Select project type (coursework/competition/startup/research)
 - [ ] Fill in project idea, deadline, deliverables
 - [ ] Add deliverable tags
 - [ ] Add resources (text input)
-- [ ] Submit — project is created and dashboard loads
+- [ ] Submit — project is created and loads in the same three-column layout
 
 ### Agent: Clarification (Direction Card)
 

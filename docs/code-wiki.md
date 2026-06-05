@@ -406,9 +406,9 @@ generate_structured_output()
 | `/onboarding` | OnboardingPage | 账号设置引导，渲染 `<AccountSetupForm />` |
 | `/onboarding/profile` | ProfilePage | 成员资料填写，渲染 `<MemberProfileWizard />` |
 | `/workspaces/new` | NewWorkspacePage | 新建工作区 |
-| `/workspaces/[workspaceId]` | WorkspaceTransitionPage | 跳转路由：有项目→第一个项目，无项目→新建项目 |
-| `/projects/new` | NewProjectPage | 新建项目 |
-| `/projects/[projectId]` | ProjectDashboardPage | **项目仪表盘核心页面**，三栏布局(ProjectSidebar + ProjectContent + AgentSidebar)，管理所有 Agent 操作和回调 |
+| `/workspaces/[workspaceId]` | WorkspaceDashboardPage | **唯一动态路由入口**，三栏布局。有项目时默认加载第一个项目，无项目时显示工作台首页。项目切换通过 `?project={id}`，视图切换通过 `?view={view}` |
+| ~~`/projects/new`~~ | ~~已删除~~ | ~~合并到 `/workspaces/[workspaceId]` 内通过弹窗创建~~ |
+| ~~`/projects/[projectId]`~~ | ~~已删除~~ | ~~合并到 `/workspaces/[workspaceId]?project={id}`~~ |
 
 ### 6.2 核心组件
 
@@ -420,15 +420,15 @@ generate_structured_output()
 | `ProjectFlowHome` | 首页 Hero：智能跳转或展示入口 |
 | `ProjectDashboard` | **项目仪表盘主组件**：Agent 操作面板(4 阶段 8 action) + 方向卡 + 阶段计划 + 任务拆解 + 分工流程 + Tab 面板 |
 
-#### 三栏布局组件（Phase 28 新增）
+#### 三栏布局组件（Phase 28 新增，Phase 32 合并路由）
 
 | 组件 | 职责 |
 |------|------|
-| `ProjectLayout` | 三栏布局容器：左 sidebar + 中 content + 右 agent sidebar |
-| `ProjectSidebar` | 左侧 workspace/project 导航树 |
-| `ProjectContent` | 中间内容区：渲染当前选中的视图 |
-| `AgentSidebar` | 右侧 Agent 操作面板 |
-| `WorkspaceContent` | workspace 概览视图（从 sidebar 进入） |
+| `WorkspaceLayout` | 三栏布局容器：左 sidebar + 中 content + 右 agent sidebar。管理 `showWorkspace` / `selectedProjectId` 状态切换 |
+| `ProjectSidebar` | 左侧 workspace/project 导航树。支持项目选择回调（不跳转）、workspace 首页切换、视图导航 |
+| `ProjectContent` | 中间内容区：渲染当前选中的项目视图（overview/stages/tasks 等） |
+| `WorkspaceContent` | 中间内容区：workspace 概览（成员统计、项目列表、新建项目弹窗入口） |
+| `AgentSidebar` | 右侧 Agent 操作面板。无项目时显示空状态 |
 | `NewProjectDialog` | 弹窗式新建项目 |
 | `NewWorkspaceDialog` | 弹窗式新建工作区 |
 | `CompactStat` | 紧凑统计展示组件 |

@@ -157,7 +157,6 @@ function MobileNav({ pathname, workspaceId }: { pathname: string; workspaceId: s
     ? [
         { label: "首页", href: "/", icon: Home },
         { label: "工作台", href: `/workspaces/${workspaceId}`, icon: LayoutDashboard },
-        { label: "新建项目", href: `/projects/new?workspaceId=${workspaceId}`, icon: Plus },
       ]
     : baseNavItems;
 
@@ -221,7 +220,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     ? [
         { label: "首页", href: "/", icon: Home },
         { label: "工作台", href: `/workspaces/${workspaceId}`, icon: LayoutDashboard },
-        { label: "新建项目", href: `/projects/new?workspaceId=${workspaceId}`, icon: Plus },
       ]
     : baseNavItems;
 

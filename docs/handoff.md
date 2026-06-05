@@ -51,6 +51,34 @@ Applied `$impeccable` critique fixes to the onboarding flow (homepage → worksp
 **Date picker clarity:**
 - Added `CalendarIcon` to project intake deadline field for better affordance.
 
+### Phase 32 — Route Unification & Workspace Navigation Fixes (2026-06-05)
+
+**Onboarding flow simplification:**
+- Removed Step 4 "Create Project" from onboarding wizard (3 steps: basic info → skills & experience → availability).
+- After completing member profile, user lands directly at workspace dashboard — project creation happens inside the workspace via `NewProjectDialog`.
+- Success state now shows only "进入工作台" action (removed duplicate "新建项目").
+
+**Route unification:**
+- Deleted `frontend/src/app/projects/[projectId]/page.tsx` and `frontend/src/app/projects/new/page.tsx`.
+- `/workspaces/[workspaceId]` is now the sole dynamic route entry — three-column layout with unified state management.
+- Project switching via `?project={id}` query param (no page navigation); view switching via `?view={view}`.
+- `AppShell` navigation bar simplified: removed "新建项目" button to avoid duplication with `NewProjectDialog` in workspace content.
+
+**WorkspaceLayout as unified entry:**
+- Created `workspace-layout.tsx` as the central layout component for `/workspaces/[workspaceId]`.
+- Manages `showWorkspace` / `selectedProjectId` state; renders `WorkspaceContent` (no project) or `ProjectContent` (project selected).
+- `onClearSelectedProject` callback added to prevent `useEffect` conflict when navigating back to workspace.
+
+**Null-safety hardening:**
+- `ProjectSidebar`: `state.tasks ?? []`, `state.risks ?? []`, `state.members ?? []`, `state.memberships ?? []`, `state.member_profiles ?? []`, `state.workspace ?? {...}` guards throughout.
+- `AgentSidebar`: `(state.timeline ?? []).slice(0, 5)` guard.
+- `useRouter` null guard with `window.location.href` fallback in `NewWorkspaceDialog` callback.
+
+**Documentation aligned:** CLAUDE.md, AGENTS.md, docs/code-wiki.md, docs/handoff.md updated. Routes table, navigation conventions, and component responsibility tables updated.
+
+**Files deleted:** `frontend/src/app/projects/[projectId]/page.tsx`, `frontend/src/app/projects/new/page.tsx`.
+**Files created:** `frontend/src/components/project/workspace-layout.tsx`.
+
 ---
 
 ### Phase 28 — Frontend Redesign Migration (2026-06-04)

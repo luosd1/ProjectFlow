@@ -319,6 +319,7 @@ export type WorkspaceState = {
   memberships: WorkspaceMembership[];
   member_profiles: MemberProfile[];
   projects: Project[];
+  members: User[];
 };
 
 export type AgentProposal = {

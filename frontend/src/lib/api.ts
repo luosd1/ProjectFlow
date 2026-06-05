@@ -219,6 +219,7 @@ export async function getWorkspaceState(workspaceId: string): Promise<WorkspaceS
     memberships,
     member_profiles: profiles,
     projects,
+    members,
   };
 }
 
