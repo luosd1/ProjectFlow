@@ -7,7 +7,7 @@
         "serve",
         "--mcp",
         "--path",
-        "/Users/robertwu/Documents/Projects/ProjectFlow"
+        "."
       ]
     }
   }

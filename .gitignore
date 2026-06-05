@@ -24,8 +24,10 @@ __pycache__/
 Thumbs.db
 scripts/
 
-# Agent config 
+# Agent config
 .codex/
+.codegraph/
+.playwright-mcp/
 backend/tmp-logs/
 vendor_imports/tools/
 
