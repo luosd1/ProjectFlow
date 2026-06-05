@@ -48,6 +48,11 @@ type BackendWorkspaceState = {
   members: BackendWorkspaceMember[];
 };
 type BackendRisk = Omit<Risk, "evidence"> & { evidence: unknown[] | Record<string, unknown> };
+type BackendProjectState = Omit<ProjectState, "workspace" | "members" | "risks"> & {
+  workspace: BackendWorkspace;
+  members: BackendUser[];
+  risks: BackendRisk[];
+};
 
 const EVIDENCE_LABELS: Record<string, string> = {
   source: "来源",
@@ -115,6 +120,19 @@ function normalizeRisk(risk: BackendRisk): Risk {
     ...risk,
     evidence: evidenceItems.map(normalizeEvidenceItem),
   };
+}
+
+function normalizeProjectState(state: BackendProjectState): ProjectState {
+  return {
+    ...state,
+    workspace: normalizeWorkspace(state.workspace),
+    members: state.members.map(normalizeUser),
+    risks: state.risks.map(normalizeRisk),
+  };
+}
+
+function isMissingAggregateEndpoint(error: unknown) {
+  return error instanceof Error && error.message.includes("请求失败：404");
 }
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
@@ -299,6 +317,18 @@ export async function getProject(projectId: string): Promise<Project> {
 }
 
 export async function getProjectState(projectId: string): Promise<ProjectState> {
+  try {
+    const state = await request<BackendProjectState>(`/projects/${projectId}/state`);
+    return normalizeProjectState(state);
+  } catch (error) {
+    if (!isMissingAggregateEndpoint(error)) {
+      throw error;
+    }
+  }
+  return getProjectStateFromSplitEndpoints(projectId);
+}
+
+async function getProjectStateFromSplitEndpoints(projectId: string): Promise<ProjectState> {
   const project = await getProject(projectId);
   const [
     workspace,

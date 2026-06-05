@@ -302,6 +302,7 @@ export type AgentFlowResult = {
   used_fallback: boolean;
   output: Record<string, unknown>;
   created_ids: string[];
+  proposal_id?: string | null;
 };
 
 export type DemoResetResult = {

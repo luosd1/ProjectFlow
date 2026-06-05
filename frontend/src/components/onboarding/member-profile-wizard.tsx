@@ -13,6 +13,8 @@ import {
   Clock,
   Heart,
   X,
+  ChevronUp,
+  ChevronDown,
 } from "lucide-react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
@@ -102,6 +104,7 @@ export function MemberProfileWizard({
 
   // Step 3: Availability
   const [availableHours, setAvailableHours] = React.useState<number>(10)
+  const [hoursDisplay, setHoursDisplay] = React.useState("10")
   const [preferredTime, setPreferredTime] = React.useState("")
   const [interests, setInterests] = React.useState("")
   const [constraints, setConstraints] = React.useState("")
@@ -463,9 +466,7 @@ export function MemberProfileWizard({
                   key={s}
                   type="button"
                   onClick={() => {
-                    if (!skills.some((sk) => sk.name.toLowerCase() === s.toLowerCase())) {
-                      setSkills([...skills, { name: s, level: 3 }])
-                    }
+                    setNewSkillName(s)
                   }}
                   className="rounded-full border px-2.5 py-0.5 text-xs transition-colors hover:bg-accent"
                 >
@@ -505,16 +506,59 @@ export function MemberProfileWizard({
           error={errors.hours}
           hint="通常学生项目投入 5-20 小时"
         >
-          <Input
-            type="number"
-            min={1}
-            max={80}
-            value={availableHours}
-            onChange={(e) =>
-              setAvailableHours(Math.max(1, Number(e.target.value) || 1))
-            }
-            className="h-10"
-          />
+          <div className="flex items-center">
+            <Input
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              value={hoursDisplay}
+              onChange={(e) =>
+                setHoursDisplay(e.target.value.replace(/\D/g, ""))
+              }
+              onBlur={() => {
+                const n = Number(hoursDisplay)
+                if (!hoursDisplay || isNaN(n) || n < 1) {
+                  setAvailableHours(1)
+                  setHoursDisplay("1")
+                } else if (n > 80) {
+                  setAvailableHours(80)
+                  setHoursDisplay("80")
+                } else {
+                  setAvailableHours(n)
+                }
+              }}
+              className="h-10 rounded-r-none border-r-0"
+            />
+            <div className="flex h-10 flex-col rounded-r-lg border border-input border-l-0">
+              <button
+                type="button"
+                tabIndex={-1}
+                aria-label="增加"
+                className="flex h-[19px] items-center justify-center rounded-tr-lg px-1.5 hover:bg-accent"
+                onClick={() => {
+                  const n = Math.min(80, (Number(hoursDisplay) || 1) + 1)
+                  setHoursDisplay(String(n))
+                  setAvailableHours(n)
+                }}
+              >
+                <ChevronUp className="h-3 w-3" />
+              </button>
+              <div className="mx-1 h-px bg-border" />
+              <button
+                type="button"
+                tabIndex={-1}
+                aria-label="减少"
+                className="flex h-[19px] items-center justify-center rounded-br-lg px-1.5 hover:bg-accent"
+                onClick={() => {
+                  const n = Math.max(1, (Number(hoursDisplay) || 1) - 1)
+                  setHoursDisplay(String(n))
+                  setAvailableHours(n)
+                }}
+              >
+                <ChevronDown className="h-3 w-3" />
+              </button>
+            </div>
+          </div>
         </FormField>
         <FormField
           label="偏好工作时段"

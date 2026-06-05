@@ -203,9 +203,105 @@ describe("frontend API layer", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
-  it("composes dashboard state from execution-loop endpoints", async () => {
+  it("loads dashboard state from the aggregate project-state endpoint", async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input);
+      if (url.endsWith("/projects/project-1/state")) {
+        return jsonResponse({
+          workspace: {
+            id: "workspace-1",
+            name: "Workspace",
+            owner_user_id: "user-1",
+            description: null,
+            created_at: "2026-05-29T00:00:00Z",
+            updated_at: "2026-05-29T00:00:00Z",
+          },
+          project: {
+            id: "project-1",
+            workspace_id: "workspace-1",
+            name: "Demo",
+            idea: "Demo",
+            deadline: "2026-06-07",
+            deliverables: "Demo",
+            status: "active",
+            current_stage_id: "stage-1",
+            direction_card: null,
+            created_by: "user-1",
+            created_at: "2026-05-29T00:00:00Z",
+            updated_at: "2026-05-29T00:00:00Z",
+          },
+          resources: [],
+          members: [
+            {
+              id: "user-1",
+              display_name: "Lin",
+              email: null,
+              avatar_url: null,
+              created_at: "2026-05-29T00:00:00Z",
+            },
+          ],
+          memberships: [
+            {
+              id: "membership-1",
+              workspace_id: "workspace-1",
+              user_id: "user-1",
+              role: "owner",
+              joined_at: "2026-05-29T00:00:00Z",
+            },
+          ],
+          member_profiles: [],
+          projects: [],
+          stages: [],
+          tasks: [],
+          agent_proposals: [],
+          assignment_proposals: [],
+          assignment_responses: [],
+          assignment_negotiations: [],
+          checkins: [],
+          risks: [
+            {
+              id: "risk-1",
+              project_id: "project-1",
+              stage_id: "stage-1",
+              task_id: "task-1",
+              type: "dependency",
+              severity: "high",
+              title: "后端联调阻塞",
+              description: "接口阻塞前端联调。",
+              evidence: {
+                source: "签到",
+                detail: "Mia 报告 SQLite 外键约束报错",
+                task_id: "task-1",
+              },
+              recommendation: "先排查外键写入顺序。",
+              status: "open",
+              created_by_agent: true,
+              created_at: "2026-05-29T00:00:00Z",
+            },
+          ],
+          action_cards: [],
+          timeline: [],
+        });
+      }
+      throw new Error(`Unexpected request ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const state = await getProjectState("project-1");
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(state.workspace.workspace_id).toBe("workspace-1");
+    expect(state.members[0].user_id).toBe("user-1");
+    expect(state.risks[0].evidence[0]).toEqual({
+      "来源": "签到",
+      "事实": "Mia 报告 SQLite 外键约束报错",
+    });
+  });
+
+  it("falls back to execution-loop endpoints when aggregate project state is missing", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.endsWith("/projects/project-1/state")) return jsonResponse({ detail: "Not found" }, 404);
       if (url.endsWith("/projects/project-1")) {
         return jsonResponse({
           id: "project-1",

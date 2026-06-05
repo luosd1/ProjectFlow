@@ -18,6 +18,17 @@ GitHub issue #16 (Real LLM Provider Readiness and Diagnostics) is complete.
 GitHub issue #17 (Agent Output Persistence and Confirmation) is complete.
 GitHub issue #21 (Real-Provider Verification and MVP Usable Runbook) is complete.
 
+### Phase 29 — Agent Output Quality & Reliability Hardening (2026-06-05)
+
+- WorkspaceState now includes `current_date`, `current_datetime`, and `timezone`; prompts inject them inside `<time_info>` so Agent runs can reason about deadlines and cycles against the current date.
+- Project resources now enter Agent workspace context for clarify/plan/breakdown through compact resource summaries.
+- Direction clarification output supports richer structured fields: `source_summary`, `assumptions`, `unknowns`, `mvp_boundary`, and `decision_points`; frontend `DirectionDecisionView` renders these sections.
+- `AssignmentNegotiationOutput` no longer creates a generic `AgentProposal`; negotiate output is kept in AgentEvent timeline only, while concrete assignment negotiation remains owned by the assignment flow.
+- Active push and unchanged replan fallback text is Chinese and project-aware.
+- Proposal and Agent sidebar UI show generation status badges: success / repaired / fallback / failed.
+- Tests added for time/resource prompt context, Chinese fallback, negotiate timeline-only behavior, and proposal status badges.
+- Verification baseline: 221 backend / 26 frontend; frontend lint, build, and audit pass.
+
 ### Phase 26 — T23.B Round 2 Fixes (2026-06-03, GitHub #31)
 
 - Skill name Chinese mapping: `SKILL_NAME_CN_MAP` in common.py (12 English→Chinese), `_normalize_user_facing_text()` post-processing in output_schemas.py, assignment_recommendation prompt guidance.
@@ -121,7 +132,7 @@ Migrated frontend visual and layout foundation from `ProjectFlow_Frontend_Redesi
 - Assignment recommendation reason: resolves stage name from workspace_state instead of embedding raw stage_id.
 - Negotiation no-rejection fallback: `fallback_current_owner` now uses actual task owner instead of defaulting to first member.
 - `prompts.py`: `AgentEventType.assign` added to stage/task filter set so assign events only send active-stage data to LLM.
-- `agent_flow_service.py`: `_persist_agent_output` now handles `AssignmentNegotiationOutput`, persisting negotiation suggestions as AgentProposals.
+- `agent_flow_service.py`: Phase 27 briefly persisted `AssignmentNegotiationOutput` as AgentProposals; Phase 29 supersedes this by keeping negotiate output timeline-only because generic proposal confirmation cannot apply negotiation payloads.
 - `_build_user_facing_assignment`: merged single-member and multi-member branches into unified flow with conditional fragments.
 - `create_assignment_response` / `create_assignment_negotiation_from_proposal`: error messages use safe enum display (`.value`) and Chinese text.
 - Test baseline: 218 backend / 24 frontend (unchanged, all passing).
@@ -251,7 +262,7 @@ Implemented scope:
 
 ## Verification Baseline
 
-Latest verification baseline after the #21 verification pass:
+Latest verification baseline after Phase 29:
 
 ```bash
 cd backend
@@ -268,8 +279,8 @@ npm audit --omit=dev
 
 Results:
 
-- Backend: 166 tests passed (MVP suite + usability pass + LLM diagnostics + agent proposal confirmation + agent workflow + seed/reset/export + agent module tests + proposal confirm tests).
-- Frontend tests: 13 passed across 7 files (API layer, project dashboard, home page, app shell, action card, task status update, error boundaries).
+- Backend: 221 tests passed (MVP suite + usability pass + LLM diagnostics + agent proposal confirmation + agent workflow + seed/reset/export + agent module tests + proposal confirm tests + time/resource prompt context + negotiate timeline-only regression).
+- Frontend tests: 26 passed across 9 files (API layer, project dashboard, home page, app shell, action card, task status update, error boundaries, assignment flow panel, agent proposal status badge).
 - Frontend lint passed.
 - Frontend build passed.
 - Frontend audit passed with 0 vulnerabilities.
@@ -282,14 +293,16 @@ Backend:
 - Domain models/persistence tables implemented (19 tables, all enums).
 - AgentEvent now records `status` for success, repaired, fallback, or failed agent runs.
 - AgentProposal stores pending clarify/plan/breakdown/replan outputs; confirmation persists to project state.
+- Negotiate agent output is timeline-only and does not create generic AgentProposal records.
 - Service layer implemented for all CRUD domains plus assignment, action-card, check-in, risk, replan, agent-flow orchestration, and agent-proposal confirm/reject.
 - Pydantic schemas implemented for all CRUD and execution-loop domains.
-- WorkspaceState endpoint returns members, project, stages, tasks for Agent consumption.
-- Agent infrastructure can run with `LLM_PROVIDER=mock` by default, or OpenAI-compatible chat-completions settings through environment variables. Agent HTTP endpoints persist structured outputs and created entity IDs through service-layer writes.
+- WorkspaceState endpoint returns members, project, stages, tasks, assignment/check-in context, project resources, and current date/time/timezone for Agent consumption.
+- Agent infrastructure can run with `LLM_PROVIDER=mock` by default, or OpenAI-compatible chat-completions settings through environment variables. Agent HTTP endpoints return `proposal_id` where applicable and persist structured outputs and created entity IDs through service-layer writes.
 
 Frontend:
 
 - Implemented routes: `/`, `/onboarding`, `/onboarding/profile`, `/workspaces/new`, `/workspaces/[workspaceId]` (transition route → project), `/projects/new`, `/projects/[projectId]`.
+- Agent proposal panel and right Agent sidebar show whether each run succeeded, was repaired, used fallback, or failed.
 - API base URL comes from `NEXT_PUBLIC_API_BASE_URL` or defaults to `http://localhost:8000/api`.
 - All API calls go through `frontend/src/lib/api.ts`.
 - All types defined in `frontend/src/lib/types.ts`.

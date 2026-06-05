@@ -4,6 +4,7 @@ from sqlmodel import Session
 from app.core.database import get_session
 from app.models.project import Project
 from app.schemas.project import ProjectCreate, ProjectUpdate, ProjectRead
+from app.schemas.project_state import ProjectStateRead
 from app.services.project_service import (
     create_project,
     get_project,
@@ -11,6 +12,7 @@ from app.services.project_service import (
     normalize_direction_card,
     update_project,
 )
+from app.services.project_state_service import get_project_state
 
 router = APIRouter(tags=["projects"])
 
@@ -50,6 +52,17 @@ def api_get_project(
     if project is None:
         raise HTTPException(status_code=404, detail="Project not found")
     return _project_to_read(project)
+
+
+@router.get("/projects/{project_id}/state", response_model=ProjectStateRead)
+def api_get_project_state(
+    project_id: str,
+    session: Session = Depends(get_session),
+):
+    state = get_project_state(session, project_id)
+    if state is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+    return state
 
 
 @router.get("/workspaces/{workspace_id}/projects", response_model=list[ProjectRead])

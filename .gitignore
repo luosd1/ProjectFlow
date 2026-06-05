@@ -10,6 +10,7 @@ node_modules/
 frontend/.next/
 frontend/out/
 frontend/dist/
+*.tsbuildinfo
 
 .venv/
 venv/
@@ -27,6 +28,7 @@ scripts/
 .codex/
 .codegraph/
 backend/tmp-logs/
+vendor_imports/tools/
 
 # Worktrees
 .worktrees/

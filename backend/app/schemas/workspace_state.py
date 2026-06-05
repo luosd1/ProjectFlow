@@ -1,4 +1,5 @@
 from datetime import date
+
 from pydantic import BaseModel, Field
 
 
@@ -87,6 +88,16 @@ class AssignmentNegotiationState(BaseModel):
     status: str
 
 
+class ResourceState(BaseModel):
+    id: str
+    type: str  # text_note | file_stub | link
+    title: str
+    content_text: str | None = None
+    file_name: str | None = None
+    url: str | None = None
+    created_at: str
+
+
 class ProjectState(BaseModel):
     id: str
     name: str
@@ -103,6 +114,7 @@ class ProjectState(BaseModel):
     assignment_proposals: list[AssignmentProposalState] = Field(default_factory=list)
     assignment_responses: list[AssignmentResponseState] = Field(default_factory=list)
     assignment_negotiations: list[AssignmentNegotiationState] = Field(default_factory=list)
+    resources: list[ResourceState] = Field(default_factory=list)
 
 
 class WorkspaceStateResponse(BaseModel):
@@ -110,3 +122,6 @@ class WorkspaceStateResponse(BaseModel):
     workspace_name: str
     members: list[MemberState]
     project: ProjectState | None
+    current_date: str = ""
+    current_datetime: str = ""
+    timezone: str = ""

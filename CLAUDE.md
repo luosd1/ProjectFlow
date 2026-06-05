@@ -139,6 +139,8 @@ npm audit --omit=dev
 
 ### Agent
 - Agent 读取 WorkspaceState，生成 proposal，不直接 finalize
+- WorkspaceState 必须向 Agent 暴露当前日期/时间/时区，以及项目 resources 摘要；clarify/plan/breakdown prompt 必须使用这些上下文
+- DirectionCardOutput 可包含 source_summary、assumptions、unknowns、mvp_boundary、decision_points，用于提升方向澄清质量
 - 所有建议必须包含 reason（可解释性）
 - 不能编造成员、任务、阶段
 - 失败必须 fallback（JSON 修复 → retry → 模板化 fallback → timeline 记录）
@@ -149,6 +151,7 @@ npm audit --omit=dev
 - 所有用户可见文本（title, content, reason, summary, description, evidence 等）必须为中文
 - 用户可见文本中禁止使用原始 ID（user_id, task_id），必须使用成员 display_name（如"小林"）和任务 title（如"后端 API 与数据模型"）
 - LLM max_tokens 为推理模型预留空间（checkin 4000, plan/breakdown/replan 4000, push/risk/clarify/assign 3000, negotiate 2000）
+- AgentProposal 只用于 clarify/plan/breakdown/replan；negotiate 使用分工协商流程和 timeline，不创建通用 AgentProposal
 
 ## Agent Workflow (State Machine)
 
