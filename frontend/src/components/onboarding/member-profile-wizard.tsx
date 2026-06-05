@@ -102,6 +102,7 @@ export function MemberProfileWizard({
 
   // Step 3: Availability
   const [availableHours, setAvailableHours] = React.useState<number>(10)
+  const [hoursDisplay, setHoursDisplay] = React.useState("10")
   const [preferredTime, setPreferredTime] = React.useState("")
   const [interests, setInterests] = React.useState("")
   const [constraints, setConstraints] = React.useState("")
@@ -463,9 +464,7 @@ export function MemberProfileWizard({
                   key={s}
                   type="button"
                   onClick={() => {
-                    if (!skills.some((sk) => sk.name.toLowerCase() === s.toLowerCase())) {
-                      setSkills([...skills, { name: s, level: 3 }])
-                    }
+                    setNewSkillName(s)
                   }}
                   className="rounded-full border px-2.5 py-0.5 text-xs transition-colors hover:bg-accent"
                 >
@@ -506,13 +505,26 @@ export function MemberProfileWizard({
           hint="通常学生项目投入 5-20 小时"
         >
           <Input
-            type="number"
-            min={1}
-            max={80}
-            value={availableHours}
-            onChange={(e) =>
-              setAvailableHours(Math.max(1, Number(e.target.value) || 1))
-            }
+            type="text"
+            inputMode="numeric"
+            pattern="[0-9]*"
+            value={hoursDisplay}
+            onChange={(e) => {
+              // 过滤非数字字符（摒弃 type=number 避免浏览器科学计数法干扰）
+              setHoursDisplay(e.target.value.replace(/\D/g, ""))
+            }}
+            onBlur={() => {
+              const n = Number(hoursDisplay)
+              if (!hoursDisplay || isNaN(n) || n < 1) {
+                setAvailableHours(1)
+                setHoursDisplay("1")
+              } else if (n > 80) {
+                setAvailableHours(80)
+                setHoursDisplay("80")
+              } else {
+                setAvailableHours(n)
+              }
+            }}
             className="h-10"
           />
         </FormField>

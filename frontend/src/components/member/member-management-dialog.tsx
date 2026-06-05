@@ -83,6 +83,10 @@ function MemberForm({
     skills: Skill[]
     interests: string
     constraints: string
+    major: string
+    grade: string
+    preferredTime: string
+    pastProjects: string
   }
   onSubmit: (data: {
     name: string
@@ -92,6 +96,10 @@ function MemberForm({
     skills: Skill[]
     interests: string
     constraints: string
+    major: string
+    grade: string
+    preferredTime: string
+    pastProjects: string
   }) => void
   onCancel: () => void
   submitLabel: string
@@ -100,9 +108,14 @@ function MemberForm({
   const [email, setEmail] = React.useState(initialData?.email ?? "")
   const [rolePreference, setRolePreference] = React.useState(initialData?.rolePreference ?? "")
   const [availableHours, setAvailableHours] = React.useState<number>(initialData?.availableHours ?? 10)
+  const [hoursDisplay, setHoursDisplay] = React.useState(String(initialData?.availableHours ?? 10))
   const [skills, setSkills] = React.useState<Skill[]>(initialData?.skills ?? [])
   const [newSkillName, setNewSkillName] = React.useState("")
   const [newSkillLevel, setNewSkillLevel] = React.useState("3")
+  const [major, setMajor] = React.useState(initialData?.major ?? "")
+  const [grade, setGrade] = React.useState(initialData?.grade ?? "")
+  const [preferredTime, setPreferredTime] = React.useState(initialData?.preferredTime ?? "")
+  const [pastProjects, setPastProjects] = React.useState(initialData?.pastProjects ?? "")
   const [interests, setInterests] = React.useState(initialData?.interests ?? "")
   const [constraints, setConstraints] = React.useState(initialData?.constraints ?? "")
   const [errors, setErrors] = React.useState<Record<string, string>>({})
@@ -125,6 +138,7 @@ function MemberForm({
     if (!name.trim()) newErrors.name = "请输入成员姓名"
     if (!rolePreference.trim()) newErrors.role = "请输入角色偏好"
     if (availableHours <= 0) newErrors.hours = "可用时间必须大于 0"
+    if (!preferredTime.trim()) newErrors.time = "请输入偏好工作时段"
     if (skills.length === 0) newErrors.skills = "请至少添加一项技能"
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
@@ -140,6 +154,10 @@ function MemberForm({
       skills,
       interests: interests.trim(),
       constraints: constraints.trim(),
+      major: major.trim(),
+      grade: grade.trim(),
+      preferredTime: preferredTime.trim(),
+      pastProjects: pastProjects.trim(),
     })
   }
 
@@ -198,16 +216,52 @@ function MemberForm({
         )}
       </div>
 
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="space-y-2">
+          <label className="text-sm font-medium">专业</label>
+          <Input
+            value={major}
+            onChange={(e) => setMajor(e.target.value)}
+            placeholder="例如：计算机科学"
+            className="h-10"
+          />
+        </div>
+        <div className="space-y-2">
+          <label className="text-sm font-medium">年级</label>
+          <Input
+            value={grade}
+            onChange={(e) => setGrade(e.target.value)}
+            placeholder="例如：大二"
+            className="h-10"
+          />
+        </div>
+      </div>
+
       <div className="space-y-2">
         <label className="text-sm font-medium">
           每周可用时间 <span className="text-destructive">*</span>
         </label>
         <Input
-          type="number"
-          min={1}
-          max={80}
-          value={availableHours}
-          onChange={(e) => setAvailableHours(Math.max(1, Number(e.target.value) || 1))}
+          type="text"
+          inputMode="numeric"
+          pattern="[0-9]*"
+          value={hoursDisplay}
+          onChange={(e) => {
+            // 过滤非数字字符（摒弃 type=number 避免浏览器科学计数法干扰）
+            setHoursDisplay(e.target.value.replace(/\D/g, ""))
+          }}
+          onBlur={() => {
+            const n = Number(hoursDisplay)
+            if (!hoursDisplay || isNaN(n) || n < 1) {
+              setAvailableHours(1)
+              setHoursDisplay("1")
+            } else if (n > 80) {
+              setAvailableHours(80)
+              setHoursDisplay("80")
+            } else {
+              setAvailableHours(n)
+            }
+          }}
           className="h-10"
         />
         <p className="text-xs text-muted-foreground">通常学生项目投入 5-20 小时</p>
@@ -215,6 +269,27 @@ function MemberForm({
           <div className="flex items-center gap-1.5 rounded-md bg-destructive/10 px-2.5 py-1.5 text-sm text-destructive">
             <AlertTriangle className="h-3.5 w-3.5" />
             {errors.hours}
+          </div>
+        )}
+      </div>
+
+      <div className="space-y-2">
+        <label className="text-sm font-medium">
+          偏好工作时段 <span className="text-destructive">*</span>
+        </label>
+        <Input
+          value={preferredTime}
+          onChange={(e) => {
+            setPreferredTime(e.target.value)
+            if (errors.time) setErrors((prev) => ({ ...prev, time: "" }))
+          }}
+          placeholder="例如：晚上 8-11 点、周末下午"
+          className="h-10"
+        />
+        {errors.time && (
+          <div className="flex items-center gap-1.5 rounded-md bg-destructive/10 px-2.5 py-1.5 text-sm text-destructive">
+            <AlertTriangle className="h-3.5 w-3.5" />
+            {errors.time}
           </div>
         )}
       </div>
@@ -296,6 +371,16 @@ function MemberForm({
       </div>
 
       <div className="space-y-2">
+        <label className="text-sm font-medium">过往项目</label>
+        <Input
+          value={pastProjects}
+          onChange={(e) => setPastProjects(e.target.value)}
+          placeholder="例如：参与过校园二手交易平台开发，负责前端..."
+          className="h-10"
+        />
+      </div>
+
+      <div className="space-y-2">
         <label className="text-sm font-medium">兴趣方向</label>
         <Input
           value={interests}
@@ -374,6 +459,10 @@ export function MemberManagementDialog({
     skills: Skill[]
     interests: string
     constraints: string
+    major: string
+    grade: string
+    preferredTime: string
+    pastProjects: string
   }) => {
     setLoading(true)
     setError("")
@@ -387,9 +476,9 @@ export function MemberManagementDialog({
         skills: data.skills,
         available_hours_per_week: data.availableHours,
         role_preference: data.rolePreference,
-        interests: data.interests,
+        interests: data.interests || data.pastProjects,
         constraints: data.constraints,
-        collaboration_preference: null,
+        collaboration_preference: data.preferredTime || null,
       })
       setSuccess(`成员 ${data.name} 添加成功`)
       onMembersChanged()
@@ -409,6 +498,10 @@ export function MemberManagementDialog({
     skills: Skill[]
     interests: string
     constraints: string
+    major: string
+    grade: string
+    preferredTime: string
+    pastProjects: string
   }) => {
     if (!selectedUserId) return
     setLoading(true)
@@ -418,9 +511,9 @@ export function MemberManagementDialog({
         skills: data.skills,
         available_hours_per_week: data.availableHours,
         role_preference: data.rolePreference,
-        interests: data.interests,
+        interests: data.interests || data.pastProjects,
         constraints: data.constraints,
-        collaboration_preference: null,
+        collaboration_preference: data.preferredTime || null,
       })
       setSuccess("成员信息更新成功")
       onMembersChanged()
@@ -598,6 +691,10 @@ export function MemberManagementDialog({
                       skills: selected.profile?.skills ?? [],
                       interests: selected.profile?.interests ?? "",
                       constraints: selected.profile?.constraints ?? "",
+                      major: "",
+                      grade: "",
+                      preferredTime: selected.profile?.collaboration_preference ?? "",
+                      pastProjects: "",
                     }}
                     onSubmit={handleEdit}
                     onCancel={() => setView("list")}
