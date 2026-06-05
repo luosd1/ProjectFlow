@@ -110,10 +110,8 @@ def _persist_agent_output(
             created_ids.append(proposal.id)
 
     if isinstance(output, AssignmentNegotiationOutput):
-        # Negotiation has its own AssignmentNegotiation flow and UI. Keep the
-        # agent output in timeline only so it does not create an AgentProposal
-        # that the generic confirm service cannot apply.
-        return created_ids, proposal_id
+        # Negotiation is timeline-only; no generic AgentProposal needed.
+        pass
 
     if isinstance(output, ActivePushOutput):
         for card in output.action_cards:
