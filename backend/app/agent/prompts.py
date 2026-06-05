@@ -17,6 +17,7 @@ Keep output concise: prefer 2-5 useful items over exhaustive lists."""
 OUTPUT_CONTRACT_BY_EVENT_TYPE: dict[AgentEventType, str] = {
     AgentEventType.clarify: """DirectionCardOutput JSON object:
 Required keys: "problem" string, "users" string, "value" string, "deliverables" string[], "boundaries" string[], "risks" string[], "suggested_questions" string[], "reason" string, "requires_confirmation" true.
+Optional enrichment keys (include when project has resources, skills, or clear unknowns): "source_summary" string, "assumptions" string[], "unknowns" string[], "mvp_boundary" object with optional "must_have" string[], "defer" string[], "out_of_scope" string[], "decision_points" string[].
 Use 2-4 deliverables, boundaries, risks, and questions.""",
     AgentEventType.plan: """StagePlanOutput JSON object:
 Required keys: "stages" array, "reason" string, "requires_confirmation" true.
@@ -213,6 +214,22 @@ def _compact_workspace_state_json(event_type: AgentEventType, workspace_state: W
                 })
                 for r in project.checkin_responses
             ]
+        # Include project resources for events that benefit from resource context
+        if event_type in {
+            AgentEventType.clarify,
+            AgentEventType.plan,
+            AgentEventType.breakdown,
+        } and project.resources:
+            payload["project"]["resources"] = [
+                _without_none({
+                    "type": r.type,
+                    "title": r.title,
+                    "summary": r.content_text[:150] if r.content_text else None,
+                    "file_name": r.file_name,
+                    "url": r.url,
+                })
+                for r in project.resources
+            ]
     return json.dumps(
         _without_none(payload),
         ensure_ascii=False,
@@ -226,12 +243,23 @@ def build_prompt_messages(
     workspace_state: WorkspaceStateResponse,
     user_prompt: str,
 ) -> list[dict[str, str]]:
+    # Inject current date/time/timezone info for the LLM
+    current_date = workspace_state.current_date or "未知"
+    current_datetime = workspace_state.current_datetime or "未知"
+    timezone = workspace_state.timezone or "未知"
+    time_header = (
+        f"## 当前日期与时间\n"
+        f"当前日期: {current_date}\n"
+        f"当前时间: {current_datetime}\n"
+        f"时区: {timezone}\n\n"
+    )
     return [
         {"role": "system", "content": AGENT_SYSTEM_PROMPT},
         {
             "role": "user",
             "content": (
                 f"Event type: {event_type.value}\n\n"
+                f"<time_info>\n{time_header}</time_info>\n\n"
                 f"<output_schema>\n{_output_contract(event_type)}\n</output_schema>\n\n"
                 f"<workspace_state>\n{_compact_workspace_state_json(event_type, workspace_state)}\n</workspace_state>\n\n"
                 f"Task:\n{user_prompt}"

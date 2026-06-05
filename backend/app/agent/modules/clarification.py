@@ -14,8 +14,9 @@ def build_request(workspace_state: WorkspaceStateResponse) -> AgentModuleRequest
         event_type=AgentEventType.clarify,
         user_prompt=(
             "Create a concise direction card from WorkspaceState. "
-            "Use project idea, deadline, deliverables, member skills/hours, and constraints. "
-            "Return only high-value risks/questions that affect the next plan."
+            "Use project idea, deadline, deliverables, member skills/hours, constraints, and project resources (files, links, notes). "
+            "Include enrichment fields (source_summary, assumptions, unknowns, mvp_boundary, decision_points) when the workspace state has "
+            "enough context to infer them. Return only high-value risks/questions that affect the next plan."
         ),
         fallback_payload={
             "problem": f"{project_name}需要先把用户场景、核心闭环和演示边界收敛清楚，避免团队直接进入发散实现。",
@@ -36,6 +37,24 @@ def build_request(workspace_state: WorkspaceStateResponse) -> AgentModuleRequest
             "suggested_questions": [
                 "这次演示必须证明的最小闭环是什么？",
                 "哪些功能可以明确推迟到下一轮？",
+            ],
+            "source_summary": f"基于项目“{project_name}”的初始想法和可用信息，尚未进行外部调研或用户验证。",
+            "assumptions": [
+                "团队成员具备实施该项目的必要技术能力",
+                "项目截止日期和交付范围不变",
+            ],
+            "unknowns": [
+                "外部依赖或第三方服务的可用性",
+                "用户对核心方案的接受度",
+            ],
+            "mvp_boundary": {
+                "must_have": ["核心演示闭环可达"],
+                "defer": ["非核心功能、性能优化"],
+                "out_of_scope": ["外部集成、多平台部署"],
+            },
+            "decision_points": [
+                "第一轮演示的核心场景是什么？",
+                "哪些功能可以推迟到 MVP 之后？",
             ],
             "reason": f"基于项目“{project_name}”的输入“{project_idea}”，fallback 只给出安全的中文基线，等待用户确认。",
         },

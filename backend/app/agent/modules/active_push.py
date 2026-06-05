@@ -5,8 +5,7 @@ from app.schemas.workspace_state import WorkspaceStateResponse
 
 def build_request(workspace_state: WorkspaceStateResponse) -> AgentModuleRequest:
     fallback_member = workspace_state.members[0] if workspace_state.members else None
-    fallback_member_name = fallback_member.display_name if fallback_member else "team"
-    fallback_task_title = "next task"
+    fallback_task_title = "下一步任务"
     if workspace_state.project and workspace_state.project.tasks:
         for t in workspace_state.project.tasks:
             if t.status != "done":
@@ -27,7 +26,7 @@ def build_request(workspace_state: WorkspaceStateResponse) -> AgentModuleRequest
             ),
             fallback_payload={
                 "action_cards": [],
-                "reason": "No members, stages, or tasks available for active push.",
+                "reason": "当前没有可用的成员、阶段或任务，无法生成主动推进建议。",
             },
         )
 
@@ -44,16 +43,16 @@ def build_request(workspace_state: WorkspaceStateResponse) -> AgentModuleRequest
             "action_cards": [
                 {
                     "type": "team_next_step",
-                    "title": f"Confirm next action: {fallback_task_title}",
-                    "content": "Pick the smallest useful next step for the active stage.",
-                    "reason": f"Fallback: {fallback_member_name} should take the next actionable step.",
-                    "goal": f"Advance {fallback_task_title} to in_progress",
-                    "start_suggestion": f"Start working on {fallback_task_title}",
-                    "completion_standard": f"{fallback_task_title} is marked done or in_progress",
+                    "title": f"确认下一步：{fallback_task_title}",
+                    "content": "为当前阶段选择最小可执行的下一个步骤。",
+                    "reason": f"回退方案：建议优先推进「{fallback_task_title}」。",
+                    "goal": f"推进「{fallback_task_title}」至进行中",
+                    "start_suggestion": f"开始处理「{fallback_task_title}」",
+                    "completion_standard": f"「{fallback_task_title}」状态更新为进行中或已完成",
                     "stage_id": stage_id,
                     "task_id": task_id,
                 }
             ],
-            "reason": "Active push fallback keeps the team focused on one action.",
+            "reason": "主动推进回退方案：聚焦一个核心行动，等待人工确认。",
         },
     )

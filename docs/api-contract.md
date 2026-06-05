@@ -1,6 +1,6 @@
 # ProjectFlow API Contract
 
-Status: current as of 2026-06-03. All planned MVP endpoints are implemented; confirmation-to-persist flow for clarify/plan/breakdown/replan; structured assignment citations and action card fields; resource CRUD; reject endpoint accepts empty body and persists rejection_reason; confirmed_by validated against User table.
+Status: current as of 2026-06-05. All planned MVP endpoints are implemented; confirmation-to-persist flow for clarify/plan/breakdown/replan; negotiate agent output is timeline-only; Agent workspace context includes current time and project resources; structured assignment citations and action card fields; resource CRUD; reject endpoint accepts empty body and persists rejection_reason; confirmed_by validated against User table.
 
 This document records the implemented MVP API surface. Post-MVP ideas should be tracked in roadmap docs, not mixed into this contract.
 
@@ -129,7 +129,7 @@ POST /api/tasks/{task_id}/status-updates
 GET /api/workspaces/{workspace_id}/state
 ```
 
-Returns the full workspace state (members, project, stages, tasks) needed by the Coordinator Agent.
+Returns the full workspace state needed by the Coordinator Agent: members, active project, stages, tasks, assignment/check-in context, project resources, and `current_date` / `current_datetime` / `timezone` for time-aware planning.
 
 ### Frontend Project State Composition
 
@@ -181,15 +181,16 @@ POST /api/agent/clarify
 POST /api/agent/plan
 POST /api/agent/breakdown
 POST /api/agent/assign
+POST /api/agent/negotiate
 POST /api/agent/active-push
 POST /api/agent/check-in-analysis
 POST /api/agent/risk-analysis
 POST /api/agent/replan
 ```
 
-Agent outputs are validated before persistence. Clarification, stage planning, task breakdown, and replan outputs create `AgentProposal` records (pending confirmation) instead of directly mutating project state. Assignment, active-push, check-in-analysis, and risk-analysis endpoints persist their validated proposals or records through services. Replan proposals do not apply changes until they are confirmed through `/api/agent-proposals/{proposal_id}/confirm`, which delegates to the same deterministic replan service used by `/api/replans/confirm`.
+Agent outputs are validated before persistence. Clarification, stage planning, task breakdown, and replan outputs create `AgentProposal` records (pending confirmation) instead of directly mutating project state. Assignment, active-push, check-in-analysis, and risk-analysis endpoints persist their validated proposals or records through services. Negotiate records the structured output in the AgentEvent timeline only; the concrete assignment negotiation records are owned by the assignment negotiation flow, not the generic AgentProposal confirm service. Replan proposals do not apply changes until they are confirmed through `/api/agent-proposals/{proposal_id}/confirm`, which delegates to the same deterministic replan service used by `/api/replans/confirm`.
 
-The agent response now includes `proposal_id` for clarify, plan, breakdown, and replan outputs:
+The agent response includes `proposal_id` for clarify, plan, breakdown, and replan outputs; direct-persist or timeline-only events return `null`:
 
 ```json
 {

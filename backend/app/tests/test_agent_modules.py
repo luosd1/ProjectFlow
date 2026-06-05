@@ -154,6 +154,33 @@ def test_t23a_breakdown_fallback_has_three_prioritized_chinese_tasks():
     assert all(_contains_cjk(task["title"]) for task in tasks)
 
 
+def test_active_push_fallback_text_is_chinese():
+    request = active_push.build_request(_workspace_state())
+    card = request.fallback_payload["action_cards"][0]
+
+    for key in (
+        "title",
+        "content",
+        "reason",
+        "goal",
+        "start_suggestion",
+        "completion_standard",
+    ):
+        assert _contains_cjk(card[key])
+    assert "Confirm next action" not in card["title"]
+
+
+def test_replan_unchanged_fallback_text_is_chinese():
+    request = replanning.build_request(_workspace_state())
+    payload = request.fallback_payload
+
+    assert _contains_cjk(payload["before"]["summary"])
+    assert _contains_cjk(payload["after"]["summary"])
+    assert _contains_cjk(payload["impact"])
+    assert _contains_cjk(payload["reason"])
+    assert payload["requires_confirmation"] is True
+
+
 def test_coordinator_delegates_direction_card_generation_and_logs_event(session: Session):
     client = MockLLMClient(
         responses=[

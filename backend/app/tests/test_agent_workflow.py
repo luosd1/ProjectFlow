@@ -16,7 +16,7 @@ from app.agent.prompts import AGENT_SYSTEM_PROMPT, build_prompt_messages
 from app.agent.workflow import AgentRunStatus, generate_structured_output
 from app.models import AgentEvent
 from app.models.enums import AgentEventStatus, AgentEventType
-from app.schemas.workspace_state import ProjectState, WorkspaceStateResponse
+from app.schemas.workspace_state import ProjectState, ResourceState, WorkspaceStateResponse
 
 
 def _parse_snapshot(raw: str) -> dict:
@@ -119,6 +119,36 @@ def test_prompt_includes_event_specific_output_schema():
     assert "DirectionCardOutput" in user_message
     assert '"problem"' in user_message
     assert '"requires_confirmation"' in user_message
+
+
+def test_prompt_includes_current_time_and_project_resources():
+    state = _workspace_state()
+    assert state.project is not None
+    state.current_date = "2026-06-05"
+    state.current_datetime = "2026-06-05T10:30:00+08:00"
+    state.timezone = "Asia/Shanghai"
+    state.project.resources = [
+        ResourceState(
+            id="resource-1",
+            type="text_note",
+            title="竞品调研摘要",
+            content_text="学生小队需要更主动的项目推进，而不是只有任务列表。",
+            created_at="2026-06-04T12:00:00+08:00",
+        )
+    ]
+
+    messages = build_prompt_messages(
+        event_type=AgentEventType.clarify,
+        workspace_state=state,
+        user_prompt="Create a direction card.",
+    )
+
+    user_message = messages[1]["content"]
+    assert "<time_info>" in user_message
+    assert "2026-06-05" in user_message
+    assert "Asia/Shanghai" in user_message
+    assert "竞品调研摘要" in user_message
+    assert "学生小队需要更主动的项目推进" in user_message
 
 
 def test_prompt_uses_compact_contract_for_real_provider_latency():

@@ -131,11 +131,11 @@ Stage 完成后 → 下一阶段 → 重新触发阶段性分工推荐
 
 | 模块 | 输入 | 输出 | 是否需要确认 |
 |------|------|------|------------|
-| Clarification | 项目想法、资源、成员 | 方向卡（问题/用户/价值/交付物/边界/风险） | ✅ 需确认后写入 Project.direction_card |
+| Clarification | 项目想法、资源、成员、当前时间 | 方向卡（问题/用户/价值/交付物/边界/风险/依据摘要/假设/未知项/MVP 边界/决策点） | ✅ 需确认后写入 Project.direction_card |
 | Planning | 方向卡、截止日期、交付物 | 阶段计划（3-5 个 Stage） | ✅ 需确认后创建 Stage |
 | Breakdown | 阶段、交付物、资源 | 任务列表（含优先级/依赖/可砍标记） | ✅ 需确认后创建 Task |
 | Assignment Recommendation | 任务、成员画像 | 分工提案（owner + backup + reason + 匹配度） | 需 finalize |
-| Assignment Negotiation | 拒绝信息、期望任务 | 交换协调建议 | 需确认 |
+| Assignment Negotiation | 拒绝信息、期望任务 | 交换协调建议 | AgentEvent timeline-only；不进入通用 AgentProposal |
 | Active Push | 项目状态、阶段、分工 | 行动卡（7 种类型） | 直接持久化 |
 | Check-in Analysis | 签到响应 | 状态摘要 + 可能风险 | 直接持久化 |
 | Risk Analysis | 任务、签到、截止日期、分工 | 风险卡（7 种类型 × 3 级严重度） | 直接持久化 |
@@ -153,6 +153,9 @@ Stage 完成后 → 下一阶段 → 重新触发阶段性分工推荐
 8. 输出失败必须 fallback（JSON 修复 → retry → 模板化 fallback → timeline 记录）
 9. Prompt 中用户数据必须用 XML 标签隔离，防止指令注入
 10. Fallback payload 不能包含 None 值
+11. Prompt 必须注入当前日期/时间/时区，避免周期和截止日期误判
+12. clarify/plan/breakdown 必须带项目资源摘要，不能只看项目 idea
+13. AgentProposal 只覆盖 clarify/plan/breakdown/replan；negotiate 保持 timeline-only
 
 ---
 
@@ -269,7 +272,7 @@ Project ──1:N──> AgentEvent
 22 个 schema 文件，每个对应一个领域。关键通用工具：
 
 - [common.py](backend/app/schemas/common.py)：`NonEmptyStr`、`EmailText`、`reject_past_date()`、`reject_inverted_date_range()`
-- [workspace_state.py](backend/app/schemas/workspace_state.py)：`WorkspaceStateResponse` — Agent 输入上下文，聚合 workspace 下成员+项目+阶段+任务的完整快照
+- [workspace_state.py](backend/app/schemas/workspace_state.py)：`WorkspaceStateResponse` — Agent 输入上下文，聚合 workspace 下成员+项目+阶段+任务+项目资源+当前日期/时间/时区的完整快照
 
 ### 5.4 Agent 层
 
@@ -438,7 +441,7 @@ generate_structured_output()
 
 | 组件 | 职责 |
 |------|------|
-| `AgentProposalPanel` | 方向卡/阶段/任务 Agent 提案面板，按类型渲染不同 payload，支持确认/拒绝；replan 由 `ReplanDiff` 专门展示 |
+| `AgentProposalPanel` | 方向卡/阶段/任务 Agent 提案面板，按类型渲染不同 payload，展示生成状态（成功/已修复/基础建议/失败），支持确认/拒绝；replan 由 `ReplanDiff` 专门展示 |
 | `DirectionCardPanel` | 方向卡展示 + 运行澄清按钮 |
 | `ActionCardItem` / `ActionCardsList` | 单张/列表行动卡渲染 |
 | `TeamActionsPanel` | 团队类型行动卡筛选 |
@@ -483,7 +486,7 @@ generate_structured_output()
 | Resources | addResource, listResourcesByProject |
 | Stages | listStagesByProject |
 | Tasks | listTasksByProject, updateTaskStatus |
-| Agent | runClarification, runPlanning, runBreakdown, runAssignment, runActivePush, runCheckinAnalysis, runRiskAnalysis, runReplan |
+| Agent | runClarification, runPlanning, runBreakdown, runAssignment, runAgentNegotiate, runActivePush, runCheckinAnalysis, runRiskAnalysis, runReplan |
 | Agent Proposals | listAgentProposalsByProject, confirmAgentProposal, rejectAgentProposal |
 | Assignments | listAssignmentProposalsByProject, listAssignmentResponsesByProject, listAssignmentNegotiationsByProject, respondToAssignment, startNegotiation, resolveNegotiation, finalizeAssignments |
 | Check-in | createCheckinCycle, submitCheckinResponse, listCheckinCyclesByProject |
@@ -560,6 +563,7 @@ Base URL: `http://localhost:8000/api`
 | POST | /agent/plan | 阶段规划 → AgentProposal(plan) |
 | POST | /agent/breakdown | 任务拆解 → AgentProposal(breakdown) |
 | POST | /agent/assign | 分工推荐 → AssignmentProposal |
+| POST | /agent/negotiate | 协商建议 → AgentEvent timeline-only |
 | POST | /agent/active-push | 主动推送 → ActionCard |
 | POST | /agent/check-in-analysis | 签到分析 → Risk/ActionCard |
 | POST | /agent/risk-analysis | 风险分析 → Risk |
@@ -634,6 +638,7 @@ Base URL: `http://localhost:8000/api`
       clarify → Project.direction_card
       plan → 创建 Stage 记录
       breakdown → 创建 Task 记录
+      replan → confirm_replan() 应用阶段/任务/行动卡变化
     → 标记 AgentEvent.user_confirmed = True
     → 记录确认 timeline 事件
 ```
@@ -775,6 +780,7 @@ npm audit --omit=dev                # 安全审计
 | 31 | Onboarding Flow Critique Fixes | ✅ 2026-06-04 |
 | 32 | Route Unification & Workspace Navigation Fixes | ✅ 2026-06-05 |
 | 33 | Stage Plan Timeline Redesign | ✅ 2026-06-05 |
+| 34 | Agent Output Quality & Reliability Hardening | ✅ 2026-06-05 |
 
 ---
 
