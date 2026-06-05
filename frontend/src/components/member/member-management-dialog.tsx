@@ -12,6 +12,8 @@ import {
   Pencil,
   Trash2,
   ChevronLeft,
+  ChevronUp,
+  ChevronDown,
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -241,29 +243,59 @@ function MemberForm({
         <label className="text-sm font-medium">
           每周可用时间 <span className="text-destructive">*</span>
         </label>
-        <Input
-          type="text"
-          inputMode="numeric"
-          pattern="[0-9]*"
-          value={hoursDisplay}
-          onChange={(e) => {
-            // 过滤非数字字符（摒弃 type=number 避免浏览器科学计数法干扰）
-            setHoursDisplay(e.target.value.replace(/\D/g, ""))
-          }}
-          onBlur={() => {
-            const n = Number(hoursDisplay)
-            if (!hoursDisplay || isNaN(n) || n < 1) {
-              setAvailableHours(1)
-              setHoursDisplay("1")
-            } else if (n > 80) {
-              setAvailableHours(80)
-              setHoursDisplay("80")
-            } else {
-              setAvailableHours(n)
+        <div className="flex items-center">
+          <Input
+            type="text"
+            inputMode="numeric"
+            pattern="[0-9]*"
+            value={hoursDisplay}
+            onChange={(e) =>
+              setHoursDisplay(e.target.value.replace(/\D/g, ""))
             }
-          }}
-          className="h-10"
-        />
+            onBlur={() => {
+              const n = Number(hoursDisplay)
+              if (!hoursDisplay || isNaN(n) || n < 1) {
+                setAvailableHours(1)
+                setHoursDisplay("1")
+              } else if (n > 80) {
+                setAvailableHours(80)
+                setHoursDisplay("80")
+              } else {
+                setAvailableHours(n)
+              }
+            }}
+            className="h-10 rounded-r-none border-r-0"
+          />
+          <div className="flex h-10 flex-col rounded-r-lg border border-input border-l-0">
+            <button
+              type="button"
+              tabIndex={-1}
+              aria-label="增加"
+              className="flex h-[19px] items-center justify-center rounded-tr-lg px-1.5 hover:bg-accent"
+              onClick={() => {
+                const n = Math.min(80, (Number(hoursDisplay) || 1) + 1)
+                setHoursDisplay(String(n))
+                setAvailableHours(n)
+              }}
+            >
+              <ChevronUp className="h-3 w-3" />
+            </button>
+            <div className="mx-1 h-px bg-border" />
+            <button
+              type="button"
+              tabIndex={-1}
+              aria-label="减少"
+              className="flex h-[19px] items-center justify-center rounded-br-lg px-1.5 hover:bg-accent"
+              onClick={() => {
+                const n = Math.max(1, (Number(hoursDisplay) || 1) - 1)
+                setHoursDisplay(String(n))
+                setAvailableHours(n)
+              }}
+            >
+              <ChevronDown className="h-3 w-3" />
+            </button>
+          </div>
+        </div>
         <p className="text-xs text-muted-foreground">通常学生项目投入 5-20 小时</p>
         {errors.hours && (
           <div className="flex items-center gap-1.5 rounded-md bg-destructive/10 px-2.5 py-1.5 text-sm text-destructive">
