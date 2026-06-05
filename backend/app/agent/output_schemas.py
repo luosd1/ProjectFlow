@@ -17,7 +17,6 @@ from app.agent.modules.common import (
     active_stage_id as resolve_active_stage_id,
     assignable_tasks,
     blocked_assignment_task_ids,
-    rejected_assignment_pairs,
 )
 from app.schemas.workspace_state import WorkspaceStateResponse
 
@@ -295,7 +294,6 @@ def _validate_references(output: AgentOutputBase, workspace_state: WorkspaceStat
             task_by_id = {t.id: t for t in workspace_state.project.tasks}
             resolved_stage_id = resolve_active_stage_id(workspace_state)
             blocked_task_ids = blocked_assignment_task_ids(workspace_state)
-            rejected_pairs = rejected_assignment_pairs(workspace_state)
 
             for assignment in output.assignments:
                 task = task_by_id.get(assignment.task_id)

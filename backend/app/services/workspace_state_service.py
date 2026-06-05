@@ -59,17 +59,27 @@ def get_workspace_state(session: Session, workspace_id: str) -> WorkspaceStateRe
     membership_rows = session.exec(
         select(WorkspaceMembership).where(WorkspaceMembership.workspace_id == workspace_id)
     ).all()
+    member_ids = [mem.user_id for mem in membership_rows]
+    users_by_id = {
+        user.id: user
+        for user in session.exec(select(User).where(User.id.in_(member_ids))).all()
+    } if member_ids else {}
+    profiles_by_user_id = {
+        profile.user_id: profile
+        for profile in session.exec(
+            select(MemberProfile).where(
+                MemberProfile.workspace_id == workspace_id,
+                MemberProfile.user_id.in_(member_ids),
+            )
+        ).all()
+    } if member_ids else {}
+
     members: list[MemberState] = []
     for mem in membership_rows:
-        user = session.get(User, mem.user_id)
+        user = users_by_id.get(mem.user_id)
         if not user:
             continue
-        profile = session.exec(
-            select(MemberProfile).where(
-                MemberProfile.user_id == mem.user_id,
-                MemberProfile.workspace_id == workspace_id,
-            )
-        ).first()
+        profile = profiles_by_user_id.get(mem.user_id)
         members.append(MemberState(
             user_id=user.id,
             display_name=user.display_name,
