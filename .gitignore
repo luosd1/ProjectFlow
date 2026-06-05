@@ -27,6 +27,7 @@ scripts/
 # Agent config (codex not tracked)
 .codex/
 .codegraph/
+.playwright-mcp/
 backend/tmp-logs/
 vendor_imports/tools/
 
