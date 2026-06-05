@@ -130,7 +130,7 @@ export function WorkspaceContent({ state, currentUserId, onNavigateToProject }: 
       className="h-full overflow-y-auto custom-scrollbar p-6"
     >
       {/* Header */}
-      <header className="mb-6 flex flex-wrap items-end justify-between gap-4">
+      <header className="mb-6">
         <div className="min-w-0">
           <div className="flex items-center gap-2 text-neutral-400 mb-1">
             <Users className="h-4 w-4" />
@@ -145,13 +145,6 @@ export function WorkspaceContent({ state, currentUserId, onNavigateToProject }: 
             {workspace.description || "团队项目、成员能力和推进状态集中在这里。"}
           </p>
         </div>
-        <Button
-          className="gap-2 bg-neutral-900 text-white hover:bg-neutral-800"
-          onClick={() => setNewProjectOpen(true)}
-        >
-          <Plus className="h-4 w-4" />
-          新建项目
-        </Button>
       </header>
 
       {/* Stats */}
