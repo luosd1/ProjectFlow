@@ -1,0 +1,56 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - banner [ref=e3]:
+      - generic [ref=e5]:
+        - link "ProjectFlow" [ref=e6] [cursor=pointer]:
+          - /url: /
+          - img [ref=e8]
+          - generic [ref=e12]: ProjectFlow
+        - navigation [ref=e13]:
+          - link "首页" [ref=e14] [cursor=pointer]:
+            - /url: /
+            - img [ref=e15]
+            - text: 首页
+    - separator
+    - main [ref=e18]:
+      - generic [ref=e19]:
+        - generic [ref=e20]:
+          - paragraph [ref=e21]: ProjectFlow
+          - heading "新建工作区" [level=1] [ref=e22]
+          - paragraph [ref=e23]: 创建团队工作区并邀请成员。
+        - generic [ref=e25]:
+          - generic [ref=e26]:
+            - heading "创建工作区" [level=1] [ref=e27]:
+              - img [ref=e28]
+              - text: 创建工作区
+            - paragraph [ref=e30]: 为你的团队创建一个协作空间
+          - generic [ref=e32]:
+            - generic [ref=e33]:
+              - generic [ref=e34]: "1"
+              - generic [ref=e35]: 基本信息
+              - generic [ref=e36]: 工作区名称和描述
+            - generic [ref=e38]:
+              - generic [ref=e39]: "2"
+              - generic [ref=e40]: 团队上下文
+              - generic [ref=e41]: 规模和场景
+          - generic [ref=e42]:
+            - generic [ref=e43]:
+              - generic [ref=e44]:
+                - generic [ref=e45]:
+                  - text: 工作区名称
+                  - generic [ref=e46]: "*"
+                - textbox "例如：2024 春季开发小队" [ref=e47]
+              - generic [ref=e48]:
+                - generic [ref=e49]: 工作区描述
+                - textbox "我们是一个专注于..." [ref=e50]
+                - paragraph [ref=e51]: 简单描述团队或项目方向
+              - generic [ref=e52]:
+                - generic [ref=e53]:
+                  - text: 所有者 ID
+                  - generic [ref=e54]: "*"
+                - textbox "UUID of the team lead" [ref=e55]
+            - generic [ref=e56]:
+              - button "上一步" [disabled]
+              - button "下一步 →" [ref=e57] [cursor=pointer]
+  - button "Open Next.js Dev Tools" [ref=e63] [cursor=pointer]:
+    - img [ref=e64]

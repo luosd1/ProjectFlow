@@ -454,9 +454,9 @@ generate_structured_output()
 |------|------|
 | `AssignmentFlowPanel` | 分工全流程：推荐→接受/拒绝→协商→确认 |
 | `CheckInForm` | 签到表单（关联任务+完成内容+阻塞+可用时间+信心） |
-| `MemberManagementDialog` | 成员管理弹窗（列表/添加/编辑/删除）；添加/编辑表单含姓名、邮箱、角色偏好、专业、年级、可用时间（自定义 stepper）、偏好工作时段（必填）、技能、过往项目、兴趣方向、限制条件 |
+| `MemberManagementDialog` | 成员管理弹窗（列表/添加/编辑/删除） |
 | `AccountSetupForm` | 账号创建 + 演示用户选择 |
-| `MemberProfileWizard` | 三步向导：基本信息（姓名/角色偏好/专业/年级）→技能经验（技能/等级/热门技能填入输入框/过往项目）→可用时间（自定义 stepper/偏好工作时段必填/兴趣方向/限制条件） |
+| `MemberProfileWizard` | 三步向导：基本信息→技能经验→可用时间 |
 | `ProjectIntakeForm` | 新建项目表单（含资源输入面板） |
 | `ResourceInputPanel` | 资源输入（文本/链接/文件引用） |
 | `StagePlanBoard` | 阶段计划看板（总进度+每阶段卡片） |
@@ -781,7 +781,6 @@ npm audit --omit=dev                # 安全审计
 | 32 | Route Unification & Workspace Navigation Fixes | ✅ 2026-06-05 |
 | 33 | Stage Plan Timeline Redesign | ✅ 2026-06-05 |
 | 34 | Agent Output Quality & Reliability Hardening | ✅ 2026-06-05 |
-| 35 | Onboarding & Member Form Improvements | ✅ 2026-06-05 |
 
 ---
 

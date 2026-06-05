@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useParams, useSearchParams, useRouter } from "next/navigation";
 import { AlertCircle, Loader2 } from "lucide-react";
 
@@ -96,13 +96,8 @@ export default function WorkspaceDashboardPage() {
   const [projectState, setProjectState] = useState<ProjectState | null>(null);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [showWorkspace, setShowWorkspace] = useState(!projectParam);
-  const showWorkspaceRef = useRef(showWorkspace);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    showWorkspaceRef.current = showWorkspace;
-  }, [showWorkspace]);
 
   const [pendingAction, setPendingAction] = useState<AgentAction | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -119,14 +114,12 @@ export default function WorkspaceDashboardPage() {
         setLastWorkspaceId(workspaceId);
 
         const targetProjectId = projectParam ?? (ws.projects.length > 0 ? ws.projects[0].id : null);
-        if (targetProjectId && !showWorkspaceRef.current) {
+        if (targetProjectId) {
           setSelectedProjectId(targetProjectId);
           setShowWorkspace(false);
           return getProjectState(targetProjectId);
         }
-        if (!targetProjectId) {
-          setShowWorkspace(true);
-        }
+        setShowWorkspace(true);
         return null;
       })
       .then((ps) => {

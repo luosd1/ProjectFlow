@@ -18,19 +18,6 @@ GitHub issue #16 (Real LLM Provider Readiness and Diagnostics) is complete.
 GitHub issue #17 (Agent Output Persistence and Confirmation) is complete.
 GitHub issue #21 (Real-Provider Verification and MVP Usable Runbook) is complete.
 
-### Phase 35 — Onboarding & Member Form Improvements (2026-06-05, PR #33)
-
-Frontend UX improvements for onboarding and member management forms.
-
-**Changes:**
-- Popular skill click now fills the input field (user chooses level before adding) instead of auto-adding at Lv.3.
-- Member management dialog (`MemberManagementDialog`) added 4 new fields: 专业, 年级, 偏好工作时段 (required), 过往项目.
-- `MemberProfileWizard` "偏好工作时段" required validation aligned with onboarding path.
-- Available hours input changed from `type="number"` to `type="text"` + `inputMode="numeric"` + custom up/down stepper buttons, eliminating browser scientific-notation interference with `e` character.
-- New frontend fields (major, grade, pastProjects) are collected but not persisted to backend (no backend schema fields yet). `preferredTime` maps to `collaboration_preference`; `pastProjects` falls back to `interests` when interests is empty.
-
-**Files modified:** `frontend/src/components/member/member-management-dialog.tsx`, `frontend/src/components/onboarding/member-profile-wizard.tsx`.
-
 ### Phase 29 — Agent Output Quality & Reliability Hardening (2026-06-05)
 
 - WorkspaceState now includes `current_date`, `current_datetime`, and `timezone`; prompts inject them inside `<time_info>` so Agent runs can reason about deadlines and cycles against the current date.
@@ -529,18 +516,6 @@ MVP Usable progress (see `.claude/epics/projectflow-mvp-usable-ready/`):
 - ✅ #21 Real-Provider Verification and MVP Usable Runbook (2026-05-30)
 
 All MVP Usable tasks are complete. The runbook now documents mock mode, real-provider mode, a full manual verification checklist, and a final status report.
-
-### Phase 35 — Onboarding & Member Form Improvements (2026-06-05, PR #33)
-
-Frontend UX improvements for onboarding and member management forms.
-
-**Changes:**
-- Popular skill click fills input field instead of auto-adding at Lv.3.
-- Member management dialog added major, grade, preferredTime (required), pastProjects fields.
-- Available hours input: `type="number"` replaced with `type="text"` + `inputMode="numeric"` + custom stepper buttons.
-- New fields map to existing backend fields (`preferredTime` → `collaboration_preference`; `pastProjects` → `interests` fallback). `major`/`grade` not persisted (no backend fields yet).
-
-**Files modified:** `member-management-dialog.tsx`, `member-profile-wizard.tsx`.
 
 ### Phase 33 — Stage Plan Timeline Redesign (2026-06-05)
 

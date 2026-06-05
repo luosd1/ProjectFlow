@@ -11,7 +11,17 @@ import {
   Rocket,
   FlaskConical,
   CalendarIcon,
-} from "lucide-react"
+} from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -223,12 +233,44 @@ export function ProjectIntakeForm({
   }, [])
 
   const clearDraft = () => {
-    localStorage.removeItem(DRAFT_KEY)
-  }
+    localStorage.removeItem(DRAFT_KEY);
+  };
+
+  const [showClearConfirm, setShowClearConfirm] = React.useState(false);
+
+
+
+  const handleClear = () => {
+    setShowClearConfirm(true);
+  };
+
+  const confirmClear = () => {
+    clearDraft();
+    setName("");
+    setIdea("");
+    setDeadline("");
+    setProjectType("");
+    setTeamSize("");
+    setDeliverableTags([]);
+    setCreatedBy(defaultCreatedBy || "");
+    setErrors({});
+    setError(null);
+    setResources([]); // 确保资源也被清空
+    setShowClearConfirm(false);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!validate()) return
+    if (!validate()) {
+      setTimeout(() => {
+        const firstErrorElement = document.querySelector('.border-destructive');
+        if (firstErrorElement) {
+          firstErrorElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          (firstErrorElement as HTMLElement).focus?.();
+        }
+      }, 0);
+      return
+    }
     setSubmitting(true)
     setError(null)
     try {
@@ -284,7 +326,7 @@ export function ProjectIntakeForm({
 
       <form onSubmit={handleSubmit} className="space-y-6">
         <FormSection title="项目基本信息">
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid gap-4">
             <FormField label="项目名称" required error={errors.name}>
               <Input
                 value={name}
@@ -385,7 +427,7 @@ export function ProjectIntakeForm({
             </div>
           </FormField>
 
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid gap-4">
             <FormField label="团队规模" hint="预计参与人数">
               <Input
                 type="number"
@@ -423,18 +465,7 @@ export function ProjectIntakeForm({
           <Button
             type="button"
             variant="outline"
-            onClick={() => {
-              clearDraft()
-              setName("")
-              setIdea("")
-              setDeadline("")
-              setProjectType("")
-              setTeamSize("")
-              setDeliverableTags([])
-              setCreatedBy(defaultCreatedBy || "")
-              setErrors({})
-              setError(null)
-            }}
+            onClick={handleClear}
           >
             清空
           </Button>
@@ -459,6 +490,21 @@ export function ProjectIntakeForm({
           </Button>
         </div>
       </form>
+
+      <AlertDialog open={showClearConfirm} onOpenChange={setShowClearConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>确认清空表单？</AlertDialogTitle>
+            <AlertDialogDescription>
+              此操作将清空所有已填写的信息，且不可撤销。您确定要继续吗？
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmClear}>清空</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </motion.div>
   )
 }

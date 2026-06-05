@@ -1,0 +1,265 @@
+- generic [ref=e1]:
+  - main [ref=e18]:
+    - generic [ref=e77]:
+      - complementary [ref=e78]:
+        - button "收起侧边栏" [ref=e79] [cursor=pointer]:
+          - img [ref=e80]
+        - generic [ref=e82]:
+          - link [ref=e83] [cursor=pointer]:
+            - /url: /
+            - img [ref=e84]
+          - button "ProjectFlow 团队" [ref=e88] [cursor=pointer]:
+            - img [ref=e89]
+            - generic [ref=e93]: ProjectFlow 团队
+            - img [ref=e94]
+        - navigation [ref=e96]:
+          - generic [ref=e97]:
+            - button "工作区" [ref=e98] [cursor=pointer]:
+              - img [ref=e99]
+              - generic [ref=e103]: 工作区
+              - img [ref=e105]
+            - generic [ref=e108]:
+              - button "ProjectFlow 团队" [ref=e109] [cursor=pointer]:
+                - img [ref=e110]
+                - generic [ref=e114]: ProjectFlow 团队
+              - generic [ref=e115]: 暂无其他工作区
+              - button "新建工作区" [ref=e116] [cursor=pointer]:
+                - img [ref=e117]
+                - generic [ref=e118]: 新建工作区
+          - list [ref=e120]:
+            - listitem [ref=e121]:
+              - button "项目总览" [ref=e122] [cursor=pointer]:
+                - img [ref=e123]
+                - generic [ref=e128]: 项目总览
+            - listitem [ref=e129]:
+              - button "方向卡" [active] [ref=e130] [cursor=pointer]:
+                - img [ref=e131]
+                - generic [ref=e134]: 方向卡
+            - listitem [ref=e135]:
+              - button "阶段计划" [ref=e136] [cursor=pointer]:
+                - img [ref=e137]
+                - generic [ref=e141]: 阶段计划
+          - list [ref=e143]:
+            - listitem [ref=e144]:
+              - button "我的任务" [ref=e145] [cursor=pointer]:
+                - img [ref=e146]
+                - generic [ref=e149]: 我的任务
+            - listitem [ref=e150]:
+              - button "团队任务 5" [ref=e151] [cursor=pointer]:
+                - img [ref=e152]
+                - generic [ref=e157]: 团队任务
+                - generic [ref=e158]: "5"
+            - listitem [ref=e159]:
+              - button "签到与状态" [ref=e160] [cursor=pointer]:
+                - img [ref=e161]
+                - generic [ref=e165]: 签到与状态
+            - listitem [ref=e166]:
+              - button "风险预警 3" [ref=e167] [cursor=pointer]:
+                - img [ref=e168]
+                - generic [ref=e170]: 风险预警
+                - generic [ref=e171]: "3"
+          - list [ref=e173]:
+            - listitem [ref=e174]:
+              - button "项目复盘" [ref=e175] [cursor=pointer]:
+                - img [ref=e176]
+                - generic [ref=e178]: 项目复盘
+        - button "小林" [ref=e180] [cursor=pointer]:
+          - img [ref=e181]
+          - generic [ref=e184]: 小林
+      - main [ref=e185]:
+        - generic [ref=e510]:
+          - generic [ref=e511]:
+            - generic [ref=e512]:
+              - img [ref=e513]
+              - heading "方向卡" [level=1] [ref=e516]
+            - paragraph [ref=e517]: 项目目标和方向澄清
+          - generic [ref=e519]:
+            - generic [ref=e520]:
+              - generic [ref=e521]:
+                - generic [ref=e522]:
+                  - heading "方向卡" [level=2] [ref=e523]
+                  - button [ref=e524] [cursor=pointer]:
+                    - img [ref=e525]
+                - paragraph [ref=e527]: 确认项目方向后再规划任务和分工，避免后续建议偏离目标
+              - generic [ref=e528]: 已确认
+            - generic [ref=e529]:
+              - article [ref=e531]:
+                - generic [ref=e532]:
+                  - generic [ref=e534]:
+                    - paragraph [ref=e535]: 核心问题
+                    - generic [ref=e536]: 大学生项目小队缺乏持续的项目推进和风险感知能力
+                  - generic [ref=e537]:
+                    - generic [ref=e538]:
+                      - paragraph [ref=e539]: 目标用户
+                      - generic [ref=e540]: 大学生项目小队（3-8人）
+                    - generic [ref=e541]:
+                      - paragraph [ref=e542]: 核心价值
+                      - generic [ref=e543]: AI Agent 主动推进项目，持续回答下一步做什么、谁适合做、哪些有风险
+                - generic [ref=e544]:
+                  - generic [ref=e545]:
+                    - paragraph [ref=e546]: 交付物
+                    - list [ref=e547]:
+                      - listitem [ref=e548]:
+                        - img [ref=e549]
+                        - generic [ref=e552]: MVP demo
+                      - listitem [ref=e553]:
+                        - img [ref=e554]
+                        - generic [ref=e557]: README
+                      - listitem [ref=e558]:
+                        - img [ref=e559]
+                        - generic [ref=e562]: demo video
+                      - listitem [ref=e563]:
+                        - img [ref=e564]
+                        - generic [ref=e567]: review summary
+                  - generic [ref=e568]:
+                    - paragraph [ref=e569]: 边界
+                    - generic [ref=e570]:
+                      - generic [ref=e571]: 6周时间
+                      - generic [ref=e572]: 本地演示优先
+                      - generic [ref=e573]: 单 workspace
+                      - generic [ref=e574]: 不做多团队支持
+                      - generic [ref=e575]: 不做正式认证
+                      - generic [ref=e576]: 不做生产部署
+                - generic [ref=e577]:
+                  - generic [ref=e578]:
+                    - paragraph [ref=e579]: 风险
+                    - list [ref=e580]:
+                      - listitem [ref=e581]:
+                        - img [ref=e582]
+                        - generic [ref=e584]: Agent 输出不稳定
+                      - listitem [ref=e585]:
+                        - img [ref=e586]
+                        - generic [ref=e588]: 前后端联调困难
+                      - listitem [ref=e589]:
+                        - img [ref=e590]
+                        - generic [ref=e592]: 演示翻车
+                  - generic [ref=e593]:
+                    - paragraph [ref=e594]: 澄清问题
+                    - list [ref=e595]:
+                      - listitem [ref=e596]: Demo 第一优先展示哪个主动推进场景？
+                      - listitem [ref=e597]: 如果真实 LLM 超时，演示时采用哪个降级路径？
+              - generic [ref=e598]:
+                - generic [ref=e599]:
+                  - paragraph [ref=e600]: 项目进度
+                  - generic [ref=e602]:
+                    - generic [ref=e603]:
+                      - img [ref=e605]
+                      - generic [ref=e608]:
+                        - paragraph [ref=e609]: 项目录入
+                        - paragraph [ref=e610]: 填写项目基本信息
+                    - generic [ref=e611]:
+                      - img [ref=e613]
+                      - generic [ref=e616]:
+                        - paragraph [ref=e617]: 方向澄清
+                        - paragraph [ref=e618]: AI 分析项目方向
+                    - generic [ref=e619]:
+                      - generic [ref=e620]: "3"
+                      - generic [ref=e621]:
+                        - paragraph [ref=e622]: 确认方向
+                        - paragraph [ref=e623]: 团队确认方向卡
+                    - generic [ref=e624]:
+                      - generic [ref=e625]: "4"
+                      - generic [ref=e626]:
+                        - paragraph [ref=e627]: 阶段规划
+                        - paragraph [ref=e628]: 拆解阶段与任务
+                - generic [ref=e629]:
+                  - generic [ref=e630]:
+                    - img [ref=e631]
+                    - paragraph [ref=e635]: 方向澄清历史
+                  - generic [ref=e638]:
+                    - paragraph [ref=e639]: 2026/6/4
+                    - paragraph [ref=e640]: 基于项目想法和调研结果，生成方向卡明确核心价值和边界
+      - complementary [ref=e358]:
+        - button "收起侧边栏" [ref=e359] [cursor=pointer]:
+          - img [ref=e360]
+        - generic [ref=e362]:
+          - img [ref=e363]
+          - generic [ref=e366]: Agent
+        - generic [ref=e368]:
+          - generic [ref=e369]:
+            - generic [ref=e370]:
+              - img [ref=e371]
+              - text: 当前建议
+            - paragraph [ref=e373]: 完善项目方向卡
+            - button "方向澄清" [ref=e641] [cursor=pointer]:
+              - img
+              - text: 方向澄清
+          - generic [ref=e375]:
+            - heading "所有操作" [level=3] [ref=e376]
+            - generic [ref=e377]:
+              - button "方向澄清" [ref=e379] [cursor=pointer]:
+                - img [ref=e380]
+                - generic [ref=e383]: 方向澄清
+                - img [ref=e384]
+              - button "阶段计划" [ref=e387] [cursor=pointer]:
+                - img [ref=e388]
+                - generic [ref=e392]: 阶段计划
+                - img [ref=e393]
+              - button "任务拆解" [ref=e396] [cursor=pointer]:
+                - img [ref=e397]
+                - generic [ref=e400]: 任务拆解
+                - img [ref=e401]
+              - button "分工推荐" [ref=e404] [cursor=pointer]:
+                - img [ref=e405]
+                - generic [ref=e410]: 分工推荐
+                - img [ref=e411]
+              - button "主动推进" [ref=e414] [cursor=pointer]:
+                - img [ref=e415]
+                - generic [ref=e420]: 主动推进
+                - img [ref=e421]
+              - button "签到分析" [ref=e424] [cursor=pointer]:
+                - img [ref=e425]
+                - generic [ref=e429]: 签到分析
+                - img [ref=e430]
+              - button "风险分析" [ref=e433] [cursor=pointer]:
+                - img [ref=e434]
+                - generic [ref=e436]: 风险分析
+                - img [ref=e437]
+              - button "计划调整" [ref=e440] [cursor=pointer]:
+                - img [ref=e441]
+                - generic [ref=e446]: 计划调整
+                - img [ref=e447]
+          - generic [ref=e449]:
+            - heading "最近活动" [level=3] [ref=e450]
+            - generic [ref=e451]:
+              - generic [ref=e452]:
+                - img [ref=e453]
+                - generic [ref=e456]:
+                  - paragraph [ref=e457]: 方向澄清已确认
+                  - paragraph [ref=e458]:
+                    - img [ref=e459]
+                    - text: 8小时前
+              - generic [ref=e462]:
+                - img [ref=e463]
+                - generic [ref=e467]:
+                  - paragraph [ref=e468]: 阶段计划已确认
+                  - paragraph [ref=e469]:
+                    - img [ref=e470]
+                    - text: 8小时前
+              - generic [ref=e473]:
+                - img [ref=e474]
+                - generic [ref=e477]:
+                  - paragraph [ref=e478]: 任务拆解已确认
+                  - paragraph [ref=e479]:
+                    - img [ref=e480]
+                    - text: 8小时前
+              - generic [ref=e483]:
+                - img [ref=e484]
+                - generic [ref=e489]:
+                  - paragraph [ref=e490]: 分工推荐已确认
+                  - paragraph [ref=e491]:
+                    - img [ref=e492]
+                    - text: 8小时前
+              - generic [ref=e495]:
+                - img [ref=e496]
+                - generic [ref=e501]:
+                  - paragraph [ref=e502]: 主动推进
+                  - paragraph [ref=e503]:
+                    - img [ref=e504]
+                    - text: 8小时前
+          - button "重置演示数据" [ref=e508] [cursor=pointer]:
+            - img
+            - text: 重置演示数据
+  - button "Open Next.js Dev Tools" [ref=e73] [cursor=pointer]:
+    - img [ref=e74]
+  - alert [ref=e509]

@@ -1,0 +1,65 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - banner [ref=e3]:
+      - generic [ref=e4]:
+        - generic [ref=e5]:
+          - link "ProjectFlow" [ref=e6] [cursor=pointer]:
+            - /url: /
+            - img [ref=e8]
+            - generic [ref=e12]: ProjectFlow
+          - navigation [ref=e13]:
+            - link "首页" [ref=e14] [cursor=pointer]:
+              - /url: /
+              - img [ref=e15]
+              - text: 首页
+            - link "工作台" [ref=e18] [cursor=pointer]:
+              - /url: /workspaces/demo-workspace-001
+              - img [ref=e19]
+              - text: 工作台
+            - link "新建项目" [ref=e24] [cursor=pointer]:
+              - /url: /projects/new?workspaceId=demo-workspace-001
+              - img [ref=e25]
+              - text: 新建项目
+        - button "小林" [ref=e27] [cursor=pointer]:
+          - img
+          - text: 小林
+          - img
+    - separator
+    - main [ref=e28]:
+      - generic [ref=e29]:
+        - generic [ref=e30]:
+          - paragraph [ref=e31]: ProjectFlow
+          - heading "新建工作区" [level=1] [ref=e32]
+          - paragraph [ref=e33]: 创建团队工作区并邀请成员。
+        - generic [ref=e35]:
+          - generic [ref=e36]:
+            - heading "创建工作区" [level=1] [ref=e37]:
+              - img [ref=e38]
+              - text: 创建工作区
+            - paragraph [ref=e40]: 为你的团队创建一个协作空间
+          - generic [ref=e42]:
+            - generic [ref=e43]:
+              - generic [ref=e44]: "1"
+              - generic [ref=e45]: 基本信息
+              - generic [ref=e46]: 工作区名称和描述
+            - generic [ref=e48]:
+              - generic [ref=e49]: "2"
+              - generic [ref=e50]: 团队上下文
+              - generic [ref=e51]: 规模和场景
+          - generic [ref=e52]:
+            - generic [ref=e53]:
+              - generic [ref=e54]:
+                - generic [ref=e55]:
+                  - text: 工作区名称
+                  - generic [ref=e56]: "*"
+                - textbox "例如：2024 春季开发小队" [ref=e57]
+              - generic [ref=e58]:
+                - generic [ref=e59]: 工作区描述
+                - textbox "我们是一个专注于..." [ref=e60]
+                - paragraph [ref=e61]: 简单描述团队或项目方向
+            - generic [ref=e62]:
+              - button "上一步" [disabled]
+              - button "下一步 →" [ref=e63] [cursor=pointer]
+  - button "Open Next.js Dev Tools" [ref=e69] [cursor=pointer]:
+    - img [ref=e70]
+  - alert [ref=e73]

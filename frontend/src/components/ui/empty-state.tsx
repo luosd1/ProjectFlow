@@ -12,7 +12,9 @@ interface EmptyStateProps {
   action?: {
     label: string
     onClick: () => void
+    variant?: "default" | "destructive" | "outline" | "secondary" | "ghost" | "link"
   }
+  children?: React.ReactNode
   className?: string
 }
 
@@ -21,6 +23,7 @@ export function EmptyState({
   title,
   description,
   action,
+  children,
   className,
 }: EmptyStateProps) {
   return (
@@ -38,10 +41,11 @@ export function EmptyState({
         </p>
       )}
       {action && (
-        <Button onClick={action.onClick} size="sm">
+        <Button onClick={action.onClick} size="sm" variant={action.variant}>
           {action.label}
         </Button>
       )}
+      {children}
     </div>
   )
 }
