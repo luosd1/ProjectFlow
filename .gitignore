@@ -24,9 +24,8 @@ __pycache__/
 Thumbs.db
 scripts/
 
-# Agent config (codex not tracked)
+# Agent config 
 .codex/
-.codegraph/
 backend/tmp-logs/
 vendor_imports/tools/
 

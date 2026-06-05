@@ -2,12 +2,12 @@
   "mcpServers": {
     "codegraph": {
       "type": "stdio",
-      "command": "D:\\Flowors\\ProjectFlow\\scripts\\codegraph.cmd",
+      "command": "/Users/robertwu/.codex/scripts/codegraph",
       "args": [
         "serve",
         "--mcp",
         "--path",
-        "D:\\Flowors\\ProjectFlow"
+        "/Users/robertwu/Documents/Projects/ProjectFlow"
       ]
     }
   }
