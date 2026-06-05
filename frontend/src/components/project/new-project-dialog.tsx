@@ -48,7 +48,7 @@ export function NewProjectDialog({
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto custom-scrollbar p-6">
-        <DialogHeader className="pb-2">
+        <DialogHeader className="sr-only">
           <DialogTitle>新建项目</DialogTitle>
           <DialogDescription>
             填写项目信息，AI 将为你生成阶段规划和任务分解
