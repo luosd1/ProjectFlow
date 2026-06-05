@@ -1,6 +1,6 @@
 # ProjectFlow CodeWiki
 
-> 自动生成于 2026-06-02，基于代码库全量扫描。Phase 28 更新于 2026-06-04。
+> 自动生成于 2026-06-02，基于代码库全量扫描。Phase 33 更新于 2026-06-05。
 
 ---
 
@@ -770,6 +770,11 @@ npm audit --omit=dev                # 安全审计
 | 26 | T23.B 二轮修复 | ✅ 2026-06-03 |
 | 27 | Code Review Hardening | ✅ 2026-06-03 |
 | 28 | Frontend Redesign Migration | ✅ 2026-06-04 |
+| 29 | UI Critique Fixes (project sidebar + 8 views) | ✅ 2026-06-04 |
+| 30 | Workspace Page Critique Fixes | ✅ 2026-06-04 |
+| 31 | Onboarding Flow Critique Fixes | ✅ 2026-06-04 |
+| 32 | Route Unification & Workspace Navigation Fixes | ✅ 2026-06-05 |
+| 33 | Stage Plan Timeline Redesign | ✅ 2026-06-05 |
 
 ---
 

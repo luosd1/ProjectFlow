@@ -1,9 +1,10 @@
 "use client";
 
-import { CalendarDays, Flag } from "lucide-react";
+import { CalendarDays, CheckCircle2, Circle, Clock, Flag, AlertTriangle } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { cn } from "@/lib/utils";
 import type { Stage, Task } from "@/lib/types";
 
 type StagePlanBoardProps = {
@@ -29,12 +30,37 @@ function statusLabel(status: Stage["status"]) {
   return labels[status];
 }
 
+function StageIcon({ status, isCurrent }: { status: Stage["status"]; isCurrent: boolean }) {
+  if (status === "completed") return <CheckCircle2 className="h-5 w-5 text-moss" />;
+  if (isCurrent || status === "active") return <Clock className="h-5 w-5 text-primary" />;
+  if (status === "at_risk") return <AlertTriangle className="h-5 w-5 text-coral" />;
+  return <Circle className="h-5 w-5 text-neutral-300" />;
+}
+
+function daysUntil(dateStr: string): number {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const target = new Date(dateStr);
+  target.setHours(0, 0, 0, 0);
+  return Math.ceil((target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+}
+
+function relativeTimeLabel(start: string, end: string, status: Stage["status"]): string | null {
+  if (status === "completed") return null;
+  const remaining = daysUntil(end);
+  if (remaining < 0) return `已延期 ${Math.abs(remaining)} 天`;
+  if (remaining === 0) return "今天截止";
+  if (remaining === 1) return "明天截止";
+  if (remaining <= 7) return `还剩 ${remaining} 天`;
+  return null;
+}
+
 export function StagePlanBoard({ stages, tasks, currentStageId }: StagePlanBoardProps) {
   const completed = stages.filter((stage) => stage.status === "completed").length;
   const progress = stages.length > 0 ? Math.round((completed / stages.length) * 100) : 0;
 
   return (
-    <section className="rounded-lg border border-ink/10 bg-white p-5 shadow-sm">
+    <section className="rounded-xl border border-neutral-200 bg-white p-5 shadow-sm">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-lg font-bold text-ink">阶段计划</h2>
@@ -51,50 +77,77 @@ export function StagePlanBoard({ stages, tasks, currentStageId }: StagePlanBoard
           暂无阶段。方向卡确认后运行阶段计划。
         </div>
       ) : (
-        <div className="mt-5 grid gap-3">
-          {stages.map((stage) => {
-            const stageTasks = tasks.filter((task) => task.stage_id === stage.id);
-            const isCurrent = stage.id === currentStageId || stage.status === "active";
-            return (
-              <article
-                key={stage.id}
-                className="rounded-lg border border-ink/10 bg-paper/60 p-4"
-                data-current={isCurrent ? "true" : "false"}
-              >
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <h3 className="font-semibold text-ink">{stage.name}</h3>
-                      {isCurrent && <Badge className="bg-citron/40 text-ink">当前</Badge>}
-                      <Badge className={statusClass(stage.status)}>{statusLabel(stage.status)}</Badge>
+        <div className="mt-5 relative">
+          {/* Timeline connector line */}
+          <div className="absolute left-[18px] top-3 bottom-3 w-px bg-neutral-200" aria-hidden="true" />
+
+          <div className="space-y-1">
+            {stages.map((stage) => {
+              const stageTasks = tasks.filter((task) => task.stage_id === stage.id);
+              const isCurrent = stage.id === currentStageId || stage.status === "active";
+              const timeLabel = relativeTimeLabel(stage.start_date, stage.end_date, stage.status);
+
+              return (
+                <article
+                  key={stage.id}
+                  className={cn(
+                    "relative pl-10 py-3 rounded-lg transition-colors",
+                    isCurrent ? "bg-primary/5" : "hover:bg-neutral-50/50"
+                  )}
+                  data-current={isCurrent ? "true" : "false"}
+                >
+                  {/* Timeline node */}
+                  <div className="absolute left-2 top-4 z-10 flex h-5 w-5 items-center justify-center rounded-full bg-white">
+                    <StageIcon status={stage.status} isCurrent={isCurrent} />
+                  </div>
+
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h3 className={cn("font-semibold text-ink", isCurrent && "text-primary")}>
+                          {stage.name}
+                        </h3>
+                        {isCurrent && (
+                          <Badge className="bg-primary/15 text-primary border-0">当前</Badge>
+                        )}
+                        <Badge className={cn(statusClass(stage.status), "border-0")}>
+                          {statusLabel(stage.status)}
+                        </Badge>
+                        {timeLabel && (
+                          <span className={cn(
+                            "text-xs font-medium",
+                            stage.status === "at_risk" || daysUntil(stage.end_date) < 0
+                              ? "text-coral"
+                              : "text-primary"
+                          )}>
+                            {timeLabel}
+                          </span>
+                        )}
+                      </div>
+                      <p className="mt-1 max-w-2xl text-sm text-ink/65">{stage.goal}</p>
                     </div>
-                    <p className="mt-1 max-w-2xl text-sm text-ink/65">{stage.goal}</p>
-                  </div>
-                  <div className="text-right text-xs text-ink/55">
-                    <div className="flex items-center gap-1">
-                      <CalendarDays className="h-3.5 w-3.5" />
-                      {stage.start_date} {" -> "} {stage.end_date}
+                    <div className="text-right text-xs text-ink/55 shrink-0">
+                      <div className="flex items-center gap-1">
+                        <CalendarDays className="h-3.5 w-3.5" />
+                        {stage.start_date} → {stage.end_date}
+                      </div>
                     </div>
                   </div>
-                </div>
-                <div className="mt-4 grid gap-3 md:grid-cols-[1fr_1fr]">
-                  <div className="rounded-md bg-white p-3">
-                    <p className="flex items-center gap-1 text-xs font-semibold uppercase tracking-[0.14em] text-ink/45">
-                      <Flag className="h-3.5 w-3.5" />
-                      交付物
-                    </p>
-                    <p className="mt-1 text-sm text-ink/75">{stage.deliverable}</p>
-                  </div>
-                  <div className="rounded-md bg-white p-3">
-                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-ink/45">任务</p>
-                    <p className="mt-1 text-sm text-ink/75">
+
+                  {/* Deliverable & Task count — inline, not cards */}
+                  <div className="mt-2 flex flex-wrap gap-4 text-sm">
+                    <span className="inline-flex items-center gap-1.5 text-ink/70">
+                      <Flag className="h-3.5 w-3.5 text-ink/40" />
+                      {stage.deliverable}
+                    </span>
+                    <span className="text-ink/50">
                       {stageTasks.length === 0 ? "暂无任务" : `${stageTasks.length} 个任务`}
-                    </p>
+                    </span>
                   </div>
-                </div>
-              </article>
-            );
-          })}
+                </article>
+              );
+            })}
+          </div>
         </div>
       )}
     </section>

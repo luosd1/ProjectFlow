@@ -1,6 +1,6 @@
 # ProjectFlow Handoff
 
-Status: current as of 2026-06-04.
+Status: current as of 2026-06-05.
 
 ## Completed
 
@@ -503,6 +503,24 @@ MVP Usable progress (see `.claude/epics/projectflow-mvp-usable-ready/`):
 - ✅ #21 Real-Provider Verification and MVP Usable Runbook (2026-05-30)
 
 All MVP Usable tasks are complete. The runbook now documents mock mode, real-provider mode, a full manual verification checklist, and a final status report.
+
+### Phase 33 — Stage Plan Timeline Redesign (2026-06-05)
+
+Redesigned `StagePlanBoard` from card grid to vertical timeline layout.
+
+**Visual changes:**
+- Timeline connector line with status icons (completed/check/active/risk/pending) per stage
+- Current stage highlighted with `bg-primary/5` background and "当前" badge
+- Relative time labels ("还剩 N 天"/"今天截止"/"已延期 N 天") with color-coded urgency
+- Inline deliverable and task count (no separate cards)
+- Date range displayed with `CalendarDays` icon
+
+**Component structure:**
+- Added internal helpers: `StageIcon`, `daysUntil`, `relativeTimeLabel`, `statusClass`, `statusLabel`
+- Props unchanged: `stages`, `tasks`, `currentStageId`
+- No new dependencies
+
+**Verification:** frontend lint pass, TypeScript type check pass.
 
 T23.A test audit completed (2026-06-02) with feedback documented in `docs/T23/T23.A.md`. 4 blockers, 7 experience issues, and 1 optimization identified. All 4 blocker issues fixed in Phase 22.
 
