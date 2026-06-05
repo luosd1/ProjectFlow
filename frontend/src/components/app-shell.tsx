@@ -8,7 +8,6 @@ import { ChevronDown, Home, Layers3, LayoutDashboard, Menu, Plus, Users } from "
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -130,20 +129,26 @@ function NavLink({
   href,
   icon: Icon,
   active,
+  tone = "light",
 }: {
   label: string;
   href: string;
   icon: React.ElementType;
   active: boolean;
+  tone?: "light" | "dark";
 }) {
   return (
     <Link
       href={href}
       className={cn(
-        "inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
-        active
-          ? "bg-moss/10 text-moss"
-          : "text-neutral-500 hover:bg-neutral-100 hover:text-neutral-800"
+        "inline-flex items-center gap-2 rounded-[12px] px-3 py-2 text-sm font-medium transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)]",
+        tone === "dark"
+          ? active
+            ? "bg-white text-neutral-950 shadow-[0_10px_24px_rgba(255,255,255,0.12),inset_0_1px_0_rgba(255,255,255,0.95)]"
+            : "text-white/54 hover:bg-white/[0.08] hover:text-white"
+          : active
+            ? "bg-neutral-950 text-white"
+            : "text-neutral-500 hover:bg-white hover:text-neutral-950"
       )}
     >
       <Icon className="h-4 w-4" aria-hidden />
@@ -186,9 +191,9 @@ function MobileNav({ pathname, workspaceId }: { pathname: string; workspaceId: s
                   <Link
                     href={item.href}
                     className={cn(
-                      "inline-flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+                      "inline-flex items-center gap-3 rounded-[8px] px-3 py-2.5 text-sm font-medium transition-colors",
                       active
-                        ? "bg-moss/10 text-moss"
+                        ? "bg-neutral-950 text-white"
                         : "text-neutral-500 hover:bg-neutral-100 hover:text-neutral-800"
                     )}
                   />
@@ -225,6 +230,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   const currentMember = members.find((m) => m.user_id === storedUserId) ?? members[0];
   const activeUserId = currentMember?.user_id ?? null;
+  const isLandingPage = pathname === "/";
 
   return (
     <div className={cn("bg-paper text-ink", isProjectDashboard ? "h-screen overflow-hidden" : "min-h-screen")}>
@@ -233,16 +239,34 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <motion.header
             initial={{ opacity: 0, y: -8 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.35, ease: "easeOut" }}
-            className="sticky top-0 z-40 border-b border-neutral-200/70 bg-paper/90 backdrop-blur-md"
+            transition={{ duration: 0.6, ease: [0.32, 0.72, 0, 1] }}
+            className={cn(
+              "top-0 z-40",
+              isLandingPage
+                ? "fixed inset-x-0 border-b border-transparent px-4 pt-4"
+                : "sticky border-b border-neutral-200 bg-[#f8faf7]/90 backdrop-blur-md",
+            )}
           >
-            <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-5 lg:px-8">
+            <div
+              className={cn(
+                "mx-auto flex h-16 max-w-7xl items-center justify-between px-5 lg:px-8",
+                isLandingPage &&
+                  "rounded-[28px] border border-white/10 bg-[#07090d]/72 text-white shadow-[0_18px_70px_rgba(0,0,0,0.32),inset_0_1px_0_rgba(255,255,255,0.12)] backdrop-blur-xl",
+              )}
+            >
               <div className="flex items-center gap-6">
                 <Link href="/" className="flex items-center gap-2">
-                  <span className="flex h-7 w-7 items-center justify-center rounded-md bg-moss text-white shadow-sm shadow-moss/20">
+                  <span
+                    className={cn(
+                      "flex h-7 w-7 items-center justify-center rounded-[8px] shadow-sm",
+                      isLandingPage
+                        ? "bg-white text-neutral-950 shadow-[0_0_24px_rgba(255,54,77,0.22)]"
+                        : "bg-neutral-950 text-white",
+                    )}
+                  >
                     <Layers3 className="h-4 w-4" aria-hidden />
                   </span>
-                  <span className="font-display text-xl font-normal text-neutral-900">
+                  <span className={cn("text-base font-semibold", isLandingPage ? "text-white" : "text-neutral-950")}>
                     ProjectFlow
                   </span>
                 </Link>
@@ -255,6 +279,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                       href={item.href}
                       icon={item.icon}
                       active={pathname === item.href || (item.href !== "/" && pathname.startsWith(item.href))}
+                      tone={isLandingPage ? "dark" : "light"}
                     />
                   ))}
                 </nav>
@@ -264,7 +289,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 {members.length > 0 && (
                   <DropdownMenu>
                     <DropdownMenuTrigger render={
-                      <Button variant="outline" size="sm" className="gap-2 text-xs">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className={cn(
+                          "gap-2 text-xs",
+                          isLandingPage &&
+                            "border-white/12 bg-white/[0.06] text-white hover:bg-white/[0.12] hover:text-white",
+                        )}
+                      >
                         <Users className="h-3.5 w-3.5" />
                         {currentMember?.display_name ?? "选择身份"}
                         <ChevronDown className="h-3.5 w-3.5" />
@@ -297,18 +330,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </div>
           </motion.header>
 
-          <Separator className="opacity-40" />
         </>
       )}
 
-      <motion.main
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.4, delay: 0.1 }}
-        className={isProjectDashboard ? "h-full" : ""}
-      >
+      <main className={isProjectDashboard ? "h-full" : ""}>
         {children}
-      </motion.main>
+      </main>
     </div>
   );
 }
