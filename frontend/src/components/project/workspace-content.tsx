@@ -305,6 +305,10 @@ export function WorkspaceContent({ state, currentUserId, onNavigateToProject }: 
                 }
                 title="还没有项目"
                 description="创建第一个项目，开始你的团队协作之旅"
+                action={{
+                  label: "新建项目",
+                  onClick: () => setNewProjectOpen(true),
+                }}
               />
             ) : filteredProjects.length === 0 ? (
               <div className="py-8 text-center text-sm text-neutral-400">
