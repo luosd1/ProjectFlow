@@ -93,6 +93,7 @@ Full resource lifecycle management with file upload support and project deletion
 - "查看归档" StatCard action fixed: was opening new-project dialog, now navigates to first completed project.
 - Direction card text overflow: added `break-all` to all list items in `DirectionDecisionView` and `DirectionCardPanel`; "边界" section changed from `Badge` to `<ul><li>` list for long text.
 
+
 **Agent File Reading:**
 - `_read_resource_file()` searches absolute path first, then falls back to `backend/data/uploads/` and `D:\ProjectFlow_Agent` directories by base filename.
 - File content injected as resource `summary` (limited to 8000 bytes) when `content_text` is empty.
