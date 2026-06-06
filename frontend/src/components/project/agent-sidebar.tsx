@@ -267,6 +267,7 @@ export function AgentSidebar({
                     <AgentArtifactCard
                       key={artifact.id}
                       artifact={artifact}
+                      disabled={Boolean(pendingConversation)}
                       onConfirm={onConfirmArtifact}
                       onRevise={(item) => void submitMessage(`继续修改：${item.title}`)}
                       onInspect={(item) => void submitMessage(`解释这条建议的影响：${item.title}`)}
@@ -276,6 +277,7 @@ export function AgentSidebar({
                   {conversationError && (
                     <AgentErrorCard
                       message={conversationError}
+                      disabled={Boolean(pendingConversation)}
                       onRetry={pendingConversationInstruction ? () => void submitMessage(pendingConversationInstruction) : undefined}
                     />
                   )}

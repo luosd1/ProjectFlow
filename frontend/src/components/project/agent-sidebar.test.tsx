@@ -348,4 +348,42 @@ describe("AgentSidebar", () => {
 
     expect(onSendMessage).toHaveBeenCalledWith("分析当前风险");
   });
+
+  it("disables artifact action buttons while pending conversation", () => {
+    render(
+      <AgentSidebar
+        state={baseProjectState}
+        conversation={conversationFixture}
+        conversationArtifacts={artifactsFixture}
+        pendingConversation
+        onRunAgent={vi.fn()}
+        onConfirmArtifact={vi.fn()}
+      />
+    );
+
+    const confirmButton = screen.getByRole("button", { name: "确认应用" }) as HTMLButtonElement;
+    const reviseButton = screen.getByRole("button", { name: "继续修改" }) as HTMLButtonElement;
+    const inspectButton = screen.getByRole("button", { name: "查看影响" }) as HTMLButtonElement;
+
+    expect(confirmButton.disabled).toBe(true);
+    expect(reviseButton.disabled).toBe(true);
+    expect(inspectButton.disabled).toBe(true);
+  });
+
+  it("disables error retry button while pending conversation", () => {
+    render(
+      <AgentSidebar
+        state={baseProjectState}
+        conversation={conversationFixture}
+        conversationError="这次没有生成可用结果"
+        pendingConversationInstruction="分析当前风险"
+        pendingConversation
+        onRunAgent={vi.fn()}
+        onSendMessage={vi.fn()}
+      />
+    );
+
+    const retryButton = screen.getByRole("button", { name: "重新发送" }) as HTMLButtonElement;
+    expect(retryButton.disabled).toBe(true);
+  });
 });

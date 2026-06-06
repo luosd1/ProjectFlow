@@ -92,9 +92,10 @@ export function AgentRunStatusCard() {
 interface AgentErrorCardProps {
   message: string;
   onRetry?: () => void | Promise<void>;
+  disabled?: boolean;
 }
 
-export function AgentErrorCard({ message, onRetry }: AgentErrorCardProps) {
+export function AgentErrorCard({ message, onRetry, disabled }: AgentErrorCardProps) {
   return (
     <div className="mb-3 rounded-lg border border-coral/20 bg-coral/10 p-3">
       <div className="flex items-start gap-2 text-xs text-coral">
@@ -109,6 +110,7 @@ export function AgentErrorCard({ message, onRetry }: AgentErrorCardProps) {
           variant="ghost"
           size="sm"
           className="mt-2 h-7 gap-1 text-xs text-coral hover:bg-coral/10 hover:text-coral"
+          disabled={disabled}
           onClick={() => void onRetry()}
         >
           重新发送
@@ -135,6 +137,7 @@ interface AgentArtifactCardProps {
   onConfirm?: (artifact: AgentArtifact) => void | Promise<void>;
   onRevise?: (artifact: AgentArtifact) => void | Promise<void>;
   onInspect?: (artifact: AgentArtifact) => void | Promise<void>;
+  disabled?: boolean;
 }
 
 export function AgentArtifactCard({
@@ -142,6 +145,7 @@ export function AgentArtifactCard({
   onConfirm,
   onRevise,
   onInspect,
+  disabled,
 }: AgentArtifactCardProps) {
   return (
     <div className="mb-3 rounded-lg border border-neutral-200 bg-white p-3">
@@ -170,6 +174,7 @@ export function AgentArtifactCard({
           <Button
             size="sm"
             className="h-7 gap-1 bg-moss px-2.5 text-xs text-white hover:bg-moss/90"
+            disabled={disabled}
             onClick={() => void onConfirm(artifact)}
           >
             <BadgeCheck className="h-3.5 w-3.5" />
@@ -181,6 +186,7 @@ export function AgentArtifactCard({
             variant="ghost"
             size="sm"
             className="h-7 gap-1 px-2 text-xs text-neutral-600"
+            disabled={disabled}
             onClick={() => void onRevise(artifact)}
           >
             <Pencil className="h-3 w-3" />
@@ -192,6 +198,7 @@ export function AgentArtifactCard({
             variant="ghost"
             size="sm"
             className="h-7 gap-1 px-2 text-xs text-neutral-600"
+            disabled={disabled}
             onClick={() => void onInspect(artifact)}
           >
             <Eye className="h-3 w-3" />
