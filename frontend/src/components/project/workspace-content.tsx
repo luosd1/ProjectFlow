@@ -32,7 +32,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@/components/ui/alert-dialog"; // Added this import
+} from "@/components/ui/alert-dialog";
 
 const statusLabelMap: Record<string, string> = {
   draft: "草稿",
@@ -113,6 +113,7 @@ export function WorkspaceContent({ state, currentUserId, onNavigateToProject }: 
   const [localProjects, setLocalProjects] = useState(projects);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   // Sync local projects when state changes
   React.useEffect(() => {
@@ -127,12 +128,13 @@ export function WorkspaceContent({ state, currentUserId, onNavigateToProject }: 
 
   const handleDeleteProject = async (projectId: string) => {
     setDeleting(true);
+    setDeleteError(null);
     try {
       await deleteProject(projectId);
       setLocalProjects((prev) => prev.filter((p) => p.id !== projectId));
       setDeleteConfirmId(null);
     } catch {
-      // keep confirmation open on error
+      setDeleteError("删除失败，请检查网络后重试。");
     } finally {
       setDeleting(false);
     }
@@ -207,8 +209,8 @@ export function WorkspaceContent({ state, currentUserId, onNavigateToProject }: 
           icon={<Archive className="h-5 w-5" />}
           accent="citron"
           action={
-            completedProjects.length > 0
-              ? { label: "查看归档", onClick: () => setNewProjectOpen(true) }
+            completedProjects.length > 0 && onNavigateToProject
+              ? { label: "查看归档", onClick: () => onNavigateToProject(completedProjects[0].id) }
               : undefined
           }
         />
@@ -424,6 +426,7 @@ export function WorkspaceContent({ state, currentUserId, onNavigateToProject }: 
                       <AlertDialog open={showDeleteConfirm} onOpenChange={(open) => {
                         if (!open) {
                           setDeleteConfirmId(null);
+                          setDeleteError(null);
                         }
                       }}>
                         <AlertDialogContent>
@@ -433,6 +436,9 @@ export function WorkspaceContent({ state, currentUserId, onNavigateToProject }: 
                               删除后项目将无法恢复。所有相关的阶段、任务、Agent 提案等数据都将被永久删除。
                             </AlertDialogDescription>
                           </AlertDialogHeader>
+                          {deleteError && (
+                            <p className="text-sm text-destructive px-1">{deleteError}</p>
+                          )}
                           <AlertDialogFooter>
                             <AlertDialogCancel disabled={deleting}>取消</AlertDialogCancel>
                             <AlertDialogAction
