@@ -5,7 +5,7 @@ import { motion } from "framer-motion";
 import { ProjectSidebar } from "./project-sidebar";
 import { AgentSidebar } from "./agent-sidebar";
 import { ProjectContent } from "./project-content";
-import type { AddResourceRequest, ProjectState } from "@/lib/types";
+import type { AddResourceRequest, AgentArtifact, AgentConversation, AgentSuggestion, ProjectState } from "@/lib/types";
 import type { AgentAction } from "./project-actions";
 
 interface ProjectLayoutProps {
@@ -13,9 +13,16 @@ interface ProjectLayoutProps {
   state: ProjectState;
   currentUserId?: string;
   pendingAction?: AgentAction | null;
+  agentConversation?: AgentConversation | null;
+  agentConversationSuggestions?: AgentSuggestion[];
+  agentConversationArtifacts?: AgentArtifact[];
+  pendingAgentInstruction?: string | null;
+  agentConversationError?: string | null;
+  pendingAgentConversation?: boolean;
   actionError?: string | null;
   actionSuccess?: string | null;
   onRunAgent?: (action: AgentAction) => void;
+  onSendAgentMessage?: (content: string) => void | Promise<void>;
   onRespondToAssignment?: (
     proposalId: string,
     userId: string,
@@ -52,6 +59,7 @@ interface ProjectLayoutProps {
   onCompleteActionCard?: (cardId: string) => void;
   onConfirmProposal?: (proposalId: string) => void;
   onRejectProposal?: (proposalId: string) => void;
+  onConfirmAgentArtifact?: (artifact: AgentArtifact) => void | Promise<void>;
   onAddResource?: (resource: AddResourceRequest) => void | Promise<void>;
   onResetDemo?: () => void | Promise<void>;
 }
@@ -61,9 +69,16 @@ export function ProjectLayout({
   state,
   currentUserId,
   pendingAction,
+  agentConversation,
+  agentConversationSuggestions,
+  agentConversationArtifacts,
+  pendingAgentInstruction,
+  agentConversationError,
+  pendingAgentConversation,
   actionError,
   actionSuccess,
   onRunAgent,
+  onSendAgentMessage,
   onRespondToAssignment,
   onStartNegotiation,
   onFinalizeAssignments,
@@ -76,6 +91,7 @@ export function ProjectLayout({
   onCompleteActionCard,
   onConfirmProposal,
   onRejectProposal,
+  onConfirmAgentArtifact,
   onAddResource,
   onResetDemo,
 }: ProjectLayoutProps) {
@@ -142,10 +158,18 @@ export function ProjectLayout({
       {/* Right Agent Sidebar */}
       <AgentSidebar
         state={state}
+        conversation={agentConversation}
+        conversationSuggestions={agentConversationSuggestions}
+        conversationArtifacts={agentConversationArtifacts}
+        pendingConversationInstruction={pendingAgentInstruction}
+        conversationError={agentConversationError}
+        pendingConversation={pendingAgentConversation}
         pendingAction={pendingAction}
         actionError={actionError}
         actionSuccess={actionSuccess}
         onRunAgent={onRunAgent ?? (() => {})}
+        onSendMessage={onSendAgentMessage}
+        onConfirmArtifact={onConfirmAgentArtifact}
         onResetDemo={onResetDemo}
       />
     </div>

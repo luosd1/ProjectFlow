@@ -38,11 +38,13 @@ def generate_structured_output(
     llm_client: LLMClient,
     user_prompt: str,
     fallback_payload: dict[str, Any],
+    user_instruction: str | None = None,
 ) -> AgentRunResult:
     messages = build_prompt_messages(
         event_type=event_type,
         workspace_state=workspace_state,
         user_prompt=user_prompt,
+        user_instruction=user_instruction,
     )
     last_raw: str | None = None
     last_error: Exception | None = None
@@ -56,19 +58,28 @@ def generate_structured_output(
                 workspace_state=workspace_state,
                 event_type=event_type,
                 user_prompt=user_prompt,
+                user_instruction=user_instruction,
                 fallback_payload=fallback_payload,
                 attempts=attempt,
                 raw_output=last_raw,
                 provider_error=exc,
             )
         except LLMError as exc:
-            _log_failed_agent_event(session, workspace_state, event_type, user_prompt, exc)
+            _log_failed_agent_event(session, workspace_state, event_type, user_prompt, exc, user_instruction)
             raise
         try:
             payload, repaired = _parse_or_repair_json(last_raw)
             output = validate_agent_output(event_type, payload, workspace_state=workspace_state)
             status = AgentRunStatus.repaired if repaired else AgentRunStatus.success
-            _log_agent_event(session, workspace_state, event_type, status, user_prompt, output)
+            _log_agent_event(
+                session,
+                workspace_state,
+                event_type,
+                status,
+                user_prompt,
+                output,
+                user_instruction=user_instruction,
+            )
             return AgentRunResult(
                 output=output,
                 status=status,
@@ -91,10 +102,25 @@ def generate_structured_output(
     try:
         output = validate_agent_output(event_type, fallback_payload, workspace_state=workspace_state)
     except AgentOutputValidationError as exc:
-        _log_failed_agent_event(session, workspace_state, event_type, user_prompt, last_error or exc)
+        _log_failed_agent_event(
+            session,
+            workspace_state,
+            event_type,
+            user_prompt,
+            last_error or exc,
+            user_instruction,
+        )
         raise
 
-    _log_agent_event(session, workspace_state, event_type, AgentRunStatus.fallback, user_prompt, output)
+    _log_agent_event(
+        session,
+        workspace_state,
+        event_type,
+        AgentRunStatus.fallback,
+        user_prompt,
+        output,
+        user_instruction=user_instruction,
+    )
     return AgentRunResult(
         output=output,
         status=AgentRunStatus.fallback,
@@ -110,6 +136,7 @@ def _fallback_after_provider_error(
     workspace_state: WorkspaceStateResponse,
     event_type: AgentEventType,
     user_prompt: str,
+    user_instruction: str | None,
     fallback_payload: dict[str, Any],
     attempts: int,
     raw_output: str | None,
@@ -118,7 +145,14 @@ def _fallback_after_provider_error(
     try:
         output = validate_agent_output(event_type, fallback_payload, workspace_state=workspace_state)
     except AgentOutputValidationError as exc:
-        _log_failed_agent_event(session, workspace_state, event_type, user_prompt, provider_error)
+        _log_failed_agent_event(
+            session,
+            workspace_state,
+            event_type,
+            user_prompt,
+            provider_error,
+            user_instruction,
+        )
         raise exc from provider_error
 
     _log_agent_event(
@@ -128,6 +162,7 @@ def _fallback_after_provider_error(
         AgentRunStatus.fallback,
         user_prompt,
         output,
+        user_instruction=user_instruction,
         provider_error=provider_error,
     )
     return AgentRunResult(
@@ -207,6 +242,7 @@ def _log_agent_event(
     status: AgentRunStatus,
     user_prompt: str,
     output: AgentOutputBase,
+    user_instruction: str | None = None,
     provider_error: LLMError | None = None,
 ) -> None:
     if session is None:
@@ -214,6 +250,7 @@ def _log_agent_event(
     input_snapshot = {
         "event_type": event_type.value,
         "user_prompt": user_prompt,
+        "user_instruction": user_instruction or "",
         "workspace_state": workspace_state.model_dump(mode="json"),
     }
     if provider_error is not None:
@@ -241,6 +278,7 @@ def _log_failed_agent_event(
     event_type: AgentEventType,
     user_prompt: str,
     error: Exception,
+    user_instruction: str | None = None,
 ) -> None:
     if session is None:
         return
@@ -252,6 +290,7 @@ def _log_failed_agent_event(
         input_snapshot=json.dumps({
             "event_type": event_type.value,
             "user_prompt": user_prompt,
+            "user_instruction": user_instruction or "",
             "workspace_state": workspace_state.model_dump(mode="json"),
         }, ensure_ascii=False),
         output_snapshot=json.dumps({"error": str(error)}, ensure_ascii=False),

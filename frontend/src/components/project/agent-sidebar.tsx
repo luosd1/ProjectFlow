@@ -1,37 +1,48 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import { useSearchParams } from "next/navigation";
-import { motion, AnimatePresence } from "framer-motion";
+import type { ElementType, FormEvent, KeyboardEvent as ReactKeyboardEvent } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import {
+  AlertTriangle,
   Bot,
+  CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
+  ClipboardCheck,
+  Clock,
   Compass,
   GitBranch,
   ListTodo,
-  Users,
-  Rocket,
-  ClipboardCheck,
-  AlertTriangle,
-  RefreshCw,
-  ChevronLeft,
-  ChevronRight,
-  Sparkles,
-  PlayCircle,
   Loader2,
-  Clock,
-  CheckCircle2,
+  MessageSquare,
+  MoreHorizontal,
+  PlayCircle,
+  RefreshCw,
+  Rocket,
+  Send,
+  Sparkles,
+  Users,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import type { ProjectState, AgentEvent } from "@/lib/types";
+import { cn } from "@/lib/utils";
+import type { AgentArtifact, AgentConversation, AgentEvent, AgentSuggestion, ProjectState } from "@/lib/types";
 import type { AgentAction } from "./project-actions";
-import type { ProjectView } from "./project-sidebar";
+import {
+  AgentArtifactCard,
+  AgentContextCard,
+  AgentErrorCard,
+  AgentRunStatusCard,
+  AgentSuggestionRow,
+  focusReason,
+} from "./agent-conversation-cards";
 
 const ALL_AGENT_ACTIONS: {
   id: AgentAction;
   label: string;
-  icon: React.ElementType;
+  icon: ElementType;
   description: string;
 }[] = [
   { id: "clarify", label: "方向澄清", icon: Compass, description: "明确项目目标和边界" },
@@ -43,20 +54,6 @@ const ALL_AGENT_ACTIONS: {
   { id: "risk-analysis", label: "风险分析", icon: AlertTriangle, description: "识别潜在风险" },
   { id: "replan", label: "计划调整", icon: RefreshCw, description: "根据现状调整计划" },
 ];
-
-const VIEW_RECOMMENDATIONS: Record<
-  ProjectView,
-  { action: AgentAction; reason: string } | null
-> = {
-  overview: { action: "push", reason: "查看当前进度并获取推进建议" },
-  direction: { action: "clarify", reason: "完善项目方向卡" },
-  stages: { action: "plan", reason: "生成或优化阶段计划" },
-  "my-tasks": { action: "push", reason: "获取任务推进建议" },
-  "team-tasks": { action: "assign", reason: "优化团队分工" },
-  checkin: { action: "analyze-checkins", reason: "分析签到数据" },
-  risks: { action: "risk-analysis", reason: "识别新风险" },
-  retro: { action: "push", reason: "生成项目复盘报告" },
-};
 
 const EVENT_STATUS_LABELS: Record<AgentEvent["status"], string> = {
   success: "成功",
@@ -72,40 +69,72 @@ const EVENT_STATUS_CLASSES: Record<AgentEvent["status"], string> = {
   failed: "bg-coral/15 text-coral",
 };
 
+const VALID_ARTIFACT_TYPES = new Set(["proposal", "risk_analysis", "action_card", "assignment", "direction", "plan"]);
+const VALID_ARTIFACT_STATUSES = new Set(["draft", "pending_confirmation", "confirmed", "dismissed", "expired"]);
+
+function isValidArtifact(value: unknown): value is AgentArtifact {
+  if (typeof value !== "object" || value === null) return false;
+  const record = value as Record<string, unknown>;
+  return (
+    typeof record.id === "string" &&
+    VALID_ARTIFACT_TYPES.has(record.type as string) &&
+    VALID_ARTIFACT_STATUSES.has(record.status as string) &&
+    typeof record.title === "string" &&
+    typeof record.summary === "string" &&
+    typeof record.rationale === "string" &&
+    Array.isArray(record.impact) &&
+    Array.isArray(record.linked_entity_ids)
+  );
+}
+
 interface AgentSidebarProps {
   state: ProjectState;
   selectedProjectId?: string | null;
   hasProject?: boolean;
+  conversation?: AgentConversation | null;
+  conversationSuggestions?: AgentSuggestion[] | string[];
+  conversationArtifacts?: AgentArtifact[];
+  pendingConversation?: boolean;
+  pendingConversationInstruction?: string | null;
   pendingAction?: AgentAction | null;
   actionSuccess?: string | null;
   actionError?: string | null;
+  conversationError?: string | null;
   onRunAgent: (action: AgentAction) => void;
+  onSendMessage?: (content: string) => void | Promise<void>;
+  onConfirmArtifact?: (artifact: AgentArtifact) => void | Promise<void>;
   onResetDemo?: () => void | Promise<void>;
 }
 
 export function AgentSidebar({
   state,
-  selectedProjectId,
   hasProject = true,
+  conversation,
+  conversationSuggestions = [],
+  conversationArtifacts = [],
+  pendingConversation,
+  pendingConversationInstruction = null,
   pendingAction,
   actionSuccess,
   actionError,
+  conversationError = null,
   onRunAgent,
+  onSendMessage,
+  onConfirmArtifact,
   onResetDemo,
 }: AgentSidebarProps) {
-  const searchParams = useSearchParams();
-  const currentView = (searchParams.get("view") as ProjectView) || "overview";
   const [collapsed, setCollapsed] = useState(false);
   const [hovered, setHovered] = useState(false);
-  const [expandedAction, setExpandedAction] = useState<AgentAction | null>(null);
+  const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [activityOpen, setActivityOpen] = useState(false);
+  const [draft, setDraft] = useState("");
 
   const toggle = useCallback(() => setCollapsed((c) => !c), []);
 
-  // Keyboard shortcut: Ctrl+J to toggle sidebar
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.ctrlKey && e.key === "j") {
-        e.preventDefault();
+    const handleKeyDown = (event: globalThis.KeyboardEvent) => {
+      if (event.ctrlKey && event.key === "j") {
+        event.preventDefault();
         toggle();
       }
     };
@@ -114,51 +143,58 @@ export function AgentSidebar({
   }, [toggle]);
 
   const isExpanded = !collapsed || hovered;
-  const recommendation = VIEW_RECOMMENDATIONS[currentView];
-
-  // Get recent activity from timeline
   const recentEvents = (state.timeline ?? []).slice(0, 5);
+  const pendingProposalCount = state.agent_proposals?.filter((proposal) => proposal.status === "pending").length ?? 0;
+  const focus = conversation?.current_focus || inferFocus(state);
+  const messages = conversation?.messages ?? [];
+  const normalizedSuggestions = normalizeSuggestions(conversationSuggestions);
+  const suggestions = normalizedSuggestions.length > 0 ? normalizedSuggestions : inferStructuredSuggestions(focus);
 
-  const formatTimeAgo = (dateStr: string) => {
-    const date = new Date(dateStr);
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMs / 3600000);
-    const diffDays = Math.floor(diffMs / 86400000);
+  const payloadArtifacts = messages.flatMap((message) => {
+    const artifacts = message.structured_payload?.artifacts;
+    return Array.isArray(artifacts) ? artifacts.filter(isValidArtifact) : [];
+  });
+  const mergedArtifacts = Array.from(
+    new Map([...payloadArtifacts, ...conversationArtifacts].map((artifact) => [artifact.id, artifact])).values()
+  );
 
-    if (diffMins < 1) return "刚刚";
-    if (diffMins < 60) return `${diffMins}分钟前`;
-    if (diffHours < 24) return `${diffHours}小时前`;
-    return `${diffDays}天前`;
+  const proposalStatusLookup = new Map(
+    (state.agent_proposals ?? []).map((p) => [p.id, p.status]),
+  );
+
+  const PROPOSAL_STATUS_TO_ARTIFACT: Record<string, AgentArtifact["status"] | undefined> = {
+    pending: "pending_confirmation",
+    confirmed: "confirmed",
+    rejected: "dismissed",
   };
 
-  const getEventIcon = (eventType: AgentEvent["event_type"]) => {
-    switch (eventType) {
-      case "clarify":
-        return Compass;
-      case "plan":
-        return GitBranch;
-      case "breakdown":
-        return ListTodo;
-      case "assign":
-        return Users;
-      case "push":
-        return Rocket;
-      case "checkin":
-        return ClipboardCheck;
-      case "risk":
-        return AlertTriangle;
-      case "replan":
-        return RefreshCw;
-      default:
-        return Sparkles;
-    }
+  const visibleArtifacts = mergedArtifacts.map((artifact) => {
+    if (artifact.type !== "proposal") return artifact;
+    const proposalId = artifact.linked_entity_ids[0];
+    if (!proposalId) return artifact;
+    const proposalStatus = proposalStatusLookup.get(proposalId);
+    if (!proposalStatus) return artifact;
+    const mapped = PROPOSAL_STATUS_TO_ARTIFACT[proposalStatus];
+    if (!mapped || mapped === artifact.status) return artifact;
+    return { ...artifact, status: mapped };
+  });
+
+  const submitMessage = async (content: string) => {
+    const trimmed = content.trim();
+    if (!trimmed || !onSendMessage || pendingConversation) return;
+    setDraft("");
+    await onSendMessage(trimmed);
   };
 
-  const getEventLabel = (eventType: AgentEvent["event_type"]) => {
-    const action = ALL_AGENT_ACTIONS.find((a) => a.id === eventType);
-    return action?.label || eventType;
+  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    void submitMessage(draft);
+  };
+
+  const handleComposerKeyDown = (event: ReactKeyboardEvent<HTMLTextAreaElement>) => {
+    if (event.key !== "Enter" || event.shiftKey) return;
+    event.preventDefault();
+    void submitMessage(draft);
   };
 
   return (
@@ -171,21 +207,15 @@ export function AgentSidebar({
       onMouseLeave={() => setHovered(false)}
       initial={false}
     >
-      {/* Toggle button */}
       <button
         type="button"
         onClick={toggle}
         className="absolute -left-3 top-4 z-10 flex h-6 w-6 items-center justify-center rounded-full border border-neutral-200 bg-white text-neutral-400 shadow-sm transition hover:text-neutral-600 focus:outline-none focus:ring-2 focus:ring-moss/30"
         aria-label={collapsed ? "展开侧边栏" : "收起侧边栏"}
       >
-        {collapsed ? (
-          <ChevronLeft className="h-3 w-3" />
-        ) : (
-          <ChevronRight className="h-3 w-3" />
-        )}
+        {collapsed ? <ChevronLeft className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
       </button>
 
-      {/* Header */}
       <div className="flex h-14 items-center gap-2 border-b border-neutral-100 px-3">
         <Bot className="h-5 w-5 shrink-0 text-moss" />
         <AnimatePresence>
@@ -203,7 +233,6 @@ export function AgentSidebar({
         </AnimatePresence>
       </div>
 
-      {/* Content */}
       <div className="flex-1 overflow-y-auto custom-scrollbar">
         <AnimatePresence>
           {isExpanded && (
@@ -215,122 +244,109 @@ export function AgentSidebar({
               className="p-3"
             >
               {!hasProject && (
-                <div className="mb-4 rounded-xl border border-neutral-200 bg-neutral-50 p-4 text-center">
+                <div className="mb-4 rounded-lg border border-neutral-200 bg-neutral-50 p-4 text-center">
                   <Bot className="mx-auto mb-2 h-6 w-6 text-neutral-300" />
                   <p className="text-sm text-neutral-500">选择一个项目以查看 Agent 建议</p>
                 </div>
               )}
 
-              {/* Context-Aware Recommendation */}
-              {hasProject && recommendation && (
-                <div className="mb-4 rounded-xl border border-moss/20 bg-moss/5 p-3">
-                  <div className="flex items-center gap-1.5 text-xs font-semibold text-moss">
-                    <Sparkles className="h-3.5 w-3.5" />
-                    当前建议
-                  </div>
-                  <p className="mt-1.5 text-xs text-neutral-600">
-                    {recommendation.reason}
-                  </p>
-                  <Button
-                    variant="default"
-                    size="sm"
-                    className="mt-2 h-7 w-full bg-moss text-xs text-white hover:bg-moss/90"
-                    disabled={Boolean(pendingAction)}
-                    onClick={() => onRunAgent(recommendation.action)}
-                  >
-                    {pendingAction === recommendation.action ? (
-                      <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-                    ) : (
-                      <PlayCircle className="mr-1 h-3 w-3" />
-                    )}
-                    {pendingAction === recommendation.action
-                      ? "运行中..."
-                      : ALL_AGENT_ACTIONS.find(
-                          (a) => a.id === recommendation.action
-                        )?.label}
-                  </Button>
-                </div>
-              )}
-
-              {/* All Actions */}
               {hasProject && (
                 <div className="mb-4">
-                  <h3 className="mb-2 text-xs font-semibold text-neutral-400">
-                    所有操作
-                  </h3>
-                  <div className="space-y-1">
-                    {ALL_AGENT_ACTIONS.map((action) => {
-                      const isExpandedAction = expandedAction === action.id;
-                      const isPending = pendingAction === action.id;
-                      return (
-                        <div key={action.id}>
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setExpandedAction(
-                                isExpandedAction ? null : action.id
-                              )
-                            }
-                            className={cn(
-                              "flex w-full items-center gap-2 rounded-lg px-2 py-2 text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-moss/30",
-                              isExpandedAction
-                                ? "bg-neutral-50 text-neutral-900"
-                                : "text-neutral-600 hover:bg-neutral-50 hover:text-neutral-900"
-                            )}
-                          >
-                            <action.icon className="h-4 w-4 shrink-0" />
-                            <span className="flex-1 text-left">
-                              {action.label}
-                            </span>
-                            <ChevronRight
-                              className={cn(
-                                "h-3 w-3 shrink-0 transition-transform",
-                                isExpandedAction && "rotate-90"
-                              )}
-                            />
-                          </button>
-                          <AnimatePresence>
-                            {isExpandedAction && (
-                              <motion.div
-                                initial={{ height: 0, opacity: 0 }}
-                                animate={{ height: "auto", opacity: 1 }}
-                                exit={{ height: 0, opacity: 0 }}
-                                transition={{ duration: 0.2 }}
-                                className="overflow-hidden"
-                              >
-                                <div className="px-2 pb-2 pt-1">
-                                  <p className="mb-2 text-xs text-neutral-500">
-                                    {action.description}
-                                  </p>
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    className="h-7 w-full text-xs"
-                                    disabled={Boolean(pendingAction)}
-                                    onClick={() => {
-                                      onRunAgent(action.id);
-                                      setExpandedAction(null);
-                                    }}
-                                  >
-                                    {isPending ? (
-                                      <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-                                    ) : (
-                                      <PlayCircle className="mr-1 h-3 w-3" />
-                                    )}
-                                    {isPending ? "运行中..." : "执行"}
-                                  </Button>
-                                </div>
-                              </motion.div>
-                            )}
-                          </AnimatePresence>
-                        </div>
-                      );
-                    })}
+                  <AgentContextCard focus={focus} pendingCount={pendingProposalCount} />
+
+                  <div className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-neutral-500">
+                    <MessageSquare className="h-3.5 w-3.5" />
+                    Agent 对话
                   </div>
+                  <div className="space-y-2">
+                    {messages.length === 0 && (
+                      <div className="rounded-lg border border-neutral-200 bg-white p-3 text-xs leading-5 text-neutral-600">
+                        {focusReason(focus)}
+                      </div>
+                    )}
+                    {messages.map((message) => (
+                      <div
+                        key={message.id}
+                        className={cn(
+                          "rounded-lg border p-3 text-xs leading-5",
+                          message.role === "user"
+                            ? "ml-5 border-neutral-200 bg-white text-neutral-700"
+                            : "mr-5 border-moss/20 bg-moss/5 text-neutral-700"
+                        )}
+                      >
+                        <div className="mb-1 text-[10px] font-semibold text-neutral-400">
+                          {message.role === "user" ? "你" : "Agent"}
+                        </div>
+                        {message.role === "user" ? mapQuickReplyDisplay(message.content) : message.content}
+                      </div>
+                    ))}
+
+                    {pendingConversationInstruction && (
+                      <div className="ml-5 rounded-lg border border-neutral-200 bg-white p-3 text-xs leading-5 text-neutral-700">
+                        <div className="mb-1 text-[10px] font-semibold text-neutral-400">你</div>
+                        {mapQuickReplyDisplay(pendingConversationInstruction)}
+                      </div>
+                    )}
+                  </div>
+
+                  {pendingConversation && <AgentRunStatusCard />}
+
+                  {visibleArtifacts.map((artifact) => (
+                    <AgentArtifactCard
+                      key={artifact.id}
+                      artifact={artifact}
+                      disabled={Boolean(pendingConversation)}
+                      onConfirm={onConfirmArtifact}
+                      onRevise={(item) => void submitMessage(`继续修改：${item.title}`)}
+                      onInspect={(item) => void submitMessage(`解释这条建议的影响：${item.title}`)}
+                    />
+                  ))}
+
+                  {conversationError && (
+                    <AgentErrorCard
+                      message={conversationError}
+                      disabled={Boolean(pendingConversation)}
+                      onRetry={pendingConversationInstruction ? () => void submitMessage(pendingConversationInstruction) : undefined}
+                    />
+                  )}
+
+                  <AgentSuggestionRow
+                    suggestions={suggestions}
+                    disabled={Boolean(pendingConversation)}
+                    onPick={(instruction) => void submitMessage(instruction)}
+                  />
+
+                  <form onSubmit={handleSubmit} className="mt-3">
+                    <div className="rounded-lg border border-neutral-200 bg-white p-2 focus-within:border-moss/40">
+                      <textarea
+                        value={draft}
+                        onChange={(event) => setDraft(event.target.value)}
+                        onKeyDown={handleComposerKeyDown}
+                        rows={3}
+                        placeholder="告诉 Agent 你的具体要求..."
+                        className="min-h-16 w-full resize-none bg-transparent text-sm text-neutral-800 outline-none placeholder:text-neutral-400"
+                        disabled={Boolean(pendingConversation)}
+                      />
+                      <div className="mt-2 flex justify-end">
+                        <Button
+                          type="submit"
+                          size="sm"
+                          className="h-7 gap-1 bg-moss px-2.5 text-xs text-white hover:bg-moss/90"
+                          disabled={!draft.trim() || Boolean(pendingConversation)}
+                        >
+                          {pendingConversation ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <Send className="h-3.5 w-3.5" />
+                          )}
+                          发送
+                        </Button>
+                      </div>
+                    </div>
+                  </form>
                 </div>
               )}
 
-              {/* Status messages */}
               {actionSuccess && (
                 <motion.div
                   initial={{ opacity: 0, y: -8 }}
@@ -352,45 +368,111 @@ export function AgentSidebar({
                 </motion.div>
               )}
 
-              {/* Recent Activity */}
               {recentEvents.length > 0 && (
-                <div>
-                  <h3 className="mb-2 text-xs font-semibold text-neutral-400">
-                    最近活动
-                  </h3>
-                  <div className="space-y-2">
-                    {recentEvents.map((event) => {
-                      const Icon = getEventIcon(event.event_type);
-                      return (
-                        <div
-                          key={event.id}
-                          className="flex items-start gap-2 text-xs"
-                        >
-                          <Icon className="mt-0.5 h-3.5 w-3.5 shrink-0 text-neutral-400" />
-                          <div className="min-w-0">
-                            <p className="text-neutral-700">
-                              <span>{getEventLabel(event.event_type)}</span>
-                              <Badge
-                                className={cn(
-                                  "ml-1 px-1.5 py-0 text-[10px]",
-                                  EVENT_STATUS_CLASSES[event.status]
-                                )}
-                              >
-                                {EVENT_STATUS_LABELS[event.status]}
-                              </Badge>
-                              {event.user_confirmed && (
-                                <span className="ml-1 text-moss">已确认</span>
-                              )}
-                            </p>
-                            <p className="mt-0.5 flex items-center gap-1 text-neutral-400">
-                              <Clock className="h-3 w-3" />
-                              {formatTimeAgo(event.created_at)}
-                            </p>
-                          </div>
+                <div className="mb-4 border-t border-neutral-100 pt-3">
+                  <button
+                    type="button"
+                    onClick={() => setActivityOpen((open) => !open)}
+                    className="flex w-full items-center justify-between rounded-lg px-2 py-2 text-xs font-semibold text-neutral-500 transition hover:bg-neutral-50 hover:text-neutral-700"
+                    aria-expanded={activityOpen}
+                  >
+                    <span className="flex items-center gap-1.5">
+                      <Clock className="h-3.5 w-3.5" />
+                      最近活动
+                    </span>
+                    <ChevronRight className={cn("h-3 w-3 transition-transform", activityOpen && "rotate-90")} />
+                  </button>
+                  <AnimatePresence>
+                    {activityOpen && (
+                      <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: "auto", opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={{ duration: 0.2 }}
+                        className="overflow-hidden"
+                      >
+                        <div className="mt-2 space-y-2">
+                          {recentEvents.map((event) => {
+                            const Icon = getEventIcon(event.event_type);
+                            return (
+                              <div key={event.id} className="flex items-start gap-2 text-xs">
+                                <Icon className="mt-0.5 h-3.5 w-3.5 shrink-0 text-neutral-400" />
+                                <div className="min-w-0">
+                                  <p className="text-neutral-700">
+                                    <span>{getEventLabel(event.event_type)}</span>
+                                    <Badge
+                                      className={cn(
+                                        "ml-1 px-1.5 py-0 text-[10px]",
+                                        EVENT_STATUS_CLASSES[event.status]
+                                      )}
+                                    >
+                                      {EVENT_STATUS_LABELS[event.status]}
+                                    </Badge>
+                                    {event.user_confirmed && <span className="ml-1 text-moss">已确认</span>}
+                                  </p>
+                                  <p className="mt-0.5 flex items-center gap-1 text-neutral-400">
+                                    <Clock className="h-3 w-3" />
+                                    {formatTimeAgo(event.created_at)}
+                                  </p>
+                                </div>
+                              </div>
+                            );
+                          })}
                         </div>
-                      );
-                    })}
-                  </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              )}
+
+              {hasProject && (
+                <div className="mt-4 border-t border-neutral-100 pt-3">
+                  <button
+                    type="button"
+                    onClick={() => setAdvancedOpen((open) => !open)}
+                    className="flex w-full items-center justify-between rounded-lg px-2 py-2 text-xs font-semibold text-neutral-500 transition hover:bg-neutral-50 hover:text-neutral-700"
+                    aria-expanded={advancedOpen}
+                  >
+                    <span className="flex items-center gap-1.5">
+                      <MoreHorizontal className="h-3.5 w-3.5" />
+                      高级操作
+                    </span>
+                    <ChevronRight className={cn("h-3 w-3 transition-transform", advancedOpen && "rotate-90")} />
+                  </button>
+                  <AnimatePresence>
+                    {advancedOpen && (
+                      <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: "auto", opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={{ duration: 0.2 }}
+                        className="overflow-hidden"
+                      >
+                        <div className="mt-1 grid grid-cols-2 gap-1">
+                          {ALL_AGENT_ACTIONS.map((action) => {
+                            const isPending = pendingAction === action.id;
+                            return (
+                              <Button
+                                key={action.id}
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 justify-start gap-1.5 px-2 text-xs text-neutral-600"
+                                disabled={Boolean(pendingAction)}
+                                onClick={() => onRunAgent(action.id)}
+                              >
+                                {isPending ? (
+                                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                ) : (
+                                  <action.icon className="h-3.5 w-3.5" />
+                                )}
+                                {action.label}
+                              </Button>
+                            );
+                          })}
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </div>
               )}
 
@@ -412,34 +494,125 @@ export function AgentSidebar({
           )}
         </AnimatePresence>
 
-        {/* Collapsed state: show icons only */}
         {!isExpanded && hasProject && (
           <div className="flex flex-col items-center gap-2 py-3">
-            {ALL_AGENT_ACTIONS.map((action) => (
-              <button
-                key={action.id}
-                type="button"
-                onClick={() => onRunAgent(action.id)}
-                disabled={Boolean(pendingAction)}
-                className={cn(
-                  "flex h-8 w-8 items-center justify-center rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-moss/30",
-                  pendingAction === action.id
-                    ? "bg-moss/10 text-moss"
-                    : "text-neutral-400 hover:bg-neutral-50 hover:text-neutral-600",
-                  pendingAction && pendingAction !== action.id && "opacity-50 cursor-not-allowed"
-                )}
-                title={action.label}
-              >
-                {pendingAction === action.id ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <action.icon className="h-4 w-4" />
-                )}
-              </button>
-            ))}
+            <button
+              type="button"
+              onClick={toggle}
+              className="relative flex h-8 w-8 items-center justify-center rounded-lg text-moss transition hover:bg-moss/10 focus:outline-none focus:ring-2 focus:ring-moss/30"
+              title="打开 Agent 对话"
+            >
+              <MessageSquare className="h-4 w-4" />
+              {pendingProposalCount > 0 && (
+                <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-moss px-1 text-[9px] font-semibold text-white">
+                  {pendingProposalCount}
+                </span>
+              )}
+            </button>
           </div>
         )}
       </div>
     </motion.aside>
   );
+}
+
+const QUICK_REPLY_INSTRUCTION_MAP: Record<string, string> = {
+  "生成下一步行动卡": "请执行 push 模块：生成下一步行动卡。用户点击了快捷回复「生成下一步行动卡」，请直接运行 push 模块生成行动卡。",
+  "分析当前风险": "请执行 risk 模块：分析当前风险。用户点击了快捷回复「分析当前风险」，请直接运行 risk 模块进行风险分析。",
+  "根据签到调整计划": "请执行 replan 模块：根据签到结果调整项目计划。用户点击了快捷回复「根据签到调整计划」，请直接运行 replan 模块生成计划调整草案。",
+  "根据成员情况推荐分工": "请执行 assign 模块：根据成员情况推荐分工。用户点击了快捷回复「根据成员情况推荐分工」，请直接运行 assign 模块。",
+  "把当前阶段拆成任务": "请执行 breakdown 模块：把当前阶段拆成可执行任务。用户点击了快捷回复「把当前阶段拆成任务」，请直接运行 breakdown 模块。",
+  "按三周节奏生成阶段计划": "请执行 plan 模块：按三周节奏生成阶段计划。用户点击了快捷回复「按三周节奏生成阶段计划」，请直接运行 plan 模块。",
+  "先帮我澄清方向": "请执行 clarify 模块：澄清项目方向。用户点击了快捷回复「先帮我澄清方向」，请直接运行 clarify 模块。",
+};
+
+function mapQuickReplyInstruction(label: string): string {
+  return QUICK_REPLY_INSTRUCTION_MAP[label] ?? label;
+}
+
+const QUICK_REPLY_DISPLAY_MAP: Record<string, string> = Object.fromEntries(
+  Object.entries(QUICK_REPLY_INSTRUCTION_MAP).map(([label, instruction]) => [instruction, label]),
+);
+
+function mapQuickReplyDisplay(text: string): string {
+  return QUICK_REPLY_DISPLAY_MAP[text] ?? text;
+}
+
+function normalizeSuggestions(items: AgentSuggestion[] | string[]): AgentSuggestion[] {
+  return items.map((item, index) =>
+    typeof item === "string"
+      ? { id: `suggestion-${index + 1}`, label: item, user_instruction: mapQuickReplyInstruction(item), priority: index === 0 ? "primary" : "secondary" }
+      : item
+  );
+}
+
+function inferFocus(state: ProjectState): string {
+  if (!state.project?.direction_card) return "方向澄清";
+  if (!state.stages || state.stages.length === 0) return "阶段计划";
+  if (!state.tasks || state.tasks.length === 0) return "任务拆解";
+  const hasFinalized = state.assignment_proposals?.some((proposal) => proposal.status === "finalized");
+  if (!hasFinalized) return "分工确认";
+  return "执行推进";
+}
+
+function inferSuggestions(focus: string): string[] {
+  const suggestions: Record<string, string[]> = {
+    方向澄清: ["先帮我澄清方向", "根据资料生成方向卡", "为什么要先澄清方向？"],
+    阶段计划: ["按三周节奏生成阶段计划", "按答辩倒排阶段", "解释阶段规划依据"],
+    任务拆解: ["把当前阶段拆成任务", "任务拆得更细一点", "优先保留 MVP 任务"],
+    分工确认: ["根据成员情况推荐分工", "解释分工依据", "查看未确认分工"],
+    执行推进: ["生成下一步行动卡", "分析当前风险", "根据签到调整计划"],
+  };
+  return suggestions[focus] ?? ["下一步做什么？"];
+}
+
+function inferStructuredSuggestions(focus: string): AgentSuggestion[] {
+  return inferSuggestions(focus).slice(0, 3).map((label, index) => ({
+    id: `fallback-suggestion-${index + 1}`,
+    label,
+    user_instruction: mapQuickReplyInstruction(label),
+    priority: index === 0 ? "primary" : "secondary",
+  }));
+}
+
+function getEventIcon(eventType: AgentEvent["event_type"]) {
+  switch (eventType) {
+    case "clarify":
+      return Compass;
+    case "plan":
+      return GitBranch;
+    case "breakdown":
+      return ListTodo;
+    case "assign":
+      return Users;
+    case "push":
+      return Rocket;
+    case "checkin":
+      return ClipboardCheck;
+    case "risk":
+      return AlertTriangle;
+    case "replan":
+      return RefreshCw;
+    default:
+      return Sparkles;
+  }
+}
+
+function getEventLabel(eventType: AgentEvent["event_type"]) {
+  const action = ALL_AGENT_ACTIONS.find((candidate) => candidate.id === eventType);
+  return action?.label || eventType;
+}
+
+function formatTimeAgo(dateStr: string) {
+  const date = new Date(dateStr);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
+
+  if (diffMins < 1) return "刚刚";
+  if (diffMins < 60) return `${diffMins}分钟前`;
+  if (diffHours < 24) return `${diffHours}小时前`;
+  return `${diffDays}天前`;
 }

@@ -1,0 +1,38 @@
+import json
+
+from sqlalchemy import create_engine, inspect, text
+
+from app.core import database
+
+
+def test_create_db_and_tables_adds_workspace_columns_for_legacy_sqlite(monkeypatch, tmp_path):
+    db_path = tmp_path / "legacy.sqlite"
+    legacy_engine = create_engine(
+        f"sqlite:///{db_path}",
+        connect_args={"check_same_thread": False},
+        json_serializer=json.dumps,
+        json_deserializer=json.loads,
+    )
+    with legacy_engine.begin() as conn:
+        conn.execute(
+            text(
+                """
+                CREATE TABLE workspaces (
+                    id VARCHAR NOT NULL PRIMARY KEY,
+                    name VARCHAR NOT NULL,
+                    owner_user_id VARCHAR NOT NULL,
+                    description VARCHAR,
+                    created_at DATETIME NOT NULL,
+                    updated_at DATETIME NOT NULL
+                )
+                """
+            )
+        )
+
+    monkeypatch.setattr(database, "engine", legacy_engine)
+    monkeypatch.setattr(database.settings, "database_url", f"sqlite:///{db_path}")
+
+    database.create_db_and_tables()
+
+    columns = {col["name"] for col in inspect(legacy_engine).get_columns("workspaces")}
+    assert {"team_size", "use_case"} <= columns

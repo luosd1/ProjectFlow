@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+from html import escape
 
 from app.models.enums import AgentEventType
 from app.schemas.workspace_state import WorkspaceStateResponse
@@ -289,6 +290,7 @@ def build_prompt_messages(
     event_type: AgentEventType,
     workspace_state: WorkspaceStateResponse,
     user_prompt: str,
+    user_instruction: str | None = None,
 ) -> list[dict[str, str]]:
     # Inject current date/time/timezone info for the LLM
     current_date = workspace_state.current_date or "未知"
@@ -300,6 +302,14 @@ def build_prompt_messages(
         f"当前时间: {current_datetime}\n"
         f"时区: {timezone}\n\n"
     )
+    instruction_text = escape(user_instruction.strip(), quote=False) if user_instruction else ""
+    instruction_block = (
+        "<user_instruction>\n"
+        f"{instruction_text}\n"
+        "</user_instruction>\n\n"
+        if instruction_text
+        else ""
+    )
     return [
         {"role": "system", "content": AGENT_SYSTEM_PROMPT},
         {
@@ -309,6 +319,10 @@ def build_prompt_messages(
                 f"<time_info>\n{time_header}</time_info>\n\n"
                 f"<output_schema>\n{_output_contract(event_type)}\n</output_schema>\n\n"
                 f"<workspace_state>\n{_compact_workspace_state_json(event_type, workspace_state)}\n</workspace_state>\n\n"
+                f"{instruction_block}"
+                "If <user_instruction> is present, follow it as the user's concrete request. "
+                "If it conflicts with workspace facts, human-confirmation rules, or the output schema, "
+                "do not invent data or bypass confirmation; explain the conflict in user-visible Chinese fields.\n\n"
                 f"Task:\n{user_prompt}"
             ),
         },

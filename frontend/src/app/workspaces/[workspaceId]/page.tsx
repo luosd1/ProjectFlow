@@ -14,6 +14,7 @@ import {
   finalizeAssignments,
   confirmAgentProposal,
   createCheckinCycle,
+  getAgentConversation,
   getProjectState,
   getWorkspaceState,
   rejectAgentProposal,
@@ -27,13 +28,22 @@ import {
   runPlanning,
   runReplan,
   runRiskAnalysis,
+  sendAgentConversationMessage,
   startNegotiation,
   submitCheckinResponse,
   updateActionCardStatus,
   updateRiskStatus,
   updateTaskStatus,
 } from "@/lib/api";
-import type { AddResourceRequest, AgentFlowResult, ProjectState, WorkspaceState } from "@/lib/types";
+import type {
+  AddResourceRequest,
+  AgentArtifact,
+  AgentConversation,
+  AgentFlowResult,
+  AgentSuggestion,
+  ProjectState,
+  WorkspaceState,
+} from "@/lib/types";
 
 const AGENT_RUNNERS: Record<AgentAction, (projectId: string, state?: ProjectState) => Promise<unknown>> = {
   clarify: runClarification,
@@ -95,6 +105,11 @@ export default function WorkspaceDashboardPage() {
 
   const [workspaceState, setWorkspaceState] = useState<WorkspaceState | null>(null);
   const [projectState, setProjectState] = useState<ProjectState | null>(null);
+  const [agentConversation, setAgentConversation] = useState<AgentConversation | null>(null);
+  const [agentConversationSuggestions, setAgentConversationSuggestions] = useState<AgentSuggestion[]>([]);
+  const [agentConversationArtifacts, setAgentConversationArtifacts] = useState<AgentArtifact[]>([]);
+  const [pendingAgentInstruction, setPendingAgentInstruction] = useState<string | null>(null);
+  const [agentConversationError, setAgentConversationError] = useState<string | null>(null);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [showWorkspace, setShowWorkspace] = useState(!projectParam);
   const showWorkspaceRef = useRef(showWorkspace);
@@ -106,6 +121,7 @@ export default function WorkspaceDashboardPage() {
   }, [showWorkspace]);
 
   const [pendingAction, setPendingAction] = useState<AgentAction | null>(null);
+  const [pendingAgentConversation, setPendingAgentConversation] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
 
@@ -135,6 +151,17 @@ export default function WorkspaceDashboardPage() {
         if (ps) {
           setProjectState(ps);
           syncProjectShellState(ps);
+          setAgentConversationSuggestions([]);
+          setAgentConversationArtifacts([]);
+          setPendingAgentInstruction(null);
+          setAgentConversationError(null);
+          getAgentConversation(ps.project.id)
+            .then((conversation) => {
+              if (!ignore) setAgentConversation(conversation);
+            })
+            .catch(() => {
+              if (!ignore) setActionError("加载 Agent 对话失败");
+            });
         }
       })
       .catch(() => {
@@ -169,6 +196,12 @@ export default function WorkspaceDashboardPage() {
       const ps = await getProjectState(projectId);
       setProjectState(ps);
       syncProjectShellState(ps);
+      const conversation = await getAgentConversation(projectId);
+      setAgentConversation(conversation);
+      setAgentConversationSuggestions([]);
+      setAgentConversationArtifacts([]);
+      setPendingAgentInstruction(null);
+      setAgentConversationError(null);
     } catch {
       setActionError("加载项目数据失败");
     } finally {
@@ -181,6 +214,11 @@ export default function WorkspaceDashboardPage() {
     if (show) {
       setSelectedProjectId(null);
       setProjectState(null);
+      setAgentConversation(null);
+      setAgentConversationSuggestions([]);
+      setAgentConversationArtifacts([]);
+      setPendingAgentInstruction(null);
+      setAgentConversationError(null);
       // Clear project param from URL
       const params = new URLSearchParams(searchParams.toString());
       params.delete("project");
@@ -206,6 +244,8 @@ export default function WorkspaceDashboardPage() {
       const nextState = await getProjectState(selectedProjectId);
       setProjectState(nextState);
       syncProjectShellState(nextState);
+      const conversation = await getAgentConversation(selectedProjectId);
+      setAgentConversation(conversation);
     } catch {
       setActionError("刷新项目数据失败，请重试");
     }
@@ -252,6 +292,33 @@ export default function WorkspaceDashboardPage() {
       setActionError(msg);
     } finally {
       setPendingAction(null);
+    }
+  };
+
+  const handleSendAgentMessage = async (content: string) => {
+    if (!agentConversation) return;
+    setPendingAgentConversation(true);
+    setPendingAgentInstruction(content);
+    setAgentConversationError(null);
+    setActionError(null);
+    setActionSuccess(null);
+    try {
+      const result = await sendAgentConversationMessage(agentConversation.id, content);
+      setAgentConversation(result.conversation);
+      setAgentConversationSuggestions(result.suggestions ?? []);
+      setAgentConversationArtifacts(result.artifacts ?? []);
+      setPendingAgentInstruction(null);
+      await reloadProject();
+      const hasPendingArtifact = (result.artifacts ?? []).some(
+        (a) => a.status === "pending_confirmation",
+      );
+      if (!hasPendingArtifact && result.run?.proposal_id) {
+        setActionSuccess("Agent 已生成提案，等待你确认后应用");
+      }
+    } catch {
+      setAgentConversationError("这次没有生成可用结果，我保留了你的请求。你可以重新发送或换一种说法。");
+    } finally {
+      setPendingAgentConversation(false);
     }
   };
 
@@ -327,6 +394,27 @@ export default function WorkspaceDashboardPage() {
       setActionSuccess("提案已拒绝");
     } catch {
       setActionError("拒绝提案失败，请稍后重试。");
+    }
+  };
+
+  const handleConfirmAgentArtifact = async (artifact: AgentArtifact) => {
+    if (artifact.type === "proposal") {
+      const proposalId = artifact.linked_entity_ids[0];
+      if (!proposalId || !currentUserId) {
+        setAgentConversationError("这条结果暂时不能直接确认，请在项目提案面板中查看。");
+        return;
+      }
+      try {
+        await confirmAgentProposal(proposalId, currentUserId);
+        setAgentConversationArtifacts((prev) => {
+          const found = prev.some((a) => a.id === artifact.id);
+          if (found) return prev.map((a) => (a.id === artifact.id ? { ...a, status: "confirmed" as const } : a));
+          return [...prev, { ...artifact, status: "confirmed" as const }];
+        });
+        await reloadProject();
+      } catch {
+        setAgentConversationError("确认应用失败，请重试。");
+      }
     }
   };
 
@@ -477,6 +565,12 @@ export default function WorkspaceDashboardPage() {
       showWorkspace={showWorkspace}
       currentUserId={currentUserId}
       pendingAction={pendingAction}
+      agentConversation={agentConversation}
+      agentConversationSuggestions={agentConversationSuggestions}
+      agentConversationArtifacts={agentConversationArtifacts}
+      pendingAgentInstruction={pendingAgentInstruction}
+      agentConversationError={agentConversationError}
+      pendingAgentConversation={pendingAgentConversation}
       actionError={actionError}
       actionSuccess={actionSuccess}
       viewParam={viewParam}
@@ -488,6 +582,7 @@ export default function WorkspaceDashboardPage() {
       onShowWorkspace={handleShowWorkspace}
       onNavigateView={handleNavigateView}
       onRunAgent={runAgent}
+      onSendAgentMessage={handleSendAgentMessage}
       onRespondToAssignment={handleAssignmentResponse}
       onStartNegotiation={handleStartNegotiation}
       onFinalizeAssignments={handleFinalizeAssignments}
@@ -500,6 +595,7 @@ export default function WorkspaceDashboardPage() {
       onDismissActionCard={(cardId) => handleActionCardStatus(cardId, "dismissed")}
       onConfirmProposal={handleConfirmProposal}
       onRejectProposal={handleRejectProposal}
+      onConfirmAgentArtifact={handleConfirmAgentArtifact}
       onAddResource={handleAddResource}
       onDeleteResource={handleDeleteResource}
       onResetDemo={handleResetDemo}

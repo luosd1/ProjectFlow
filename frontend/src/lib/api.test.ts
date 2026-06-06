@@ -1,6 +1,14 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { getProjectState, rejectAgentProposal, runAgentNegotiate, runAssignment, startNegotiation } from "./api";
+import {
+  getAgentConversation,
+  getProjectState,
+  rejectAgentProposal,
+  runAgentNegotiate,
+  runAssignment,
+  sendAgentConversationMessage,
+  startNegotiation,
+} from "./api";
 
 const jsonResponse = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
@@ -13,6 +21,126 @@ afterEach(() => {
 });
 
 describe("frontend API layer", () => {
+  it("loads the active project agent conversation", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.endsWith("/projects/project-1/agent-conversation")) {
+        return jsonResponse({
+          id: "conversation-1",
+          workspace_id: "workspace-1",
+          project_id: "project-1",
+          status: "active",
+          summary: "",
+          current_focus: "阶段计划",
+          messages: [],
+          created_at: "2026-06-06T00:00:00Z",
+          updated_at: "2026-06-06T00:00:00Z",
+        });
+      }
+      throw new Error(`Unexpected request ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const conversation = await getAgentConversation("project-1");
+
+    expect(conversation.current_focus).toBe("阶段计划");
+  });
+
+  it("sends natural language messages to the backend agent conversation", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.endsWith("/agent/conversations/conversation-1/messages")) {
+        expect(init?.method).toBe("POST");
+        expect(JSON.parse(String(init?.body))).toEqual({
+          content: "按三周节奏重新规划",
+        });
+        return jsonResponse({
+          conversation: {
+            id: "conversation-1",
+            workspace_id: "workspace-1",
+            project_id: "project-1",
+            status: "active",
+            summary: "",
+            current_focus: "阶段计划",
+            messages: [],
+            created_at: "2026-06-06T00:00:00Z",
+            updated_at: "2026-06-06T00:00:00Z",
+          },
+          user_message: {
+            id: "message-user",
+            conversation_id: "conversation-1",
+            role: "user",
+            content: "按三周节奏重新规划",
+            structured_payload: {},
+            linked_event_id: null,
+            linked_proposal_id: null,
+            created_at: "2026-06-06T00:00:00Z",
+          },
+          assistant_message: {
+            id: "message-assistant",
+            conversation_id: "conversation-1",
+            role: "assistant",
+            content: "阶段计划已生成，已放入待确认队列。",
+            structured_payload: {},
+            linked_event_id: "event-1",
+            linked_proposal_id: "proposal-1",
+            created_at: "2026-06-06T00:00:00Z",
+          },
+          run: {
+            id: "run-1",
+            conversation_id: "conversation-1",
+            project_id: "project-1",
+            user_instruction: "按三周节奏重新规划",
+            selected_module: "plan",
+            status: "proposal_created",
+            model: "mock",
+            attempts: 2,
+            verifier_status: "passed",
+            agent_event_id: "event-1",
+            proposal_id: "proposal-1",
+            created_at: "2026-06-06T00:00:00Z",
+            completed_at: "2026-06-06T00:00:00Z",
+          },
+          turn_plan: null,
+          next_suggestions: ["确认这个阶段计划"],
+          suggestions: [
+            {
+              id: "suggestion-1",
+              label: "确认这个阶段计划",
+              user_instruction: "确认这个阶段计划",
+              priority: "primary",
+            },
+          ],
+          artifacts: [
+            {
+              id: "proposal-artifact-1",
+              type: "proposal",
+              status: "pending_confirmation",
+              title: "阶段计划提案",
+              summary: "三周阶段计划已生成。",
+              rationale: "用户要求按三周节奏重新规划。",
+              impact: ["确认后会更新阶段计划。"],
+              linked_entity_ids: ["proposal-1"],
+            },
+          ],
+        });
+      }
+      throw new Error(`Unexpected request ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await sendAgentConversationMessage(
+      "conversation-1",
+      "按三周节奏重新规划",
+    );
+
+    expect(result.run?.selected_module).toBe("plan");
+    expect(result.assistant_message.linked_proposal_id).toBe("proposal-1");
+    expect(result.suggestions[0].user_instruction).toBe("确认这个阶段计划");
+    expect(result.artifacts[0].type).toBe("proposal");
+    expect(result.artifacts[0].linked_entity_ids).toEqual(["proposal-1"]);
+  });
+
   it("rejects agent proposals with an explicit nullable reason body", async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
@@ -62,7 +190,10 @@ describe("frontend API layer", () => {
       }
       if (url.endsWith("/agent/assign")) {
         expect(init?.method).toBe("POST");
-        expect(JSON.parse(String(init?.body))).toEqual({ workspace_id: "workspace-1" });
+        expect(JSON.parse(String(init?.body))).toEqual({
+          workspace_id: "workspace-1",
+          project_id: "project-1",
+        });
         return jsonResponse({
           event_type: "assign",
           status: "fallback",
@@ -102,7 +233,10 @@ describe("frontend API layer", () => {
       }
       if (url.endsWith("/agent/negotiate")) {
         expect(init?.method).toBe("POST");
-        expect(JSON.parse(String(init?.body))).toEqual({ workspace_id: "workspace-1" });
+        expect(JSON.parse(String(init?.body))).toEqual({
+          workspace_id: "workspace-1",
+          project_id: "project-1",
+        });
         return jsonResponse({
           event_type: "negotiate",
           status: "success",
@@ -145,6 +279,7 @@ describe("frontend API layer", () => {
         expect(init?.method).toBe("POST");
         expect(JSON.parse(String(init?.body))).toEqual({
           workspace_id: "workspace-1",
+          project_id: "project-1",
           stage_id: "stage-pending",
         });
         return jsonResponse({
@@ -201,6 +336,190 @@ describe("frontend API layer", () => {
 
     expect(negotiation.agent_message).toBe("Mia 希望改做分工流程面板。");
     expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("falls back to next_suggestions when suggestions and artifacts are omitted", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.endsWith("/agent/conversations/conversation-1/messages")) {
+        expect(init?.method).toBe("POST");
+        return jsonResponse({
+          conversation: {
+            id: "conversation-1",
+            workspace_id: "workspace-1",
+            project_id: "project-1",
+            status: "active",
+            summary: "",
+            current_focus: "阶段计划",
+            messages: [],
+            created_at: "2026-06-06T00:00:00Z",
+            updated_at: "2026-06-06T00:00:00Z",
+          },
+          user_message: {
+            id: "message-user",
+            conversation_id: "conversation-1",
+            role: "user",
+            content: "按三周节奏重新规划",
+            structured_payload: {},
+            linked_event_id: null,
+            linked_proposal_id: null,
+            created_at: "2026-06-06T00:00:00Z",
+          },
+          assistant_message: {
+            id: "message-assistant",
+            conversation_id: "conversation-1",
+            role: "assistant",
+            content: "好的，我会按三周节奏重新规划。",
+            structured_payload: {},
+            linked_event_id: null,
+            linked_proposal_id: null,
+            created_at: "2026-06-06T00:00:00Z",
+          },
+          run: null,
+          turn_plan: null,
+          next_suggestions: ["确认这个阶段计划", "查看阶段详情", "调整时间范围", "跳过此步"],
+        });
+      }
+      throw new Error(`Unexpected request ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await sendAgentConversationMessage(
+      "conversation-1",
+      "按三周节奏重新规划",
+    );
+
+    expect(result.suggestions).toHaveLength(3);
+    expect(result.suggestions[0].priority).toBe("primary");
+    expect(result.suggestions[1].priority).toBe("secondary");
+    expect(result.suggestions[2].priority).toBe("secondary");
+    expect(result.suggestions[0].label).toBe("确认这个阶段计划");
+    expect(result.suggestions[1].label).toBe("查看阶段详情");
+    expect(result.suggestions[2].label).toBe("调整时间范围");
+    expect(result.artifacts).toEqual([]);
+    expect(result.next_suggestions).toEqual(["确认这个阶段计划", "查看阶段详情", "调整时间范围", "跳过此步"]);
+  });
+
+  it("falls back to next_suggestions when suggestions is empty and artifacts is omitted", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.endsWith("/agent/conversations/conversation-1/messages")) {
+        expect(init?.method).toBe("POST");
+        return jsonResponse({
+          conversation: {
+            id: "conversation-1",
+            workspace_id: "workspace-1",
+            project_id: "project-1",
+            status: "active",
+            summary: "",
+            current_focus: "阶段计划",
+            messages: [],
+            created_at: "2026-06-06T00:00:00Z",
+            updated_at: "2026-06-06T00:00:00Z",
+          },
+          user_message: {
+            id: "message-user",
+            conversation_id: "conversation-1",
+            role: "user",
+            content: "下一步怎么做",
+            structured_payload: {},
+            linked_event_id: null,
+            linked_proposal_id: null,
+            created_at: "2026-06-06T00:00:00Z",
+          },
+          assistant_message: {
+            id: "message-assistant",
+            conversation_id: "conversation-1",
+            role: "assistant",
+            content: "建议先确认阶段计划。",
+            structured_payload: {},
+            linked_event_id: null,
+            linked_proposal_id: null,
+            created_at: "2026-06-06T00:00:00Z",
+          },
+          run: null,
+          turn_plan: null,
+          next_suggestions: ["确认阶段计划", "查看风险分析"],
+          suggestions: [],
+        });
+      }
+      throw new Error(`Unexpected request ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await sendAgentConversationMessage(
+      "conversation-1",
+      "下一步怎么做",
+    );
+
+    expect(result.suggestions).toHaveLength(2);
+    expect(result.suggestions[0].label).toBe("确认阶段计划");
+    expect(result.suggestions[1].label).toBe("查看风险分析");
+    expect(result.artifacts).toEqual([]);
+    expect(result.next_suggestions).toEqual(["确认阶段计划", "查看风险分析"]);
+  });
+
+  it("maps action-like next_suggestions to explicit executable user_instructions in fallback normalization", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.endsWith("/agent/conversations/conversation-1/messages")) {
+        expect(init?.method).toBe("POST");
+        return jsonResponse({
+          conversation: {
+            id: "conversation-1",
+            workspace_id: "workspace-1",
+            project_id: "project-1",
+            status: "active",
+            summary: "",
+            current_focus: "执行推进",
+            messages: [],
+            created_at: "2026-06-06T00:00:00Z",
+            updated_at: "2026-06-06T00:00:00Z",
+          },
+          user_message: {
+            id: "message-user",
+            conversation_id: "conversation-1",
+            role: "user",
+            content: "下一步",
+            structured_payload: {},
+            linked_event_id: null,
+            linked_proposal_id: null,
+            created_at: "2026-06-06T00:00:00Z",
+          },
+          assistant_message: {
+            id: "message-assistant",
+            conversation_id: "conversation-1",
+            role: "assistant",
+            content: "好的。",
+            structured_payload: {},
+            linked_event_id: null,
+            linked_proposal_id: null,
+            created_at: "2026-06-06T00:00:00Z",
+          },
+          run: null,
+          turn_plan: null,
+          next_suggestions: ["生成下一步行动卡", "分析当前风险", "根据签到调整计划"],
+        });
+      }
+      throw new Error(`Unexpected request ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await sendAgentConversationMessage("conversation-1", "下一步");
+
+    expect(result.suggestions).toHaveLength(3);
+
+    const pushSuggestion = result.suggestions.find((s) => s.label === "生成下一步行动卡")!;
+    expect(pushSuggestion.user_instruction).toContain("push");
+    expect(pushSuggestion.user_instruction).not.toBe("生成下一步行动卡");
+
+    const riskSuggestion = result.suggestions.find((s) => s.label === "分析当前风险")!;
+    expect(riskSuggestion.user_instruction).toContain("risk");
+    expect(riskSuggestion.user_instruction).not.toBe("分析当前风险");
+
+    const replanSuggestion = result.suggestions.find((s) => s.label === "根据签到调整计划")!;
+    expect(replanSuggestion.user_instruction).toContain("replan");
+    expect(replanSuggestion.user_instruction).not.toBe("根据签到调整计划");
   });
 
   it("loads dashboard state from the aggregate project-state endpoint", async () => {

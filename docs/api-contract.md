@@ -197,9 +197,15 @@ All agent routes take a workspace-scoped request:
 
 ```json
 {
-  "workspace_id": "uuid"
+  "workspace_id": "uuid",
+  "project_id": "uuid | null",
+  "stage_id": "uuid | null",
+  "conversation_id": "uuid | null",
+  "user_instruction": "string | null"
 }
 ```
+
+`project_id` is optional for backward compatibility but should be provided by the project page so the Agent reads the selected project instead of the newest project in the workspace. `user_instruction` is optional for direct button-style calls and required by the conversation orchestrator when the user gives natural-language constraints such as "按三周倒排" or "优先保留 MVP 演示闭环". The instruction is injected into the Agent prompt inside a `<user_instruction>` XML block and is also recorded in the source `AgentEvent.input_snapshot`.
 
 The response shape is:
 
@@ -244,6 +250,70 @@ The agent response includes `proposal_id` for clarify, plan, breakdown, and repl
   "proposal_id": "uuid"
 }
 ```
+
+### Agent Conversations
+
+Conversation endpoints are the primary UI path for the project Agent sidebar. The frontend sends the user's natural-language message; the backend stores the conversation, asks the LLM for a structured turn plan, validates that plan against the deterministic workflow policy, optionally runs the selected Agent module with `user_instruction`, then returns messages and review metadata.
+
+```http
+GET /api/projects/{project_id}/agent-conversation
+POST /api/agent/conversations/{conversation_id}/messages
+```
+
+`GET /api/projects/{project_id}/agent-conversation` returns or creates the active conversation:
+
+```json
+{
+  "id": "uuid",
+  "workspace_id": "uuid",
+  "project_id": "uuid",
+  "status": "active",
+  "summary": "",
+  "current_focus": "阶段计划",
+  "messages": [],
+  "created_at": "2026-06-06T00:00:00Z",
+  "updated_at": "2026-06-06T00:00:00Z"
+}
+```
+
+`POST /api/agent/conversations/{conversation_id}/messages` accepts:
+
+```json
+{
+  "content": "把阶段计划压缩成 3 周，优先演示闭环"
+}
+```
+
+The response includes the persisted user message, assistant message, optional `AgentRun`, optional `AgentTurnPlan`, and next suggestions:
+
+```json
+{
+  "conversation": {},
+  "user_message": {},
+  "assistant_message": {
+    "role": "assistant",
+    "content": "阶段计划提案已生成，已放入待确认队列。你确认后我才会应用到项目。",
+    "linked_event_id": "uuid",
+    "linked_proposal_id": "uuid"
+  },
+  "run": {
+    "selected_module": "plan",
+    "status": "proposal_created",
+    "user_instruction": "把阶段计划压缩成 3 周，优先演示闭环",
+    "agent_event_id": "uuid",
+    "proposal_id": "uuid"
+  },
+  "turn_plan": {
+    "response_type": "run_module",
+    "selected_module": "plan",
+    "risk_level": "medium",
+    "requires_confirmation": true
+  },
+  "next_suggestions": ["确认这个阶段计划", "要求改成更保守", "解释为什么这样分阶段"]
+}
+```
+
+Policy gate behavior: the LLM may request a module, but the backend blocks invalid jumps. For example, `breakdown` is blocked until stages exist, `assign` is blocked until tasks exist, and `push` is blocked until finalized assignments exist. Blocked turns still persist user and assistant messages but do not create `AgentRun`, `AgentEvent`, or `AgentProposal`.
 
 ### Agent Proposals (Confirm-to-Persist)
 

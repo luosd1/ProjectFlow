@@ -1,9 +1,16 @@
 """Tests for demo seed, reset, and review summary export endpoints."""
 
+import json
+
 from fastapi.testclient import TestClient
 from pydantic import SecretStr
+from sqlalchemy.pool import StaticPool
+from sqlmodel import Session, SQLModel, create_engine, select
 
 from app.core.config import settings as app_settings
+from app.models import AgentConversation, AgentEvent, AgentMessage, AgentProposal, AgentRun
+from app.seed.demo_projectflow import PROJECT_ID, WORKSPACE_ID, seed_demo_data
+from app.seed.reset import reset_demo_data
 
 
 class TestSeedEndpoint:
@@ -115,6 +122,72 @@ class TestResetEndpoint:
         client.post("/api/seed/reset")
         response = client.post("/api/seed/reset")
         assert response.status_code == 200
+
+    def test_reset_clears_agent_conversation_and_proposal_tables(self):
+        engine = create_engine(
+            "sqlite://",
+            connect_args={"check_same_thread": False},
+            poolclass=StaticPool,
+            json_serializer=json.dumps,
+            json_deserializer=json.loads,
+        )
+        SQLModel.metadata.create_all(engine)
+        with Session(engine) as session:
+            seed_demo_data(session)
+            event = session.exec(select(AgentEvent)).first()
+            assert event is not None
+
+            conversation = AgentConversation(
+                id="test-conversation-001",
+                workspace_id=WORKSPACE_ID,
+                project_id=PROJECT_ID,
+            )
+            session.add(conversation)
+            session.flush()
+
+            proposal = AgentProposal(
+                id="test-proposal-001",
+                project_id=PROJECT_ID,
+                workspace_id=WORKSPACE_ID,
+                proposal_type="clarify",
+                agent_event_id=event.id,
+                payload="{}",
+            )
+            session.add(proposal)
+            session.flush()
+
+            session.add(
+                AgentMessage(
+                    id="test-message-001",
+                    conversation_id=conversation.id,
+                    role="user",
+                    content="重新加载演示数据前的旧消息",
+                )
+            )
+            session.add(
+                AgentRun(
+                    id="test-run-001",
+                    conversation_id=conversation.id,
+                    project_id=PROJECT_ID,
+                    user_instruction="生成方向卡",
+                    selected_module="clarify",
+                    status="proposal_created",
+                    agent_event_id=event.id,
+                    proposal_id=proposal.id,
+                )
+            )
+            session.commit()
+
+            result = reset_demo_data(session)
+
+            assert result["deleted"]["agent_messages"] == 1
+            assert result["deleted"]["agent_runs"] == 1
+            assert result["deleted"]["agent_conversations"] == 1
+            assert result["deleted"]["agent_proposals"] == 1
+            assert session.exec(select(AgentMessage)).all() == []
+            assert session.exec(select(AgentRun)).all() == []
+            assert session.exec(select(AgentConversation)).all() == []
+            assert session.exec(select(AgentProposal)).all() == []
 
     def test_reset_is_blocked_outside_development_without_admin_token(self, client: TestClient, monkeypatch):
         monkeypatch.setattr(app_settings, "app_env", "production")

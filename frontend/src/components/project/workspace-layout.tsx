@@ -6,7 +6,7 @@ import { ProjectSidebar, type ProjectView } from "./project-sidebar";
 import { AgentSidebar } from "./agent-sidebar";
 import { ProjectContent } from "./project-content";
 import { WorkspaceContent } from "./workspace-content";
-import type { AddResourceRequest, ProjectState, WorkspaceState } from "@/lib/types";
+import type { AddResourceRequest, AgentArtifact, AgentConversation, AgentSuggestion, ProjectState, WorkspaceState } from "@/lib/types";
 import type { AgentAction } from "./project-actions";
 
 interface WorkspaceLayoutProps {
@@ -17,6 +17,12 @@ interface WorkspaceLayoutProps {
   showWorkspace: boolean;
   currentUserId?: string;
   pendingAction?: AgentAction | null;
+  agentConversation?: AgentConversation | null;
+  agentConversationSuggestions?: AgentSuggestion[];
+  agentConversationArtifacts?: AgentArtifact[];
+  pendingAgentInstruction?: string | null;
+  agentConversationError?: string | null;
+  pendingAgentConversation?: boolean;
   actionError?: string | null;
   actionSuccess?: string | null;
   viewParam?: ProjectView | null;
@@ -25,6 +31,7 @@ interface WorkspaceLayoutProps {
   onShowWorkspace: (show: boolean) => void;
   onNavigateView: (view: ProjectView) => void;
   onRunAgent?: (action: AgentAction) => void;
+  onSendAgentMessage?: (content: string) => void | Promise<void>;
   onRespondToAssignment?: (
     proposalId: string,
     userId: string,
@@ -61,6 +68,7 @@ interface WorkspaceLayoutProps {
   onCompleteActionCard?: (cardId: string) => void;
   onConfirmProposal?: (proposalId: string) => void;
   onRejectProposal?: (proposalId: string) => void;
+  onConfirmAgentArtifact?: (artifact: AgentArtifact) => void | Promise<void>;
   onAddResource?: (resource: AddResourceRequest) => void | Promise<void>;
   onDeleteResource?: (resourceId: string) => void | Promise<void>;
   onResetDemo?: () => void | Promise<void>;
@@ -74,6 +82,12 @@ export function WorkspaceLayout({
   showWorkspace,
   currentUserId,
   pendingAction,
+  agentConversation,
+  agentConversationSuggestions,
+  agentConversationArtifacts,
+  pendingAgentInstruction,
+  agentConversationError,
+  pendingAgentConversation,
   actionError,
   actionSuccess,
   viewParam,
@@ -82,6 +96,7 @@ export function WorkspaceLayout({
   onShowWorkspace,
   onNavigateView,
   onRunAgent,
+  onSendAgentMessage,
   onRespondToAssignment,
   onStartNegotiation,
   onFinalizeAssignments,
@@ -94,6 +109,7 @@ export function WorkspaceLayout({
   onCompleteActionCard,
   onConfirmProposal,
   onRejectProposal,
+  onConfirmAgentArtifact,
   onAddResource,
   onDeleteResource,
   onResetDemo,
@@ -185,10 +201,18 @@ export function WorkspaceLayout({
         state={sidebarState}
         selectedProjectId={selectedProjectId}
         hasProject={hasProject}
+        conversation={agentConversation}
+        conversationSuggestions={agentConversationSuggestions}
+        conversationArtifacts={agentConversationArtifacts}
+        pendingConversationInstruction={pendingAgentInstruction}
+        conversationError={agentConversationError}
+        pendingConversation={pendingAgentConversation}
         pendingAction={pendingAction}
         actionError={actionError}
         actionSuccess={actionSuccess}
         onRunAgent={onRunAgent ?? (() => {})}
+        onSendMessage={onSendAgentMessage}
+        onConfirmArtifact={onConfirmAgentArtifact}
         onResetDemo={onResetDemo}
       />
     </div>

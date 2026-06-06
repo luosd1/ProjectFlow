@@ -12,12 +12,14 @@ const TYPE_LABELS: Record<string, string> = {
   clarify: "方向卡",
   plan: "阶段计划",
   breakdown: "任务分解",
+  replan: "计划调整",
 };
 
 const TYPE_DESCRIPTIONS: Record<string, string> = {
   clarify: "Agent 分析了项目信息，生成了方向建议",
   plan: "Agent 根据方向卡规划了项目阶段",
   breakdown: "Agent 将阶段拆解为具体任务",
+  replan: "Agent 根据签到和风险信号生成了计划调整建议",
 };
 
 const STATUS_LABELS: Record<string, string> = {
@@ -33,6 +35,51 @@ const STATUS_CLASSES: Record<string, string> = {
   fallback: "bg-harbor/15 text-harbor",
   failed: "bg-coral/15 text-coral",
 };
+
+const REPLAN_LABELS: Record<string, string> = {
+  before: "调整前",
+  after: "调整后",
+  impact: "影响",
+  reason: "原因",
+  requires_confirmation: "需要确认",
+  stage_adjustments: "阶段调整",
+  task_changes: "任务变更",
+  action_cards: "新行动卡",
+  task: "任务",
+  title: "标题",
+  status: "状态",
+  due_date: "截止日期",
+  priority: "优先级",
+  owner_user_id: "负责人 ID",
+};
+
+function replanLabel(key: string) {
+  return REPLAN_LABELS[key] ?? key;
+}
+
+function replanValue(value: unknown): string {
+  if (typeof value === "boolean") return value ? "是" : "否";
+  if (Array.isArray(value)) return value.map(replanValue).join("、");
+  if (typeof value === "object" && value !== null) {
+    return Object.entries(value)
+      .filter(([, itemValue]) => itemValue !== null && itemValue !== undefined)
+      .map(([key, itemValue]) => `${replanLabel(key)}: ${replanValue(itemValue)}`)
+      .join(" | ");
+  }
+  return String(value);
+}
+
+function ReplanField({ label, value }: { label: string; value: unknown }) {
+  if (value === null || value === undefined || value === "" || (Array.isArray(value) && value.length === 0)) {
+    return null;
+  }
+  return (
+    <div className="rounded-md border border-ink/8 bg-paper px-3 py-2">
+      <p className="text-xs font-semibold uppercase tracking-[0.12em] text-ink/40">{label}</p>
+      <p className="mt-1 text-sm text-ink/70">{replanValue(value)}</p>
+    </div>
+  );
+}
 
 function ProposalContent({ proposal }: { proposal: AgentProposal }) {
   const payload = proposal.payload;
@@ -137,6 +184,23 @@ function ProposalContent({ proposal }: { proposal: AgentProposal }) {
     );
   }
 
+  if (proposal.proposal_type === "replan") {
+    const p = payload as Record<string, unknown>;
+    return (
+      <div className="space-y-3 text-sm">
+        <ReplanField label="原因" value={p.reason} />
+        <ReplanField label="影响" value={p.impact} />
+        <div className="grid gap-2 sm:grid-cols-2">
+          <ReplanField label="调整前" value={p.before} />
+          <ReplanField label="调整后" value={p.after} />
+        </div>
+        <ReplanField label="阶段调整" value={p.stage_adjustments} />
+        <ReplanField label="任务变更" value={p.task_changes} />
+        <ReplanField label="新行动卡" value={p.action_cards} />
+      </div>
+    );
+  }
+
   return <pre className="text-xs text-ink/60">{JSON.stringify(payload, null, 2)}</pre>;
 }
 
@@ -181,9 +245,8 @@ export function AgentProposalPanel({ proposals, pending, timeline = [], onConfir
 
   const safeProposals = proposals ?? [];
   const statusMap = buildStatusMap(safeProposals, timeline ?? []);
-  const displayableProposals = safeProposals.filter((p) => p.proposal_type !== "replan");
-  const pendingProposals = displayableProposals.filter((p) => p.status === "pending");
-  const confirmedProposals = displayableProposals.filter((p) => p.status === "confirmed");
+  const pendingProposals = safeProposals.filter((p) => p.status === "pending");
+  const confirmedProposals = safeProposals.filter((p) => p.status === "confirmed");
 
   if (pendingProposals.length === 0 && confirmedProposals.length === 0) {
     return null;
