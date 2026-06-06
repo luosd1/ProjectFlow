@@ -69,14 +69,15 @@ def try_advance_stage(session: Session, task_id: str) -> str | None:
     if stage.status not in ("active", "at_risk"):
         return None
 
-    # Are all non-done tasks in this stage done now?
-    pending = session.exec(
-        select(Task).where(
-            Task.stage_id == stage.id,
-            Task.status != "done",
-        )
+    # If the stage has no tasks at all, don't auto-complete it
+    all_tasks = session.exec(
+        select(Task).where(Task.stage_id == stage.id)
     ).all()
+    if len(all_tasks) == 0:
+        return None
 
+    # Are all tasks in this stage done?
+    pending = [t for t in all_tasks if t.status != "done"]
     if len(pending) > 0:
         return None
 
