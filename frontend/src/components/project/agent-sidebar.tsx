@@ -69,6 +69,21 @@ const EVENT_STATUS_CLASSES: Record<AgentEvent["status"], string> = {
   failed: "bg-coral/15 text-coral",
 };
 
+function isValidArtifact(value: unknown): value is AgentArtifact {
+  if (typeof value !== "object" || value === null) return false;
+  const record = value as Record<string, unknown>;
+  return (
+    typeof record.id === "string" &&
+    typeof record.type === "string" &&
+    typeof record.status === "string" &&
+    typeof record.title === "string" &&
+    typeof record.summary === "string" &&
+    typeof record.rationale === "string" &&
+    Array.isArray(record.impact) &&
+    Array.isArray(record.linked_entity_ids)
+  );
+}
+
 interface AgentSidebarProps {
   state: ProjectState;
   selectedProjectId?: string | null;
@@ -132,7 +147,7 @@ export function AgentSidebar({
 
   const payloadArtifacts = messages.flatMap((message) => {
     const artifacts = message.structured_payload?.artifacts;
-    return Array.isArray(artifacts) ? (artifacts as AgentArtifact[]) : [];
+    return Array.isArray(artifacts) ? artifacts.filter(isValidArtifact) : [];
   });
   const visibleArtifacts = Array.from(
     new Map([...payloadArtifacts, ...conversationArtifacts].map((artifact) => [artifact.id, artifact])).values()
@@ -255,7 +270,10 @@ export function AgentSidebar({
                   ))}
 
                   {conversationError && (
-                    <AgentErrorCard message={conversationError} />
+                    <AgentErrorCard
+                      message={conversationError}
+                      onRetry={pendingConversationInstruction ? () => void submitMessage(pendingConversationInstruction) : undefined}
+                    />
                   )}
 
                   <AgentSuggestionRow

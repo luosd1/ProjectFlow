@@ -188,4 +188,69 @@ describe("AgentSidebar", () => {
     expect(screen.getByRole("button", { name: "继续修改" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "查看影响" })).toBeTruthy();
   });
+
+  it("extracts artifacts from structured_payload", () => {
+    const conversationWithPayload: AgentConversation = {
+      ...conversationFixture,
+      messages: [
+        {
+          id: "msg-payload",
+          conversation_id: "conv-1",
+          role: "assistant",
+          content: "已生成建议。",
+          structured_payload: {
+            artifacts: [
+              {
+                id: "payload-art-1",
+                type: "proposal",
+                status: "pending_confirmation",
+                title: "调整计划草案",
+                summary: "建议重新分配任务。",
+                rationale: "后端进度滞后。",
+                impact: ["影响 2 个任务"],
+                linked_entity_ids: ["task-1"],
+              },
+            ],
+          },
+          created_at: "2026-06-07T10:00:00Z",
+        },
+      ],
+    };
+
+    render(
+      <AgentSidebar
+        state={baseProjectState}
+        conversation={conversationWithPayload}
+        onRunAgent={vi.fn()}
+        onConfirmArtifact={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText("调整计划草案")).toBeTruthy();
+    expect(screen.getByText("建议重新分配任务。")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "确认应用" })).toBeTruthy();
+  });
+
+  it("renders conversationError with retry button when instruction is pending", () => {
+    const onSendMessage = vi.fn();
+
+    render(
+      <AgentSidebar
+        state={baseProjectState}
+        conversation={conversationFixture}
+        conversationError="这次没有生成可用结果"
+        pendingConversationInstruction="分析当前风险"
+        onRunAgent={vi.fn()}
+        onSendMessage={onSendMessage}
+      />
+    );
+
+    expect(screen.getByText("Agent 暂时没有完成这次处理")).toBeTruthy();
+    expect(screen.getByText("这次没有生成可用结果")).toBeTruthy();
+
+    const retryButton = screen.getByRole("button", { name: "重新发送" });
+    fireEvent.click(retryButton);
+
+    expect(onSendMessage).toHaveBeenCalledWith("分析当前风险");
+  });
 });
