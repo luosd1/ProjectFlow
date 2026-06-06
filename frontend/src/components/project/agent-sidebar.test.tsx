@@ -526,4 +526,123 @@ describe("AgentSidebar", () => {
     const retryButton = screen.getByRole("button", { name: "重新发送" }) as HTMLButtonElement;
     expect(retryButton.disabled).toBe(true);
   });
+
+  it("shows confirmed status for payload artifact whose linked proposal is confirmed", () => {
+    const stateWithConfirmedProposal: ProjectState = {
+      ...baseProjectState,
+      agent_proposals: [
+        {
+          id: "proposal-1",
+          project_id: "proj-1",
+          workspace_id: "ws-1",
+          proposal_type: "replan",
+          status: "confirmed",
+          agent_event_id: "event-1",
+          payload: {},
+          confirmed_by: "user-1",
+          confirmed_at: "2026-06-07T10:00:00Z",
+          created_at: "2026-06-07T09:00:00Z",
+        },
+      ],
+    };
+
+    const conversationWithPayload: AgentConversation = {
+      ...conversationFixture,
+      messages: [
+        {
+          id: "msg-payload",
+          conversation_id: "conv-1",
+          role: "assistant",
+          content: "已生成建议。",
+          structured_payload: {
+            artifacts: [
+              {
+                id: "payload-art-1",
+                type: "proposal",
+                status: "pending_confirmation",
+                title: "调整计划草案",
+                summary: "建议重新分配任务。",
+                rationale: "后端进度滞后。",
+                impact: ["影响 2 个任务"],
+                linked_entity_ids: ["proposal-1"],
+              },
+            ],
+          },
+          created_at: "2026-06-07T10:00:00Z",
+        },
+      ],
+    };
+
+    render(
+      <AgentSidebar
+        state={stateWithConfirmedProposal}
+        conversation={conversationWithPayload}
+        onRunAgent={vi.fn()}
+        onConfirmArtifact={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText("已确认")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "确认应用" })).toBeNull();
+  });
+
+  it("shows dismissed status for payload artifact whose linked proposal is rejected", () => {
+    const stateWithRejectedProposal: ProjectState = {
+      ...baseProjectState,
+      agent_proposals: [
+        {
+          id: "proposal-1",
+          project_id: "proj-1",
+          workspace_id: "ws-1",
+          proposal_type: "replan",
+          status: "rejected",
+          agent_event_id: "event-1",
+          payload: {},
+          confirmed_by: null,
+          confirmed_at: null,
+          rejection_reason: "不需要调整",
+          created_at: "2026-06-07T09:00:00Z",
+        },
+      ],
+    };
+
+    const conversationWithPayload: AgentConversation = {
+      ...conversationFixture,
+      messages: [
+        {
+          id: "msg-payload",
+          conversation_id: "conv-1",
+          role: "assistant",
+          content: "已生成建议。",
+          structured_payload: {
+            artifacts: [
+              {
+                id: "payload-art-1",
+                type: "proposal",
+                status: "pending_confirmation",
+                title: "调整计划草案",
+                summary: "建议重新分配任务。",
+                rationale: "后端进度滞后。",
+                impact: ["影响 2 个任务"],
+                linked_entity_ids: ["proposal-1"],
+              },
+            ],
+          },
+          created_at: "2026-06-07T10:00:00Z",
+        },
+      ],
+    };
+
+    render(
+      <AgentSidebar
+        state={stateWithRejectedProposal}
+        conversation={conversationWithPayload}
+        onRunAgent={vi.fn()}
+        onConfirmArtifact={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText("已忽略")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "确认应用" })).toBeNull();
+  });
 });

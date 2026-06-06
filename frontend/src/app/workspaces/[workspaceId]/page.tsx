@@ -406,9 +406,11 @@ export default function WorkspaceDashboardPage() {
       }
       try {
         await confirmAgentProposal(proposalId, currentUserId);
-        setAgentConversationArtifacts((prev) =>
-          prev.map((a) => (a.id === artifact.id ? { ...a, status: "confirmed" as const } : a)),
-        );
+        setAgentConversationArtifacts((prev) => {
+          const found = prev.some((a) => a.id === artifact.id);
+          if (found) return prev.map((a) => (a.id === artifact.id ? { ...a, status: "confirmed" as const } : a));
+          return [...prev, { ...artifact, status: "confirmed" as const }];
+        });
         await reloadProject();
       } catch {
         setAgentConversationError("确认应用失败，请重试。");

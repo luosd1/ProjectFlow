@@ -154,9 +154,30 @@ export function AgentSidebar({
     const artifacts = message.structured_payload?.artifacts;
     return Array.isArray(artifacts) ? artifacts.filter(isValidArtifact) : [];
   });
-  const visibleArtifacts = Array.from(
+  const mergedArtifacts = Array.from(
     new Map([...payloadArtifacts, ...conversationArtifacts].map((artifact) => [artifact.id, artifact])).values()
   );
+
+  const proposalStatusLookup = new Map(
+    (state.agent_proposals ?? []).map((p) => [p.id, p.status]),
+  );
+
+  const PROPOSAL_STATUS_TO_ARTIFACT: Record<string, AgentArtifact["status"] | undefined> = {
+    pending: "pending_confirmation",
+    confirmed: "confirmed",
+    rejected: "dismissed",
+  };
+
+  const visibleArtifacts = mergedArtifacts.map((artifact) => {
+    if (artifact.type !== "proposal") return artifact;
+    const proposalId = artifact.linked_entity_ids[0];
+    if (!proposalId) return artifact;
+    const proposalStatus = proposalStatusLookup.get(proposalId);
+    if (!proposalStatus) return artifact;
+    const mapped = PROPOSAL_STATUS_TO_ARTIFACT[proposalStatus];
+    if (!mapped || mapped === artifact.status) return artifact;
+    return { ...artifact, status: mapped };
+  });
 
   const submitMessage = async (content: string) => {
     const trimmed = content.trim();
