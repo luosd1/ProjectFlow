@@ -5,7 +5,7 @@ import { motion } from "framer-motion";
 import { ProjectSidebar } from "./project-sidebar";
 import { AgentSidebar } from "./agent-sidebar";
 import { ProjectContent } from "./project-content";
-import type { AddResourceRequest, AgentConversation, ProjectState } from "@/lib/types";
+import type { AddResourceRequest, AgentArtifact, AgentConversation, AgentSuggestion, ProjectState } from "@/lib/types";
 import type { AgentAction } from "./project-actions";
 
 interface ProjectLayoutProps {
@@ -14,7 +14,10 @@ interface ProjectLayoutProps {
   currentUserId?: string;
   pendingAction?: AgentAction | null;
   agentConversation?: AgentConversation | null;
-  agentConversationSuggestions?: string[];
+  agentConversationSuggestions?: AgentSuggestion[];
+  agentConversationArtifacts?: AgentArtifact[];
+  pendingAgentInstruction?: string | null;
+  agentConversationError?: string | null;
   pendingAgentConversation?: boolean;
   actionError?: string | null;
   actionSuccess?: string | null;
@@ -56,6 +59,7 @@ interface ProjectLayoutProps {
   onCompleteActionCard?: (cardId: string) => void;
   onConfirmProposal?: (proposalId: string) => void;
   onRejectProposal?: (proposalId: string) => void;
+  onConfirmAgentArtifact?: (artifact: AgentArtifact) => void | Promise<void>;
   onAddResource?: (resource: AddResourceRequest) => void | Promise<void>;
   onResetDemo?: () => void | Promise<void>;
 }
@@ -67,6 +71,9 @@ export function ProjectLayout({
   pendingAction,
   agentConversation,
   agentConversationSuggestions,
+  agentConversationArtifacts,
+  pendingAgentInstruction,
+  agentConversationError,
   pendingAgentConversation,
   actionError,
   actionSuccess,
@@ -84,6 +91,7 @@ export function ProjectLayout({
   onCompleteActionCard,
   onConfirmProposal,
   onRejectProposal,
+  onConfirmAgentArtifact,
   onAddResource,
   onResetDemo,
 }: ProjectLayoutProps) {
@@ -152,12 +160,16 @@ export function ProjectLayout({
         state={state}
         conversation={agentConversation}
         conversationSuggestions={agentConversationSuggestions}
+        conversationArtifacts={agentConversationArtifacts}
+        pendingConversationInstruction={pendingAgentInstruction}
+        conversationError={agentConversationError}
         pendingConversation={pendingAgentConversation}
         pendingAction={pendingAction}
         actionError={actionError}
         actionSuccess={actionSuccess}
         onRunAgent={onRunAgent ?? (() => {})}
         onSendMessage={onSendAgentMessage}
+        onConfirmArtifact={onConfirmAgentArtifact}
         onResetDemo={onResetDemo}
       />
     </div>
