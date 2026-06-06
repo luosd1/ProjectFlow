@@ -167,8 +167,8 @@ describe("AgentSidebar", () => {
     );
 
     expect(screen.getAllByText("根据签到调整计划").length).toBeGreaterThanOrEqual(1);
-    expect(screen.getByText("Agent 正在处理")).toBeInTheDocument();
-    expect(screen.getByText("读取项目状态")).toBeInTheDocument();
+    expect(screen.getByText("Agent 正在处理")).toBeTruthy();
+    expect(screen.getByText("读取项目状态")).toBeTruthy();
   });
 
   it("renders conversation artifacts with confirmation actions", () => {
@@ -182,10 +182,10 @@ describe("AgentSidebar", () => {
       />
     );
 
-    expect(screen.getByText("计划调整草案")).toBeInTheDocument();
-    expect(screen.getByText("建议把后端协助前置。")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "确认应用" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "继续修改" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "查看影响" })).toBeInTheDocument();
+    expect(screen.getByText("计划调整草案")).toBeTruthy();
+    expect(screen.getByText("建议把后端协助前置。")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "确认应用" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "继续修改" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "查看影响" })).toBeTruthy();
   });
 });
