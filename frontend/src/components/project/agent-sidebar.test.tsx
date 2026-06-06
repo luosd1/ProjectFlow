@@ -384,8 +384,14 @@ describe("AgentSidebar", () => {
 
     const input = screen.getByPlaceholderText("告诉 Agent 你的具体要求...");
     fireEvent.change(input, { target: { value: "分析当前风险" } });
-    fireEvent.keyDown(input, { key: "Enter", shiftKey: false });
 
+    // Shift+Enter should not send
+    fireEvent.keyDown(input, { key: "Enter", shiftKey: true });
+    expect(onSendMessage).not.toHaveBeenCalled();
+
+    // Plain Enter should send
+    fireEvent.keyDown(input, { key: "Enter", shiftKey: false });
+    expect(onSendMessage).toHaveBeenCalledTimes(1);
     expect(onSendMessage).toHaveBeenCalledWith("分析当前风险");
   });
 
