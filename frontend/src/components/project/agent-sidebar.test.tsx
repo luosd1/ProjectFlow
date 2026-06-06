@@ -370,6 +370,25 @@ describe("AgentSidebar", () => {
     expect(inspectButton.disabled).toBe(true);
   });
 
+  it("sends composer text with Enter and keeps Shift Enter for multiline input", () => {
+    const onSendMessage = vi.fn();
+    render(
+      <AgentSidebar
+        state={baseProjectState}
+        conversation={conversationFixture}
+        conversationSuggestions={suggestionsFixture}
+        onRunAgent={vi.fn()}
+        onSendMessage={onSendMessage}
+      />
+    );
+
+    const input = screen.getByPlaceholderText("告诉 Agent 你的具体要求...");
+    fireEvent.change(input, { target: { value: "分析当前风险" } });
+    fireEvent.keyDown(input, { key: "Enter", shiftKey: false });
+
+    expect(onSendMessage).toHaveBeenCalledWith("分析当前风险");
+  });
+
   it("disables error retry button while pending conversation", () => {
     render(
       <AgentSidebar

@@ -1,6 +1,6 @@
 "use client";
 
-import type { ElementType, FormEvent } from "react";
+import type { ElementType, FormEvent, KeyboardEvent } from "react";
 import { useCallback, useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
@@ -126,6 +126,7 @@ export function AgentSidebar({
   const [collapsed, setCollapsed] = useState(false);
   const [hovered, setHovered] = useState(false);
   const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [activityOpen, setActivityOpen] = useState(false);
   const [draft, setDraft] = useState("");
 
   const toggle = useCallback(() => setCollapsed((c) => !c), []);
@@ -165,6 +166,12 @@ export function AgentSidebar({
   };
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    void submitMessage(draft);
+  };
+
+  const handleComposerKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (event.key !== "Enter" || event.shiftKey) return;
     event.preventDefault();
     void submitMessage(draft);
   };
@@ -293,6 +300,7 @@ export function AgentSidebar({
                       <textarea
                         value={draft}
                         onChange={(event) => setDraft(event.target.value)}
+                        onKeyDown={handleComposerKeyDown}
                         rows={3}
                         placeholder="告诉 Agent 你的具体要求..."
                         className="min-h-16 w-full resize-none bg-transparent text-sm text-neutral-800 outline-none placeholder:text-neutral-400"
@@ -340,36 +348,58 @@ export function AgentSidebar({
               )}
 
               {recentEvents.length > 0 && (
-                <div className="mb-4">
-                  <h3 className="mb-2 text-xs font-semibold text-neutral-400">最近活动</h3>
-                  <div className="space-y-2">
-                    {recentEvents.map((event) => {
-                      const Icon = getEventIcon(event.event_type);
-                      return (
-                        <div key={event.id} className="flex items-start gap-2 text-xs">
-                          <Icon className="mt-0.5 h-3.5 w-3.5 shrink-0 text-neutral-400" />
-                          <div className="min-w-0">
-                            <p className="text-neutral-700">
-                              <span>{getEventLabel(event.event_type)}</span>
-                              <Badge
-                                className={cn(
-                                  "ml-1 px-1.5 py-0 text-[10px]",
-                                  EVENT_STATUS_CLASSES[event.status]
-                                )}
-                              >
-                                {EVENT_STATUS_LABELS[event.status]}
-                              </Badge>
-                              {event.user_confirmed && <span className="ml-1 text-moss">已确认</span>}
-                            </p>
-                            <p className="mt-0.5 flex items-center gap-1 text-neutral-400">
-                              <Clock className="h-3 w-3" />
-                              {formatTimeAgo(event.created_at)}
-                            </p>
-                          </div>
+                <div className="mb-4 border-t border-neutral-100 pt-3">
+                  <button
+                    type="button"
+                    onClick={() => setActivityOpen((open) => !open)}
+                    className="flex w-full items-center justify-between rounded-lg px-2 py-2 text-xs font-semibold text-neutral-500 transition hover:bg-neutral-50 hover:text-neutral-700"
+                  >
+                    <span className="flex items-center gap-1.5">
+                      <Clock className="h-3.5 w-3.5" />
+                      最近活动
+                    </span>
+                    <ChevronRight className={cn("h-3 w-3 transition-transform", activityOpen && "rotate-90")} />
+                  </button>
+                  <AnimatePresence>
+                    {activityOpen && (
+                      <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: "auto", opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={{ duration: 0.2 }}
+                        className="overflow-hidden"
+                      >
+                        <div className="mt-2 space-y-2">
+                          {recentEvents.map((event) => {
+                            const Icon = getEventIcon(event.event_type);
+                            return (
+                              <div key={event.id} className="flex items-start gap-2 text-xs">
+                                <Icon className="mt-0.5 h-3.5 w-3.5 shrink-0 text-neutral-400" />
+                                <div className="min-w-0">
+                                  <p className="text-neutral-700">
+                                    <span>{getEventLabel(event.event_type)}</span>
+                                    <Badge
+                                      className={cn(
+                                        "ml-1 px-1.5 py-0 text-[10px]",
+                                        EVENT_STATUS_CLASSES[event.status]
+                                      )}
+                                    >
+                                      {EVENT_STATUS_LABELS[event.status]}
+                                    </Badge>
+                                    {event.user_confirmed && <span className="ml-1 text-moss">已确认</span>}
+                                  </p>
+                                  <p className="mt-0.5 flex items-center gap-1 text-neutral-400">
+                                    <Clock className="h-3 w-3" />
+                                    {formatTimeAgo(event.created_at)}
+                                  </p>
+                                </div>
+                              </div>
+                            );
+                          })}
                         </div>
-                      );
-                    })}
-                  </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </div>
               )}
 
@@ -443,28 +473,19 @@ export function AgentSidebar({
 
         {!isExpanded && hasProject && (
           <div className="flex flex-col items-center gap-2 py-3">
-            {ALL_AGENT_ACTIONS.slice(0, 5).map((action) => (
-              <button
-                key={action.id}
-                type="button"
-                onClick={() => onRunAgent(action.id)}
-                disabled={Boolean(pendingAction)}
-                className={cn(
-                  "flex h-8 w-8 items-center justify-center rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-moss/30",
-                  pendingAction === action.id
-                    ? "bg-moss/10 text-moss"
-                    : "text-neutral-400 hover:bg-neutral-50 hover:text-neutral-600",
-                  pendingAction && pendingAction !== action.id && "cursor-not-allowed opacity-50"
-                )}
-                title={action.label}
-              >
-                {pendingAction === action.id ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <action.icon className="h-4 w-4" />
-                )}
-              </button>
-            ))}
+            <button
+              type="button"
+              onClick={toggle}
+              className="relative flex h-8 w-8 items-center justify-center rounded-lg text-moss transition hover:bg-moss/10 focus:outline-none focus:ring-2 focus:ring-moss/30"
+              title="打开 Agent 对话"
+            >
+              <MessageSquare className="h-4 w-4" />
+              {pendingProposalCount > 0 && (
+                <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-moss px-1 text-[9px] font-semibold text-white">
+                  {pendingProposalCount}
+                </span>
+              )}
+            </button>
           </div>
         )}
       </div>
