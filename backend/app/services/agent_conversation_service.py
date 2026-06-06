@@ -8,14 +8,16 @@ from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, desc, select
 
 from app.agent.llm_client import LLMClient, build_agent_llm_client
-from app.models import AgentEvent, Project
+from app.models import AgentEvent, AgentProposal, Project
 from app.models.agent_conversation import AgentConversation, AgentMessage, AgentRun
 from app.models.enums import AgentEventType
 from app.schemas.agent_conversation import (
+    AgentArtifactRead,
     AgentConversationRead,
     AgentConversationTurnRead,
     AgentMessageRead,
     AgentRunRead,
+    AgentSuggestionRead,
     AgentTurnPlan,
 )
 from app.services.agent_flow_service import run_agent_flow
@@ -134,6 +136,7 @@ def process_conversation_message(
     run_read: AgentRunRead | None = None
     linked_event_id: str | None = None
     linked_proposal_id: str | None = None
+    artifacts: list[AgentArtifactRead] = []
 
     if blocked_reason:
         assistant_content = blocked_reason
@@ -172,6 +175,9 @@ def process_conversation_message(
         session.flush()
         run_read = _run_to_read(run)
         assistant_content = _success_content(turn_plan, flow_result.proposal_id)
+        artifacts = _artifacts_from_flow_result(session, flow_result, turn_plan)
+
+    suggestions = _structured_suggestions(workspace_state)
 
     assistant_message = AgentMessage(
         conversation_id=conversation.id,
@@ -185,6 +191,8 @@ def process_conversation_message(
             "turn_plan": turn_plan.model_dump(mode="json"),
             "blocked_reason": blocked_reason,
             "next_suggestions": _next_suggestions(workspace_state),
+            "suggestions": [suggestion.model_dump(mode="json") for suggestion in suggestions],
+            "artifacts": [artifact.model_dump(mode="json") for artifact in artifacts],
         }
     )
     session.add(assistant_message)
@@ -203,6 +211,8 @@ def process_conversation_message(
         run=run_read,
         turn_plan=turn_plan,
         next_suggestions=_next_suggestions(workspace_state),
+        suggestions=suggestions,
+        artifacts=artifacts,
     )
 
 
@@ -583,6 +593,133 @@ def _focus_for_workspace_state(workspace_state) -> str:
 
 def _has_finalized_assignment(project) -> bool:
     return any(proposal.status == "finalized" for proposal in project.assignment_proposals)
+
+
+def _structured_suggestions(workspace_state) -> list[AgentSuggestionRead]:
+    labels = _next_suggestions(workspace_state)
+    suggestions: list[AgentSuggestionRead] = []
+    for index, label in enumerate(labels[:3]):
+        suggestions.append(
+            AgentSuggestionRead(
+                id=f"suggestion-{index + 1}",
+                label=label,
+                user_instruction=label,
+                priority="primary" if index == 0 else "secondary",
+            )
+        )
+    return suggestions
+
+
+def _artifacts_from_flow_result(session: Session, flow_result, turn_plan: AgentTurnPlan) -> list[AgentArtifactRead]:
+    artifacts: list[AgentArtifactRead] = []
+    if flow_result.proposal_id:
+        proposal = session.get(AgentProposal, flow_result.proposal_id)
+        if proposal:
+            artifacts.append(_proposal_to_artifact(proposal, turn_plan))
+    elif turn_plan.selected_module == "risk" and flow_result.created_ids:
+        artifacts.append(
+            AgentArtifactRead(
+                id=f"risk-artifact-{flow_result.created_ids[0]}",
+                type="risk_analysis",
+                status="draft",
+                title="风险分析",
+                summary=f"已识别 {len(flow_result.created_ids)} 个风险信号。",
+                rationale=turn_plan.rationale,
+                impact=flow_result.created_ids,
+                linked_entity_ids=flow_result.created_ids,
+            )
+        )
+    elif turn_plan.selected_module == "push" and flow_result.created_ids:
+        artifacts.append(
+            AgentArtifactRead(
+                id=f"action-artifact-{flow_result.created_ids[0]}",
+                type="action_card",
+                status="draft",
+                title="下一步行动卡",
+                summary=f"已生成 {len(flow_result.created_ids)} 张行动卡。",
+                rationale=turn_plan.rationale,
+                impact=flow_result.created_ids,
+                linked_entity_ids=flow_result.created_ids,
+            )
+        )
+    return artifacts
+
+
+def _proposal_to_artifact(proposal: AgentProposal, turn_plan: AgentTurnPlan) -> AgentArtifactRead:
+    payload = _proposal_payload(proposal)
+    title = _proposal_title(proposal.proposal_type)
+    proposal_status = getattr(proposal.status, "value", proposal.status)
+    status = {
+        "pending": "pending_confirmation",
+        "confirmed": "confirmed",
+        "rejected": "dismissed",
+    }.get(str(proposal_status), "draft")
+    return AgentArtifactRead(
+        id=f"proposal-artifact-{proposal.id}",
+        type="proposal",
+        status=status,
+        title=title,
+        summary=_proposal_summary(payload, title),
+        rationale=_proposal_rationale(payload, turn_plan.rationale),
+        impact=_proposal_impact(payload, proposal.proposal_type),
+        linked_entity_ids=[proposal.id],
+    )
+
+
+def _proposal_payload(proposal: AgentProposal) -> dict[str, Any]:
+    if isinstance(proposal.payload, dict):
+        return proposal.payload
+    try:
+        parsed = json.loads(proposal.payload)
+    except json.JSONDecodeError:
+        return {}
+    return parsed if isinstance(parsed, dict) else {"items": parsed}
+
+
+def _proposal_title(proposal_type: str) -> str:
+    return {
+        "clarify": "方向澄清提案",
+        "plan": "阶段计划提案",
+        "breakdown": "任务拆解提案",
+        "replan": "计划调整草案",
+    }.get(proposal_type, "Agent 提案")
+
+
+def _proposal_summary(payload: dict[str, Any], fallback_title: str) -> str:
+    for key in ("summary", "reason", "rationale", "impact", "problem", "goal"):
+        value = payload.get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    if isinstance(payload.get("stages"), list):
+        return f"{fallback_title}包含 {len(payload['stages'])} 个阶段。"
+    if isinstance(payload.get("tasks"), list):
+        return f"{fallback_title}包含 {len(payload['tasks'])} 个任务。"
+    return f"{fallback_title}已生成，等待你确认后应用。"
+
+
+def _proposal_rationale(payload: dict[str, Any], fallback: str) -> str:
+    for key in ("reason", "rationale", "why", "analysis"):
+        value = payload.get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    return fallback or "Agent 根据当前项目状态生成了这条建议。"
+
+
+def _proposal_impact(payload: dict[str, Any], proposal_type: str) -> list[str]:
+    value = payload.get("impact")
+    if isinstance(value, list):
+        return [str(item) for item in value if str(item).strip()]
+    if isinstance(value, str) and value.strip():
+        return [value.strip()]
+    if proposal_type == "replan":
+        return ["可能调整任务优先级、负责人或截止时间。"]
+    if proposal_type == "plan":
+        return ["确认后会更新阶段计划。"]
+    if proposal_type == "breakdown":
+        return ["确认后会更新任务拆解。"]
+    if proposal_type == "clarify":
+        return ["确认后会更新方向卡。"]
+    return ["确认后会同步到项目。"]
 
 
 def _next_suggestions(workspace_state) -> list[str]:

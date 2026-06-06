@@ -206,6 +206,56 @@ def test_service_accepts_llm_planner_alias_fields_for_module_execution():
         assert "风险" in result.assistant_message.content
 
 
+def test_conversation_turn_returns_structured_suggestions_and_proposal_artifact():
+    engine = _session_fixture()
+    with Session(engine) as session:
+        seed_demo_data(session)
+        conversation = get_or_create_project_conversation(session, "demo-project-001")
+        llm_client = MockLLMClient(
+            responses=[
+                json.dumps(
+                    {
+                        "response_type": "run_module",
+                        "selected_module": "replan",
+                        "user_instruction": "根据签到调整计划",
+                        "rationale": "签到显示后端阻塞，需要生成计划调整草案。",
+                        "required_inputs": [],
+                        "expected_artifact": "计划调整草案",
+                        "risk_level": "medium",
+                        "requires_confirmation": True,
+                    },
+                    ensure_ascii=False,
+                ),
+                "{}",
+            ]
+        )
+
+        result = process_conversation_message(
+            session,
+            conversation.id,
+            "根据签到调整计划",
+            llm_client=llm_client,
+        )
+
+        assert result.run is not None
+        assert result.run.proposal_id is not None
+        assert result.suggestions
+        assert result.suggestions[0].label
+        assert result.suggestions[0].user_instruction
+        assert result.suggestions[0].priority in {"primary", "secondary"}
+        assert result.artifacts
+        artifact = result.artifacts[0]
+        assert artifact.type == "proposal"
+        assert artifact.status == "pending_confirmation"
+        assert artifact.linked_entity_ids == [result.run.proposal_id]
+        assert "计划" in artifact.title or "调整" in artifact.title
+        assert artifact.summary
+        assert artifact.rationale
+        assert artifact.impact
+        assert result.assistant_message.structured_payload["artifacts"][0]["id"] == artifact.id
+        assert result.assistant_message.structured_payload["suggestions"][0]["label"] == result.suggestions[0].label
+
+
 def test_service_uses_llm_planner_content_for_direct_answer():
     engine = _session_fixture()
     with Session(engine) as session:
