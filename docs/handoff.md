@@ -36,6 +36,10 @@ Proposal confirmation UX unified, task ordering stabilized, stage auto-advance i
 
 **Verification:** backend 224/225 tests pass (1 pre-existing failure unrelated), frontend build pass.
 
+**Follow-up (2026-06-07):**
+- Direction card step indicator `computeStepIndex()` now respects stage/task count (0→intake, 1→clarified, 2→confirmed, 3→stages-exist). Previously locked at step 2.
+- Direction history items individually expandable (2-line clamp + "展开全文" toggle).
+
 ---
 
 ### Phase 37 — Workspace Creation UX, Landing Page Redesign & Bug Fixes (2026-06-06, PR #37)

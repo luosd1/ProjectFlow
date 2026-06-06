@@ -527,6 +527,8 @@ function ViewRenderer({
             timeline={timeline}
             pending={pendingAction === "clarify"}
             onRunClarification={() => onRunAgent?.("clarify")}
+            stagesCount={stages.length}
+            tasksCount={tasks.length}
           />
         </div>
       );
