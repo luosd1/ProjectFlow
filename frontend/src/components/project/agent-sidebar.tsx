@@ -1,6 +1,6 @@
 "use client";
 
-import type { ElementType, FormEvent, KeyboardEvent } from "react";
+import type { ElementType, FormEvent, KeyboardEvent as ReactKeyboardEvent } from "react";
 import { useCallback, useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
@@ -132,7 +132,7 @@ export function AgentSidebar({
   const toggle = useCallback(() => setCollapsed((c) => !c), []);
 
   useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
+    const handleKeyDown = (event: globalThis.KeyboardEvent) => {
       if (event.ctrlKey && event.key === "j") {
         event.preventDefault();
         toggle();
@@ -170,7 +170,7 @@ export function AgentSidebar({
     void submitMessage(draft);
   };
 
-  const handleComposerKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
+  const handleComposerKeyDown = (event: ReactKeyboardEvent<HTMLTextAreaElement>) => {
     if (event.key !== "Enter" || event.shiftKey) return;
     event.preventDefault();
     void submitMessage(draft);
