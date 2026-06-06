@@ -202,8 +202,10 @@ export async function createWorkspace(data: CreateWorkspaceRequest): Promise<Wor
       body: JSON.stringify({
         name: data.name,
         description: data.description ?? null,
+        team_size: data.team_size,
+        use_case: data.use_case,
       }),
-    },
+    }
   );
   return normalizeWorkspace(workspace);
 }

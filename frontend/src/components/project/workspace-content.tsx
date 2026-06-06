@@ -102,7 +102,7 @@ interface WorkspaceContentProps {
 export function WorkspaceContent({ state, currentUserId, onNavigateToProject }: WorkspaceContentProps) {
   const workspace = state.workspace;
   const memberships = state.memberships ?? [];
-  const projects = React.useMemo(() => state.projects ?? [], [state.projects]);
+  const projects = state.projects ?? [];
   const members = state.members;
   const profiles = state.member_profiles;
 
@@ -132,7 +132,7 @@ export function WorkspaceContent({ state, currentUserId, onNavigateToProject }: 
     setDeleteError(null);
     try {
       await deleteProject(projectId);
-      setDeletedProjectIds((prev) => (prev.includes(projectId) ? prev : [...prev, projectId]));
+      setDeletedProjectIds((prev) => [...prev, projectId]);
       setDeleteConfirmId(null);
     } catch {
       setDeleteError("删除失败，请检查网络后重试。");

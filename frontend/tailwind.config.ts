@@ -102,7 +102,6 @@ const config: Config = {
       fontFamily: {
         sans: ["var(--font-body)", "Inter", "system-ui", "sans-serif"],
         display: ["var(--font-brand)", "Instrument Serif", "Georgia", "serif"],
-        grotesk: ["var(--font-grotesk)", "Space Grotesk", "Inter", "system-ui", "sans-serif"],
       },
     },
   },

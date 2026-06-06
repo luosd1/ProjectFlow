@@ -11,6 +11,8 @@ import {
   Briefcase,
   GraduationCap,
   Lightbulb,
+  ArrowLeft,
+  ArrowRight,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -50,6 +52,7 @@ export function WorkspaceCreateForm({
   const [step, setStep] = React.useState(0)
   const [teamSize, setTeamSize] = React.useState("")
   const [useCase, setUseCase] = React.useState("")
+  const [customUseCase, setCustomUseCase] = React.useState("")
   const [submitting, setSubmitting] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
   const [errors, setErrors] = React.useState<Record<string, string>>({})
@@ -72,7 +75,7 @@ export function WorkspaceCreateForm({
     }
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
-  }, [name, teamSize, useCase])
+  }, [name, teamSize, useCase, customUseCase])
 
   const validateField = React.useCallback((field: string, value: string) => {
     const newErrors: Record<string, string> = {}
@@ -92,21 +95,35 @@ export function WorkspaceCreateForm({
     setErrors((prev) => ({ ...prev, ...newErrors }))
   }, [])
 
+  const goBack = () => {
+    setStep((prev) => Math.max(0, prev - 1));
+  };
+
+  const goNext = () => {
+    if (!validateStep(step)) return;
+    setStep((prev) => Math.min(steps.length - 1, prev + 1));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!validateStep(0) || !validateStep(1)) return
     setSubmitting(true)
     setError(null)
     try {
+      const parsedTeamSize = teamSize === "10+" ? 10 : parseInt(teamSize.split("-")[0]);
+
       const ws = await createWorkspace({
         name: name.trim(),
         owner_user_id: ownerId.trim(),
         description: description.trim() || null,
+        team_size: parsedTeamSize,
+        use_case: useCase === "other" ? customUseCase.trim() : useCase,
       })
       onCreated?.(ws)
       router.push(`/onboarding/profile?userId=${ownerId.trim()}&workspaceId=${ws.workspace_id}`)
-    } catch {
-      setError("创建工作区失败，请重试")
+    } catch (err) {
+      console.error("创建工作区失败:", err);
+      setError(err instanceof Error ? err.message : "创建工作区失败，请重试");
     } finally {
       setSubmitting(false)
     }
@@ -226,6 +243,25 @@ export function WorkspaceCreateForm({
                   )
                 })}
               </div>
+              {useCase === "other" && (
+                <div className="mt-4">
+                  <FormField label="具体场景" error={errors.customUseCase}>
+                    <Input
+                      value={customUseCase}
+                      onChange={(e) => {
+                        setCustomUseCase(e.target.value)
+                        if (touched.customUseCase) validateField("customUseCase", e.target.value)
+                      }}
+                      onBlur={() => {
+                        setTouched((prev) => ({ ...prev, customUseCase: true }))
+                        validateField("customUseCase", customUseCase)
+                      }}
+                      placeholder="例如：毕业设计、社团活动"
+                      className={cn("h-10", errors.customUseCase && "border-destructive")}
+                    />
+                  </FormField>
+                </div>
+              )}
             </FormField>
           </div>
         )}
@@ -239,38 +275,26 @@ export function WorkspaceCreateForm({
 
         <div className="flex items-center justify-between pt-2">
           <Button
-            type="button"
-            variant="outline"
-            onClick={() => setStep(Math.max(0, step - 1))}
-            disabled={step === 0}
-            className={step === 0 ? "cursor-not-allowed opacity-40" : ""}
-          >
-            上一步
-          </Button>
-          {step < steps.length - 1 ? (
-            <Button
               type="button"
-              onClick={() => {
-                if (validateStep(step)) setStep(step + 1)
-              }}
+              variant="outline"
+              onClick={goBack}
+              disabled={step === 0 || submitting}
+              className="gap-2"
             >
-              下一步 &rarr;
+              <ArrowLeft className="h-4 w-4" />
+              上一步
             </Button>
-          ) : (
-            <Button
-              type="submit"
-              disabled={submitting || !name.trim() || !ownerId.trim() || !teamSize || !useCase}
-            >
-              {submitting ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  创建中...
-                </>
-              ) : (
-                "创建工作区"
-              )}
-            </Button>
-          )}
+          {step < steps.length - 1 ? (
+              <Button onClick={goNext} className="gap-2">
+                下一步
+                <ArrowRight className="h-4 w-4" />
+              </Button>
+            ) : (
+              <Button type="submit" disabled={submitting} className="gap-2">
+                {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
+                创建工作区
+              </Button>
+            )}
         </div>
       </form>
     </motion.div>
