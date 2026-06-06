@@ -69,13 +69,16 @@ const EVENT_STATUS_CLASSES: Record<AgentEvent["status"], string> = {
   failed: "bg-coral/15 text-coral",
 };
 
+const VALID_ARTIFACT_TYPES = new Set(["proposal", "risk_analysis", "action_card", "assignment", "direction", "plan"]);
+const VALID_ARTIFACT_STATUSES = new Set(["draft", "pending_confirmation", "confirmed", "dismissed", "expired"]);
+
 function isValidArtifact(value: unknown): value is AgentArtifact {
   if (typeof value !== "object" || value === null) return false;
   const record = value as Record<string, unknown>;
   return (
     typeof record.id === "string" &&
-    typeof record.type === "string" &&
-    typeof record.status === "string" &&
+    VALID_ARTIFACT_TYPES.has(record.type as string) &&
+    VALID_ARTIFACT_STATUSES.has(record.status as string) &&
     typeof record.title === "string" &&
     typeof record.summary === "string" &&
     typeof record.rationale === "string" &&

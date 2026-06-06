@@ -231,6 +231,73 @@ describe("AgentSidebar", () => {
     expect(screen.getByRole("button", { name: "确认应用" })).toBeTruthy();
   });
 
+  it("filters out artifacts with invalid type or status", () => {
+    const conversationWithMalformed: AgentConversation = {
+      ...conversationFixture,
+      messages: [
+        {
+          id: "msg-malformed",
+          conversation_id: "conv-1",
+          role: "assistant",
+          content: "包含非法数据。",
+          structured_payload: {
+            artifacts: [
+              {
+                id: "bad-art-1",
+                type: "proposal",
+                status: "bogus",
+                title: "应该被过滤",
+                summary: "这个不该出现。",
+                rationale: "原因",
+                impact: [],
+                linked_entity_ids: [],
+              },
+              {
+                id: "good-art-1",
+                type: "proposal",
+                status: "pending_confirmation",
+                title: "正常建议",
+                summary: "这个应该渲染。",
+                rationale: "理由",
+                impact: [],
+                linked_entity_ids: [],
+              },
+            ],
+          },
+          created_at: "2026-06-07T10:00:00Z",
+        },
+      ],
+    };
+
+    render(
+      <AgentSidebar
+        state={baseProjectState}
+        conversation={conversationWithMalformed}
+        onRunAgent={vi.fn()}
+        onConfirmArtifact={vi.fn()}
+      />
+    );
+
+    expect(screen.queryByText("应该被过滤")).toBeNull();
+    expect(screen.getByText("正常建议")).toBeTruthy();
+  });
+
+  it("disables suggestion buttons while pending conversation", () => {
+    render(
+      <AgentSidebar
+        state={baseProjectState}
+        conversation={conversationFixture}
+        conversationSuggestions={suggestionsFixture}
+        pendingConversation
+        onRunAgent={vi.fn()}
+        onSendMessage={vi.fn()}
+      />
+    );
+
+    const button = screen.getByRole("button", { name: "根据签到调整计划" });
+    expect(button.disabled).toBe(true);
+  });
+
   it("renders conversationError with retry button when instruction is pending", () => {
     const onSendMessage = vi.fn();
 
