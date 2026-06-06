@@ -192,6 +192,40 @@ def _event_to_read(event: AgentEvent) -> AgentEventRead:
     )
 
 
+def _catch_up_stage_progress(session: Session, project_id: str) -> None:
+    """Auto-advance any active/at_risk stage whose tasks are all done.
+
+    This is a safety net: tasks marked done via seed data, direct DB edits,
+    or before try_advance_stage existed would otherwise leave a stage stuck.
+    """
+    from app.services.stage_service import try_advance_stage
+
+    stuck_stages = session.exec(
+        select(Stage).where(
+            Stage.project_id == project_id,
+            Stage.status.in_(["active", "at_risk"]),
+        )
+    ).all()
+
+    for stage in stuck_stages:
+        done_tasks = session.exec(
+            select(Task).where(
+                Task.stage_id == stage.id,
+                Task.status == "done",
+            )
+        ).all()
+        pending_tasks = session.exec(
+            select(Task).where(
+                Task.stage_id == stage.id,
+                Task.status != "done",
+            )
+        ).first()
+
+        if done_tasks and not pending_tasks:
+            try_advance_stage(session, done_tasks[0].id)
+            session.flush()
+
+
 def get_project_state(session: Session, project_id: str) -> ProjectStateRead | None:
     project = session.get(Project, project_id)
     if project is None:
@@ -200,6 +234,9 @@ def get_project_state(session: Session, project_id: str) -> ProjectStateRead | N
     workspace = session.get(Workspace, project.workspace_id)
     if workspace is None:
         return None
+
+    # Safety net: auto-advance any stage whose tasks are all done
+    _catch_up_stage_progress(session, project_id)
 
     memberships = session.exec(
         select(WorkspaceMembership).where(WorkspaceMembership.workspace_id == workspace.id)
