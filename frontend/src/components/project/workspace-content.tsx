@@ -438,16 +438,16 @@ export function WorkspaceContent({ state, currentUserId, onNavigateToProject }: 
                             </AlertDialogDescription>
                           </AlertDialogHeader>
                           {deleteError && (
-                            <p className="text-sm text-destructive px-1">{deleteError}</p>
+                            <p className=”text-sm text-destructive px-1”>{deleteError}</p>
                           )}
                           <AlertDialogFooter>
                             <AlertDialogCancel disabled={deleting}>取消</AlertDialogCancel>
                             <AlertDialogAction
                               onClick={() => handleDeleteProject(p.id)}
                               disabled={deleting}
-                              className="bg-destructive hover:bg-destructive/90"
+                              className=”bg-destructive hover:bg-destructive/90”
                             >
-                              {deleting ? "删除中..." : "确认删除"}
+                              {deleting ? “删除中...” : “确认删除”}
                             </AlertDialogAction>
                           </AlertDialogFooter>
                         </AlertDialogContent>

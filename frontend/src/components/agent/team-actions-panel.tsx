@@ -1,6 +1,6 @@
 "use client";
 
-import { Lightbulb } from "lucide-react";
+import { Lightbulb, ShieldAlert } from "lucide-react";
 
 import { ActionCardsList } from "@/components/agent/action-card";
 import type { ActionCard } from "@/lib/types";
@@ -32,6 +32,13 @@ export function TeamActionsPanel({ cards, onDismiss, onComplete, pending, canOpe
           {teamCards.filter((c) => c.status === "active").length} 进行中
         </div>
       </div>
+
+      {!canOperate && teamCards.filter((c) => c.status === "active").length > 0 && (
+        <div className="mt-3 flex items-center gap-1.5 rounded-md bg-amber-50 border border-amber-200/60 px-3 py-2 text-xs text-amber-700">
+          <ShieldAlert className="h-3.5 w-3.5 shrink-0" />
+          团队行动卡仅项目负责人可操作，其他成员只读
+        </div>
+      )}
 
       <div className="mt-5">
         <ActionCardsList

@@ -44,6 +44,7 @@ def _task_to_read(task: Task) -> TaskRead:
         can_cut=task.can_cut,
         assignment_reason=task.assignment_reason,
         created_by_agent=task.created_by_agent,
+        order_index=task.order_index,
         updated_at=task.updated_at,
     )
 

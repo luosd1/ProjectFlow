@@ -255,7 +255,7 @@ Project ──1:N──> AgentEvent
 | `Project` | workspace_id, name, idea, deadline, deliverables, status, direction_card(JSON), created_by | 项目核心实体 |
 | `ProjectResource` | project_id, type, title, content_text, url, file_name | 项目资源 |
 | `Stage` | project_id, name, goal, start/end_date, deliverable, done_criteria(JSON), status, order_index | 项目阶段 |
-| `Task` | project_id, stage_id, title, priority, status, owner/backup_user_id, due_date, estimated_hours, dependency_ids(JSON), acceptance_criteria(JSON), can_cut | 任务 |
+| `Task` | project_id, stage_id, title, priority, status, owner/backup_user_id, due_date, estimated_hours, dependency_ids(JSON), acceptance_criteria(JSON), can_cut, order_index | 任务（含排序字段） |
 | `TaskStatusUpdate` | task_id, user_id, status, progress_note, blocker | 任务状态变更记录 |
 | `AssignmentProposal` | task_id, recommended/backup_owner, reason, skill/availability/preference/constraint_match, risk_note, status | 分工提案 |
 | `AssignmentResponse` | proposal_id, user_id, response, preferred_task_id, reason | 分工响应 |
@@ -351,8 +351,8 @@ generate_structured_output()
 | [user_service.py](backend/app/services/user_service.py) | create/get/list | 用户 CRUD |
 | [workspace_service.py](backend/app/services/workspace_service.py) | create/get/list, add/remove_member | 工作空间 CRUD + 成员管理 |
 | [project_service.py](backend/app/services/project_service.py) | create/get/list/update, normalize_direction_card | 项目 CRUD + direction_card 规范化 |
-| [stage_service.py](backend/app/services/stage_service.py) | create/get/list/update | 阶段 CRUD |
-| [task_service.py](backend/app/services/task_service.py) | create/get/list/update, create_status_update | 任务 CRUD + 状态更新（支持 auto_commit） |
+| [stage_service.py](backend/app/services/stage_service.py) | create/get/list/update, try_advance_stage | 阶段 CRUD + 阶段自动推进 |
+| [task_service.py](backend/app/services/task_service.py) | create/get/list/update, create_status_update | 任务 CRUD + 状态更新（支持 auto_commit）+ 阶段自动推进钩子 |
 | [assignment_service.py](backend/app/services/assignment_service.py) | create_proposal/response, finalize, create_negotiation | 分配全流程：提案→响应→确认→写入 Task.owner |
 | [member_profile_service.py](backend/app/services/member_profile_service.py) | create/get/update/list/delete | 成员画像 CRUD |
 | [checkin_service.py](backend/app/services/checkin_service.py) | create_cycle/list, create_response/list | 签到周期与响应 |
@@ -442,8 +442,9 @@ generate_structured_output()
 
 | 组件 | 职责 |
 |------|------|
-| `AgentProposalPanel` | 方向卡/阶段/任务 Agent 提案面板，按类型渲染不同 payload，展示生成状态（成功/已修复/基础建议/失败），支持确认/拒绝；replan 由 `ReplanDiff` 专门展示 |
-| `DirectionCardPanel` | 方向卡展示 + 运行澄清按钮 |
+| `PendingProposalBanner` | 专业视图（方向/阶段）中的待确认提案提示条，含"去确认"按钮跳转总览 |
+| `AgentProposalPanel` | 方向卡/阶段/任务 Agent 提案面板，按类型渲染不同 payload，展示生成状态（成功/已修复/基础建议/失败），支持确认/拒绝；集中展示于总览视图 |
+| `DirectionCardPanel` | 方向卡展示 + 运行澄清按钮 + 待确认状态提示 |
 | `ActionCardItem` / `ActionCardsList` | 单张/列表行动卡渲染 |
 | `TeamActionsPanel` | 团队类型行动卡筛选 |
 | `AgentTimeline` | Agent 时间线（按日期分组，10 种事件类型各有图标） |
@@ -460,8 +461,8 @@ generate_structured_output()
 | `MemberProfileWizard` | 三步向导：基本信息（姓名/角色偏好/专业/年级）→技能经验（技能/等级/热门技能填入输入框/过往项目）→可用时间（自定义 stepper/偏好工作时段必填/兴趣方向/限制条件） |
 | `ProjectIntakeForm` | 新建项目表单（含资源输入面板） |
 | `ResourceInputPanel` | 资源输入（文本/链接/文件引用） |
-| `StagePlanBoard` | 阶段计划看板（总进度+每阶段卡片） |
-| `TaskBreakdownBoard` | 任务拆解看板（优先级/状态/依赖/可砍标记） |
+| `StagePlanBoard` | 阶段计划看板（总进度+时间线布局+待确认阶段预览） |
+| `TaskBreakdownBoard` | 任务拆解看板（按阶段分组、order_index 排序、progress 圆标、空阶段占位） |
 | `TaskStatusUpdate` | 任务状态更新表单 |
 | `RiskCard` / `RiskPanel` | 风险卡/风险面板（筛选器+高危计数） |
 | `ReplanDiff` | 重排对比（before/after diff） |
@@ -545,7 +546,7 @@ Base URL: `http://localhost:8000/api`
 
 ### Agent 端点
 
-所有 Agent 端点接受 `{ workspace_id: "uuid" }`，返回：
+所有 Agent 端点接受 `{ workspace_id: "uuid", project_id?: "uuid" }`，返回：
 
 ```json
 {
@@ -687,10 +688,10 @@ Base URL: `http://localhost:8000/api`
 - vitest + @testing-library/react
 - 覆盖：api.ts、app-shell、projectflow-home、action-card、agent-proposal-panel、project-dashboard、task-status-update、error-boundaries
 
-### 验证基线（Phase 27 基线，Phase 28 待重新验证）
+### 验证基线（Phase 39 基线）
 
-- 后端 pytest：218 passing
-- 前端：24 tests passing, lint passing, build passing
+- 后端 pytest：224 passing（1 项预先存在的 planning fallback 断言失败，与本次无关）
+- 前端：26 tests passing, lint passing, build passing
 
 ---
 
@@ -787,6 +788,8 @@ npm audit --omit=dev                # 安全审计
 | 35 | Onboarding & Member Form Improvements | ✅ 2026-06-05 |
 | 36 | File Upload, Resource Management & Project Deletion | ✅ 2026-06-06 |
 | 37 | Workspace Creation UX & Landing Page Redesign | ✅ 2026-06-06 |
+| 38 | My Tasks View Enhancements | ✅ 2026-06-06 |
+| 39 | Agent UX Integration & Stage Auto-Advance | ✅ 2026-06-07 |
 
 ---
 

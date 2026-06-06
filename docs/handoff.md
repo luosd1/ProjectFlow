@@ -1,8 +1,46 @@
 # ProjectFlow Handoff
 
-Status: current as of 2026-06-06.
+Status: current as of 2026-06-07.
 
 ## Completed
+
+### Phase 39 — Agent UX Integration & Stage Auto-Advance (2026-06-07)
+
+Proposal confirmation UX unified, task ordering stabilized, stage auto-advance implemented, and Active Push feedback improved.
+
+**Bug Fixes:**
+- **Agent `project_id` routing**: `AgentFlowRequest` now accepts `project_id`; backend `get_workspace_state()` and `run_agent_flow()` accept `project_id` for precise project targeting. Frontend `runAgentFlow()` passes `project_id` in request body. Fixes the bug where Agent always targeted the most-recently-created project in multi-project workspaces.
+- **`Task.order_index` migration**: Added `ALTER TABLE tasks ADD COLUMN order_index INTEGER NOT NULL DEFAULT 0` to fix SQLite schema mismatch after model change.
+
+**Task Ordering (`order_index`):**
+- `Task` model new column `order_index: int = Field(default=0)`.
+- Synced through `TaskCreate`/`TaskRead` schemas, `TaskBreakdownItem`, breakdown prompt contract, and breakdown fallback (`0/1/2`).
+- `_persist_task_breakdown()` sorts by `order_index` before writing. Query layers (`project_state_service`, `task_service`) sort by `stage_id, order_index, priority, due_date`.
+- Frontend `sortTasks()`: stage_id → order_index → priority → due_date.
+
+**Stage Auto-Advance:**
+- New `try_advance_stage()` in `stage_service.py`: when a task is marked done, checks if all tasks in its stage are done. If so, auto-completes the stage, activates the next pending stage (or marks project completed if no more stages).
+- Hooked into `task_service.create_status_update()` — covers all task status update paths (manual, check-in analysis).
+- Active Push prompt updated to detect all-tasks-done stages and suggest advancing.
+
+**UX Improvements:**
+- `PendingProposalBanner` component: yellow banner in specialist views (direction/stages) with "去确认" button that navigates to overview. `onNavigateView` prop threaded from `WorkspaceLayout` → `ProjectContent` → `ViewRenderer`.
+- `DirectionCardPanel`: now shows three states — confirmed, generated-but-unconfirmed ("方向卡已生成，待确认"), and empty ("尚未生成方向卡").
+- `StagePlanBoard`: `pendingPlanProposal` prop for inline preview of pending stage plans.
+- `TaskBreakdownBoard`: redesigned from flat list to stage-grouped sections with color-dot indicators, `done/total` progress pills, empty stage placeholders.
+- Active Push success message now shows the generated card title: `已生成行动卡"启动阶段1...", 请在项目总览中查看`.
+- Overview "Next Action" section handles three states: active card / all completed with re-push button / never run with initial button.
+- `TeamActionsPanel`: `canOperate` prop gated on `currentUserId === project.created_by`. Non-creators see read-only banner.
+
+**Files modified:** `backend/app/models/task.py`, `backend/app/schemas/task.py`, `backend/app/schemas/agent_flow.py`, `backend/app/agent/output_schemas.py`, `backend/app/agent/prompts.py`, `backend/app/agent/modules/breakdown.py`, `backend/app/agent/modules/active_push.py`, `backend/app/services/stage_service.py`, `backend/app/services/task_service.py`, `backend/app/services/agent_proposal_service.py`, `backend/app/services/agent_flow_service.py`, `backend/app/services/project_state_service.py`, `backend/app/services/workspace_state_service.py`, `backend/app/api/routes_agent.py`, `backend/app/api/routes_tasks.py`, `frontend/src/lib/types.ts`, `frontend/src/lib/api.ts`, `frontend/src/components/task/task-breakdown-board.tsx`, `frontend/src/components/stage/stage-plan-board.tsx`, `frontend/src/components/agent/direction-card-panel.tsx`, `frontend/src/components/agent/team-actions-panel.tsx`, `frontend/src/components/project/project-content.tsx`, `frontend/src/components/project/workspace-layout.tsx`, `frontend/src/app/workspaces/[workspaceId]/page.tsx`.
+
+**Verification:** backend 224/225 tests pass (1 pre-existing failure unrelated), frontend build pass.
+
+**Follow-up (2026-06-07):**
+- Direction card step indicator `computeStepIndex()` now respects stage/task count (0→intake, 1→clarified, 2→confirmed, 3→stages-exist). Previously locked at step 2.
+- Direction history items individually expandable (2-line clamp + "展开全文" toggle).
+
+---
 
 ### Phase 37 — Workspace Creation UX, Landing Page Redesign & Bug Fixes (2026-06-06, PR #37)
 
@@ -92,6 +130,7 @@ Full resource lifecycle management with file upload support and project deletion
 - "查看项目" StatCard action fixed: was opening new-project dialog, now navigates to first active project.
 - "查看归档" StatCard action fixed: was opening new-project dialog, now navigates to first completed project.
 - Direction card text overflow: added `break-all` to all list items in `DirectionDecisionView` and `DirectionCardPanel`; "边界" section changed from `Badge` to `<ul><li>` list for long text.
+
 
 **Agent File Reading:**
 - `_read_resource_file()` searches absolute path first, then falls back to `backend/data/uploads/` and `D:\ProjectFlow_Agent` directories by base filename.
@@ -364,7 +403,7 @@ npm audit --omit=dev
 
 Results:
 
-- Backend: 221 tests passed (MVP suite + usability pass + LLM diagnostics + agent proposal confirmation + agent workflow + seed/reset/export + agent module tests + proposal confirm tests + time/resource prompt context + negotiate timeline-only regression).
+- Backend: 224 tests passed (MVP suite + usability pass + LLM diagnostics + agent proposal confirmation + agent workflow + seed/reset/export + agent module tests + proposal confirm tests + time/resource prompt context + negotiate timeline-only regression + task ordering + stage auto-advance).
 - Frontend tests: 26 passed across 9 files (API layer, project dashboard, home page, app shell, action card, task status update, error boundaries, assignment flow panel, agent proposal status badge).
 - Frontend lint passed.
 - Frontend build passed.

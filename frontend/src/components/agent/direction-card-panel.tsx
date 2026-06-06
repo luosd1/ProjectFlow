@@ -19,6 +19,8 @@ type DirectionCardPanelProps = {
   timeline: AgentEvent[];
   pending?: boolean;
   onRunClarification?: () => void;
+  stagesCount?: number;
+  tasksCount?: number;
 };
 
 function safeStringList(value: unknown): string[] {
@@ -68,6 +70,29 @@ function StepGuide({ activeIndex }: { activeIndex: number }) {
   );
 }
 
+function DirectionHistoryItem({ event }: { event: AgentEvent }) {
+  const [expanded, setExpanded] = React.useState(false);
+  const summary = event.reasoning_summary || "";
+  const isLong = summary.length > 80;
+
+  return (
+    <div className="rounded-md border border-ink/8 bg-paper/50 p-3">
+      <p className="text-xs text-ink/45">{new Date(event.created_at).toLocaleDateString("zh-CN")}</p>
+      <p className={`mt-1 text-sm text-ink/75 whitespace-pre-wrap ${expanded ? "" : "line-clamp-2"}`}>
+        {summary}
+      </p>
+      {isLong && (
+        <button
+          onClick={() => setExpanded(!expanded)}
+          className="mt-1 text-xs text-primary hover:underline"
+        >
+          {expanded ? "收起" : "展开全文"}
+        </button>
+      )}
+    </div>
+  );
+}
+
 function DirectionHistory({ timeline }: { timeline: AgentEvent[] }) {
   const [showAll, setShowAll] = React.useState(false);
   const allClarifications = timeline.filter((e) => e.event_type === "clarify");
@@ -76,10 +101,7 @@ function DirectionHistory({ timeline }: { timeline: AgentEvent[] }) {
   return (
     <div className="space-y-3">
       {clarifications.map((event) => (
-        <div key={event.id} className="rounded-md border border-ink/8 bg-paper/50 p-3">
-          <p className="text-xs text-ink/45">{new Date(event.created_at).toLocaleDateString("zh-CN")}</p>
-          <p className="mt-1 text-sm text-ink/75 line-clamp-2">{event.reasoning_summary}</p>
-        </div>
+        <DirectionHistoryItem key={event.id} event={event} />
       ))}
       {allClarifications.length > 3 && (
         <button
@@ -93,17 +115,40 @@ function DirectionHistory({ timeline }: { timeline: AgentEvent[] }) {
   );
 }
 
+function computeStepIndex(
+  directionCard: DirectionCard | null | undefined,
+  timeline: AgentEvent[],
+  stagesCount: number,
+  tasksCount: number,
+): number {
+  const clarification = latestClarification(timeline);
+  const confirmed = Boolean(directionCard);
+
+  // step 0: no direction card, no clarification attempted
+  if (!confirmed && !clarification) return 0;
+  // step 1: clarification ran but not confirmed
+  if (!confirmed && clarification) return 1;
+  // step 2: direction card confirmed, no stages yet
+  if (confirmed && stagesCount === 0) return 2;
+  // step 3: stages exist (plan confirmed or tasks broken down)
+  if (confirmed && stagesCount > 0) return 3;
+
+  return 0;
+}
+
 export function DirectionCardPanel({
   directionCard,
   timeline,
   pending,
   onRunClarification,
+  stagesCount = 0,
+  tasksCount = 0,
 }: DirectionCardPanelProps) {
   const clarification = latestClarification(timeline);
   const questions = safeStringList(directionCard?.suggested_questions ?? clarification?.output_snapshot?.suggested_questions);
   const confirmed = Boolean(directionCard);
 
-  const stepIndex = confirmed ? 2 : clarification ? 1 : 0;
+  const stepIndex = computeStepIndex(directionCard, timeline, stagesCount, tasksCount);
 
   return (
     <section className="rounded-lg border border-ink/10 bg-white p-6">
@@ -136,6 +181,20 @@ export function DirectionCardPanel({
         <div className="rounded-lg border border-ink/10 bg-paper/70 p-5">
           {directionCard ? (
             <DirectionDecisionView content={directionCard} />
+          ) : clarification ? (
+            <div className="flex min-h-40 flex-col items-start justify-center gap-3">
+              <Sparkles className="h-6 w-6 text-citron" />
+              <div>
+                <p className="font-semibold text-ink">方向卡已生成，待确认</p>
+                <p className="mt-1 text-sm text-ink/60">
+                  Agent 已生成方向建议，请在下方的提案卡片中确认应用，或重新运行澄清方向
+                </p>
+              </div>
+              <Button onClick={onRunClarification} disabled={pending} variant="outline" className="border-ink/20">
+                <Sparkles className="h-4 w-4" />
+                重新运行澄清方向
+              </Button>
+            </div>
           ) : (
             <div className="flex min-h-40 flex-col items-start justify-center gap-3">
               <HelpCircle className="h-6 w-6 text-harbor" />

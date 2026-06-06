@@ -14,6 +14,7 @@ class TaskCreate(BaseModel):
     due_date: date
     estimated_hours: float = Field(default=0.0, ge=0)
     can_cut: bool = False
+    order_index: int = 0
 
 
 class TaskUpdate(BaseModel):
@@ -42,6 +43,7 @@ class TaskRead(BaseModel):
     can_cut: bool
     assignment_reason: str | None
     created_by_agent: bool
+    order_index: int
     updated_at: datetime
 
 

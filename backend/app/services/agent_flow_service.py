@@ -39,8 +39,10 @@ def run_agent_flow(
     session: Session,
     workspace_id: str,
     method: AgentMethod,
+    *,
+    project_id: str | None = None,
 ) -> AgentFlowRead:
-    workspace_state = get_workspace_state(session, workspace_id)
+    workspace_state = get_workspace_state(session, workspace_id, project_id=project_id)
     if workspace_state is None:
         raise ValueError("Workspace not found")
 

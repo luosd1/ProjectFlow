@@ -29,9 +29,37 @@ def _migrate_agent_proposals() -> None:
             conn.commit()
 
 
+def _migrate_tasks_order_index() -> None:
+    """Add order_index column to tasks table if missing."""
+    if not settings.database_url.startswith("sqlite"):
+        return
+    with engine.connect() as conn:
+        inspector = inspect(engine)
+        columns = {col["name"] for col in inspector.get_columns("tasks")}
+        if "order_index" not in columns:
+            conn.execute(text("ALTER TABLE tasks ADD COLUMN order_index INTEGER NOT NULL DEFAULT 0"))
+            conn.commit()
+
+
+def _migrate_workspace_team_fields() -> None:
+    """Add team_size and use_case columns to workspaces table if missing."""
+    if not settings.database_url.startswith("sqlite"):
+        return
+    with engine.connect() as conn:
+        inspector = inspect(engine)
+        columns = {col["name"] for col in inspector.get_columns("workspaces")}
+        if "team_size" not in columns:
+            conn.execute(text("ALTER TABLE workspaces ADD COLUMN team_size INTEGER"))
+        if "use_case" not in columns:
+            conn.execute(text("ALTER TABLE workspaces ADD COLUMN use_case TEXT"))
+        conn.commit()
+
+
 def create_db_and_tables() -> None:
     SQLModel.metadata.create_all(engine)
     _migrate_agent_proposals()
+    _migrate_tasks_order_index()
+    _migrate_workspace_team_fields()
 
 
 def get_session():

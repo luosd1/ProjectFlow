@@ -5,12 +5,13 @@ import { CalendarDays, CheckCircle2, Circle, Clock, Flag, AlertTriangle } from "
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
-import type { Stage, Task } from "@/lib/types";
+import type { AgentProposal, Stage, Task } from "@/lib/types";
 
 type StagePlanBoardProps = {
   stages: Stage[];
   tasks: Task[];
   currentStageId?: string | null;
+  pendingPlanProposal?: AgentProposal | null;
 };
 
 function statusClass(status: Stage["status"]) {
@@ -55,9 +56,36 @@ function relativeTimeLabel(start: string, end: string, status: Stage["status"]):
   return null;
 }
 
-export function StagePlanBoard({ stages, tasks, currentStageId }: StagePlanBoardProps) {
+interface PendingStage {
+  name: string;
+  goal: string;
+  start_date: string;
+  end_date: string;
+  deliverable: string;
+  order_index: number;
+}
+
+function parsePendingStages(proposal: AgentProposal): PendingStage[] {
+  const payload = proposal.payload as Record<string, unknown>;
+  const stages = payload?.stages;
+  if (!Array.isArray(stages)) return [];
+  return stages
+    .filter(
+      (s): s is PendingStage =>
+        typeof s === "object" && s !== null && typeof (s as Record<string, unknown>).name === "string"
+    )
+    .sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0));
+}
+
+export function StagePlanBoard({ stages, tasks, currentStageId, pendingPlanProposal }: StagePlanBoardProps) {
   const completed = stages.filter((stage) => stage.status === "completed").length;
   const progress = stages.length > 0 ? Math.round((completed / stages.length) * 100) : 0;
+
+  const pendingStages =
+    pendingPlanProposal && pendingPlanProposal.status === "pending"
+      ? parsePendingStages(pendingPlanProposal)
+      : [];
+  const hasPending = pendingStages.length > 0;
 
   return (
     <section className="rounded-xl border border-neutral-200 bg-white p-5 shadow-sm">
@@ -66,17 +94,55 @@ export function StagePlanBoard({ stages, tasks, currentStageId }: StagePlanBoard
           <h2 className="text-lg font-bold text-ink">阶段计划</h2>
           <p className="mt-1 text-sm text-ink/60">展示阶段、里程碑、交付物和完成标准。</p>
         </div>
-        <div className="w-44">
-          <Progress value={progress} className="h-2" />
-          <p className="mt-1 text-right text-xs text-ink/50">完成度 {progress}%</p>
+        <div className="flex flex-wrap items-center gap-3">
+          {hasPending && (
+            <Badge className="bg-citron/35 text-ink">含 {pendingStages.length} 个待确认</Badge>
+          )}
+          <div className="w-44">
+            <Progress value={progress} className="h-2" />
+            <p className="mt-1 text-right text-xs text-ink/50">完成度 {progress}%</p>
+          </div>
         </div>
       </div>
 
-      {stages.length === 0 ? (
+      {/* Pending plan preview */}
+      {hasPending && (
+        <div className="mt-4 rounded-lg border border-citron/30 bg-citron/5 p-4">
+          <div className="flex items-center gap-2 text-sm font-semibold text-ink/75">
+            <Clock className="h-4 w-4 text-amber-500" />
+            待确认的阶段提案
+          </div>
+          <p className="mt-1 text-xs text-ink/50">
+            以下阶段尚未确认应用，请到项目总览中确认。确认后阶段将进入正式列表。
+          </p>
+          <div className="mt-3 space-y-2">
+            {pendingStages.map((stage, i) => (
+              <div
+                key={i}
+                className="rounded-lg border border-citron/25 bg-white/70 p-3 opacity-90"
+              >
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge className="bg-ink/10 text-ink/50 text-[10px]">#{stage.order_index ?? i + 1}</Badge>
+                  <span className="font-semibold text-ink">{stage.name}</span>
+                </div>
+                <p className="mt-1 text-sm text-ink/65">{stage.goal}</p>
+                <div className="mt-1 flex flex-wrap gap-3 text-xs text-ink/50">
+                  <span>
+                    {stage.start_date} → {stage.end_date}
+                  </span>
+                  <span>交付: {stage.deliverable}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {stages.length === 0 && !hasPending ? (
         <div className="mt-5 rounded-lg border border-dashed border-ink/15 bg-paper/70 p-6 text-sm text-ink/55">
           暂无阶段。方向卡确认后运行阶段计划。
         </div>
-      ) : (
+      ) : stages.length === 0 && hasPending ? null : (
         <div className="mt-5 relative">
           {/* Timeline connector line */}
           <div className="absolute left-[18px] top-3 bottom-3 w-px bg-neutral-200" aria-hidden="true" />

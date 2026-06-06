@@ -221,7 +221,7 @@ def _persist_task_breakdown(session: Session, proposal: AgentProposal) -> list[s
     payload = _get_payload(proposal)
     output = TaskBreakdownOutput.model_validate(payload)
     created_ids: list[str] = []
-    for task_item in output.tasks:
+    for task_item in sorted(output.tasks, key=lambda t: (t.order_index, t.priority, t.due_date)):
         task = Task(
             project_id=proposal.project_id,
             stage_id=task_item.stage_id or "",
@@ -233,6 +233,7 @@ def _persist_task_breakdown(session: Session, proposal: AgentProposal) -> list[s
             dependency_ids=json.dumps(task_item.dependency_ids, ensure_ascii=False),
             acceptance_criteria=json.dumps(task_item.acceptance_criteria, ensure_ascii=False),
             can_cut=task_item.can_cut,
+            order_index=task_item.order_index,
             created_by_agent=True,
         )
         session.add(task)

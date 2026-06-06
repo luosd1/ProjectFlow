@@ -515,7 +515,7 @@ async function runAgentFlow(
   const project = await getProject(projectId);
   return request<AgentFlowResult>(`/agent/${endpoint}`, {
     method: "POST",
-    body: JSON.stringify({ workspace_id: project.workspace_id, ...extraBody }),
+    body: JSON.stringify({ workspace_id: project.workspace_id, project_id: projectId, ...extraBody }),
   });
 }
 

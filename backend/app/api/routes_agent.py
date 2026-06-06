@@ -83,7 +83,7 @@ def api_agent_negotiate(
 
 def _run(data: AgentFlowRequest, session: Session, method) -> AgentFlowRead:
     try:
-        return run_agent_flow(session, data.workspace_id, method)
+        return run_agent_flow(session, data.workspace_id, method, project_id=data.project_id)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
     except LLMTimeoutError as exc:
