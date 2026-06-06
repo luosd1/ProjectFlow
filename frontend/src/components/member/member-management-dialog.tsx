@@ -652,31 +652,29 @@ export function MemberManagementDialog({
                           负责人
                         </Badge>
                       )}
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        className="h-8 w-8"
+                        onClick={() => {
+                          setSelectedUserId(member.user_id)
+                          setView("edit")
+                        }}
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
                       {!isOwner && (
-                        <>
-                          <Button
-                            variant="ghost"
-                            size="icon-sm"
-                            className="h-8 w-8"
-                            onClick={() => {
-                              setSelectedUserId(member.user_id)
-                              setView("edit")
-                            }}
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon-sm"
-                            className="h-8 w-8 text-destructive hover:text-destructive"
-                            onClick={() => {
-                              setSelectedUserId(member.user_id)
-                              setView("delete-confirm")
-                            }}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </>
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          className="h-8 w-8 text-destructive hover:text-destructive"
+                          onClick={() => {
+                            setSelectedUserId(member.user_id)
+                            setView("delete-confirm")
+                          }}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
                       )}
                     </div>
                   </div>

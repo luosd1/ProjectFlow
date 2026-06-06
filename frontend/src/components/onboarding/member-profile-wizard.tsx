@@ -650,9 +650,11 @@ export function MemberProfileWizard({
 
         {currentStep < steps.length - 1 ? (
           <div className="flex items-center gap-2">
-            <Button variant="ghost" onClick={handleSkip} className="text-muted-foreground">
-              跳过，稍后完善
-            </Button>
+            <Link href={`/workspaces/${workspaceId}`} passHref>
+              <Button variant="ghost" className="gap-2">
+                跳过，稍后完善
+              </Button>
+            </Link>
             <Button onClick={goNext} className="gap-2">
               下一步
               <ArrowRight className="h-4 w-4" />
