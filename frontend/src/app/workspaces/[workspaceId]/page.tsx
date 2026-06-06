@@ -14,6 +14,7 @@ import {
   finalizeAssignments,
   confirmAgentProposal,
   createCheckinCycle,
+  getAgentConversation,
   getProjectState,
   getWorkspaceState,
   rejectAgentProposal,
@@ -27,13 +28,20 @@ import {
   runPlanning,
   runReplan,
   runRiskAnalysis,
+  sendAgentConversationMessage,
   startNegotiation,
   submitCheckinResponse,
   updateActionCardStatus,
   updateRiskStatus,
   updateTaskStatus,
 } from "@/lib/api";
-import type { AddResourceRequest, AgentFlowResult, ProjectState, WorkspaceState } from "@/lib/types";
+import type {
+  AddResourceRequest,
+  AgentConversation,
+  AgentFlowResult,
+  ProjectState,
+  WorkspaceState,
+} from "@/lib/types";
 
 const AGENT_RUNNERS: Record<AgentAction, (projectId: string, state?: ProjectState) => Promise<unknown>> = {
   clarify: runClarification,
@@ -95,6 +103,8 @@ export default function WorkspaceDashboardPage() {
 
   const [workspaceState, setWorkspaceState] = useState<WorkspaceState | null>(null);
   const [projectState, setProjectState] = useState<ProjectState | null>(null);
+  const [agentConversation, setAgentConversation] = useState<AgentConversation | null>(null);
+  const [agentConversationSuggestions, setAgentConversationSuggestions] = useState<string[]>([]);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [showWorkspace, setShowWorkspace] = useState(!projectParam);
   const showWorkspaceRef = useRef(showWorkspace);
@@ -106,6 +116,7 @@ export default function WorkspaceDashboardPage() {
   }, [showWorkspace]);
 
   const [pendingAction, setPendingAction] = useState<AgentAction | null>(null);
+  const [pendingAgentConversation, setPendingAgentConversation] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
 
@@ -135,6 +146,13 @@ export default function WorkspaceDashboardPage() {
         if (ps) {
           setProjectState(ps);
           syncProjectShellState(ps);
+          getAgentConversation(ps.project.id)
+            .then((conversation) => {
+              if (!ignore) setAgentConversation(conversation);
+            })
+            .catch(() => {
+              if (!ignore) setActionError("加载 Agent 对话失败");
+            });
         }
       })
       .catch(() => {
@@ -169,6 +187,9 @@ export default function WorkspaceDashboardPage() {
       const ps = await getProjectState(projectId);
       setProjectState(ps);
       syncProjectShellState(ps);
+      const conversation = await getAgentConversation(projectId);
+      setAgentConversation(conversation);
+      setAgentConversationSuggestions([]);
     } catch {
       setActionError("加载项目数据失败");
     } finally {
@@ -181,6 +202,8 @@ export default function WorkspaceDashboardPage() {
     if (show) {
       setSelectedProjectId(null);
       setProjectState(null);
+      setAgentConversation(null);
+      setAgentConversationSuggestions([]);
       // Clear project param from URL
       const params = new URLSearchParams(searchParams.toString());
       params.delete("project");
@@ -206,6 +229,8 @@ export default function WorkspaceDashboardPage() {
       const nextState = await getProjectState(selectedProjectId);
       setProjectState(nextState);
       syncProjectShellState(nextState);
+      const conversation = await getAgentConversation(selectedProjectId);
+      setAgentConversation(conversation);
     } catch {
       setActionError("刷新项目数据失败，请重试");
     }
@@ -252,6 +277,26 @@ export default function WorkspaceDashboardPage() {
       setActionError(msg);
     } finally {
       setPendingAction(null);
+    }
+  };
+
+  const handleSendAgentMessage = async (content: string) => {
+    if (!agentConversation) return;
+    setPendingAgentConversation(true);
+    setActionError(null);
+    setActionSuccess(null);
+    try {
+      const result = await sendAgentConversationMessage(agentConversation.id, content);
+      setAgentConversation(result.conversation);
+      setAgentConversationSuggestions(result.next_suggestions ?? []);
+      await reloadProject();
+      if (result.run?.proposal_id) {
+        setActionSuccess("Agent 已生成提案，等待你确认后应用");
+      }
+    } catch {
+      setActionError("Agent 对话失败，请稍后重试。");
+    } finally {
+      setPendingAgentConversation(false);
     }
   };
 
@@ -477,6 +522,9 @@ export default function WorkspaceDashboardPage() {
       showWorkspace={showWorkspace}
       currentUserId={currentUserId}
       pendingAction={pendingAction}
+      agentConversation={agentConversation}
+      agentConversationSuggestions={agentConversationSuggestions}
+      pendingAgentConversation={pendingAgentConversation}
       actionError={actionError}
       actionSuccess={actionSuccess}
       viewParam={viewParam}
@@ -488,6 +536,7 @@ export default function WorkspaceDashboardPage() {
       onShowWorkspace={handleShowWorkspace}
       onNavigateView={handleNavigateView}
       onRunAgent={runAgent}
+      onSendAgentMessage={handleSendAgentMessage}
       onRespondToAssignment={handleAssignmentResponse}
       onStartNegotiation={handleStartNegotiation}
       onFinalizeAssignments={handleFinalizeAssignments}

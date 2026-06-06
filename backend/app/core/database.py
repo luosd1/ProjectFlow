@@ -17,13 +17,19 @@ if settings.database_url.startswith("sqlite"):
 engine = create_engine(settings.database_url, connect_args=connect_args, **_engine_kwargs)
 
 
+def _get_sqlite_columns(table_name: str) -> set[str]:
+    inspector = inspect(engine)
+    if not inspector.has_table(table_name):
+        return set()
+    return {col["name"] for col in inspector.get_columns(table_name)}
+
+
 def _migrate_agent_proposals() -> None:
     """Add missing rejection_reason column to agent_proposals if needed."""
     if not settings.database_url.startswith("sqlite"):
         return
     with engine.connect() as conn:
-        inspector = inspect(engine)
-        columns = {col["name"] for col in inspector.get_columns("agent_proposals")}
+        columns = _get_sqlite_columns("agent_proposals")
         if "rejection_reason" not in columns:
             conn.execute(text("ALTER TABLE agent_proposals ADD COLUMN rejection_reason TEXT"))
             conn.commit()
@@ -34,20 +40,18 @@ def _migrate_tasks_order_index() -> None:
     if not settings.database_url.startswith("sqlite"):
         return
     with engine.connect() as conn:
-        inspector = inspect(engine)
-        columns = {col["name"] for col in inspector.get_columns("tasks")}
+        columns = _get_sqlite_columns("tasks")
         if "order_index" not in columns:
             conn.execute(text("ALTER TABLE tasks ADD COLUMN order_index INTEGER NOT NULL DEFAULT 0"))
             conn.commit()
 
 
-def _migrate_workspace_team_fields() -> None:
-    """Add team_size and use_case columns to workspaces table if missing."""
+def _migrate_workspaces() -> None:
+    """Add workspace columns introduced after early demo databases were created."""
     if not settings.database_url.startswith("sqlite"):
         return
     with engine.connect() as conn:
-        inspector = inspect(engine)
-        columns = {col["name"] for col in inspector.get_columns("workspaces")}
+        columns = _get_sqlite_columns("workspaces")
         if "team_size" not in columns:
             conn.execute(text("ALTER TABLE workspaces ADD COLUMN team_size INTEGER"))
         if "use_case" not in columns:
@@ -59,7 +63,7 @@ def create_db_and_tables() -> None:
     SQLModel.metadata.create_all(engine)
     _migrate_agent_proposals()
     _migrate_tasks_order_index()
-    _migrate_workspace_team_fields()
+    _migrate_workspaces()
 
 
 def get_session():

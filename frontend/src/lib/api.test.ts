@@ -1,6 +1,14 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { getProjectState, rejectAgentProposal, runAgentNegotiate, runAssignment, startNegotiation } from "./api";
+import {
+  getAgentConversation,
+  getProjectState,
+  rejectAgentProposal,
+  runAgentNegotiate,
+  runAssignment,
+  sendAgentConversationMessage,
+  startNegotiation,
+} from "./api";
 
 const jsonResponse = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
@@ -13,6 +21,103 @@ afterEach(() => {
 });
 
 describe("frontend API layer", () => {
+  it("loads the active project agent conversation", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.endsWith("/projects/project-1/agent-conversation")) {
+        return jsonResponse({
+          id: "conversation-1",
+          workspace_id: "workspace-1",
+          project_id: "project-1",
+          status: "active",
+          summary: "",
+          current_focus: "阶段计划",
+          messages: [],
+          created_at: "2026-06-06T00:00:00Z",
+          updated_at: "2026-06-06T00:00:00Z",
+        });
+      }
+      throw new Error(`Unexpected request ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const conversation = await getAgentConversation("project-1");
+
+    expect(conversation.current_focus).toBe("阶段计划");
+  });
+
+  it("sends natural language messages to the backend agent conversation", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.endsWith("/agent/conversations/conversation-1/messages")) {
+        expect(init?.method).toBe("POST");
+        expect(JSON.parse(String(init?.body))).toEqual({
+          content: "按三周节奏重新规划",
+        });
+        return jsonResponse({
+          conversation: {
+            id: "conversation-1",
+            workspace_id: "workspace-1",
+            project_id: "project-1",
+            status: "active",
+            summary: "",
+            current_focus: "阶段计划",
+            messages: [],
+            created_at: "2026-06-06T00:00:00Z",
+            updated_at: "2026-06-06T00:00:00Z",
+          },
+          user_message: {
+            id: "message-user",
+            conversation_id: "conversation-1",
+            role: "user",
+            content: "按三周节奏重新规划",
+            structured_payload: {},
+            linked_event_id: null,
+            linked_proposal_id: null,
+            created_at: "2026-06-06T00:00:00Z",
+          },
+          assistant_message: {
+            id: "message-assistant",
+            conversation_id: "conversation-1",
+            role: "assistant",
+            content: "阶段计划已生成，已放入待确认队列。",
+            structured_payload: {},
+            linked_event_id: "event-1",
+            linked_proposal_id: "proposal-1",
+            created_at: "2026-06-06T00:00:00Z",
+          },
+          run: {
+            id: "run-1",
+            conversation_id: "conversation-1",
+            project_id: "project-1",
+            user_instruction: "按三周节奏重新规划",
+            selected_module: "plan",
+            status: "proposal_created",
+            model: "mock",
+            attempts: 2,
+            verifier_status: "passed",
+            agent_event_id: "event-1",
+            proposal_id: "proposal-1",
+            created_at: "2026-06-06T00:00:00Z",
+            completed_at: "2026-06-06T00:00:00Z",
+          },
+          turn_plan: null,
+          next_suggestions: ["确认这个阶段计划"],
+        });
+      }
+      throw new Error(`Unexpected request ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await sendAgentConversationMessage(
+      "conversation-1",
+      "按三周节奏重新规划",
+    );
+
+    expect(result.run?.selected_module).toBe("plan");
+    expect(result.assistant_message.linked_proposal_id).toBe("proposal-1");
+  });
+
   it("rejects agent proposals with an explicit nullable reason body", async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
@@ -62,7 +167,10 @@ describe("frontend API layer", () => {
       }
       if (url.endsWith("/agent/assign")) {
         expect(init?.method).toBe("POST");
-        expect(JSON.parse(String(init?.body))).toEqual({ workspace_id: "workspace-1" });
+        expect(JSON.parse(String(init?.body))).toEqual({
+          workspace_id: "workspace-1",
+          project_id: "project-1",
+        });
         return jsonResponse({
           event_type: "assign",
           status: "fallback",
@@ -102,7 +210,10 @@ describe("frontend API layer", () => {
       }
       if (url.endsWith("/agent/negotiate")) {
         expect(init?.method).toBe("POST");
-        expect(JSON.parse(String(init?.body))).toEqual({ workspace_id: "workspace-1" });
+        expect(JSON.parse(String(init?.body))).toEqual({
+          workspace_id: "workspace-1",
+          project_id: "project-1",
+        });
         return jsonResponse({
           event_type: "negotiate",
           status: "success",
@@ -145,6 +256,7 @@ describe("frontend API layer", () => {
         expect(init?.method).toBe("POST");
         expect(JSON.parse(String(init?.body))).toEqual({
           workspace_id: "workspace-1",
+          project_id: "project-1",
           stage_id: "stage-pending",
         });
         return jsonResponse({

@@ -12,6 +12,7 @@ from app.models.risk import Risk
 from app.models.action_card import ActionCard
 from app.models.timeline import AgentEvent
 from app.models.agent_proposal import AgentProposal
+from app.models.agent_conversation import AgentConversation, AgentMessage, AgentRun
 
 __all__ = [
     "User",
@@ -33,4 +34,7 @@ __all__ = [
     "ActionCard",
     "AgentEvent",
     "AgentProposal",
+    "AgentConversation",
+    "AgentMessage",
+    "AgentRun",
 ]

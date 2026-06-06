@@ -5,8 +5,10 @@ from pydantic import BaseModel
 
 class AgentFlowRequest(BaseModel):
     workspace_id: str
-    stage_id: str | None = None
     project_id: str | None = None
+    stage_id: str | None = None
+    conversation_id: str | None = None
+    user_instruction: str | None = None
 
 
 class AgentFlowRead(BaseModel):

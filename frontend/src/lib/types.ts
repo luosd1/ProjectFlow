@@ -308,6 +308,65 @@ export type AgentFlowResult = {
   proposal_id?: string | null;
 };
 
+export type AgentTurnPlan = {
+  response_type: "answer" | "ask_clarifying_question" | "run_module" | "revise_pending_proposal";
+  selected_module?: "clarify" | "plan" | "breakdown" | "assign" | "push" | "checkin" | "risk" | "replan" | null;
+  user_instruction: string;
+  rationale: string;
+  required_inputs: string[];
+  expected_artifact?: string | null;
+  risk_level: "low" | "medium" | "high";
+  requires_confirmation: boolean;
+};
+
+export type AgentConversationMessage = {
+  id: string;
+  conversation_id: string;
+  role: "user" | "assistant" | "tool" | string;
+  content: string;
+  structured_payload: Record<string, unknown>;
+  linked_event_id?: string | null;
+  linked_proposal_id?: string | null;
+  created_at: string;
+};
+
+export type AgentConversationRun = {
+  id: string;
+  conversation_id: string;
+  project_id: string;
+  user_instruction: string;
+  selected_module: string;
+  status: string;
+  model: string;
+  attempts: number;
+  verifier_status: string;
+  agent_event_id?: string | null;
+  proposal_id?: string | null;
+  created_at: string;
+  completed_at?: string | null;
+};
+
+export type AgentConversation = {
+  id: string;
+  workspace_id: string;
+  project_id: string;
+  status: "active" | "archived" | string;
+  summary: string;
+  current_focus: string;
+  messages: AgentConversationMessage[];
+  created_at: string;
+  updated_at: string;
+};
+
+export type AgentConversationTurn = {
+  conversation: AgentConversation;
+  user_message: AgentConversationMessage;
+  assistant_message: AgentConversationMessage;
+  run?: AgentConversationRun | null;
+  turn_plan?: AgentTurnPlan | null;
+  next_suggestions: string[];
+};
+
 export type DemoResetResult = {
   workspace_id: string;
   project_id: string;

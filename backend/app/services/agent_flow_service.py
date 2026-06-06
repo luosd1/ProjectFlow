@@ -3,6 +3,7 @@ from collections.abc import Callable
 from sqlmodel import Session
 
 from app.agent.coordinator import CoordinatorAgent
+from app.agent.llm_client import LLMClient
 from app.agent.output_schemas import (
     ActivePushOutput,
     AssignmentNegotiationOutput,
@@ -32,7 +33,7 @@ from app.services.task_service import create_status_update
 from app.services.workspace_state_service import get_workspace_state
 
 
-AgentMethod = Callable[[CoordinatorAgent, WorkspaceStateResponse], AgentRunResult]
+AgentMethod = Callable[[CoordinatorAgent, WorkspaceStateResponse, str | None], AgentRunResult]
 
 
 def run_agent_flow(
@@ -41,13 +42,15 @@ def run_agent_flow(
     method: AgentMethod,
     *,
     project_id: str | None = None,
+    user_instruction: str | None = None,
+    llm_client: LLMClient | None = None,
 ) -> AgentFlowRead:
     workspace_state = get_workspace_state(session, workspace_id, project_id=project_id)
     if workspace_state is None:
         raise ValueError("Workspace not found")
 
-    coordinator = CoordinatorAgent(session=session)
-    result = method(coordinator, workspace_state)
+    coordinator = CoordinatorAgent(session=session, llm_client=llm_client)
+    result = method(coordinator, workspace_state, user_instruction)
     created_ids, proposal_id = _persist_agent_output(session, workspace_state, result)
     event_type = _event_type_for_output(result)
 

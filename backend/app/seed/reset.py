@@ -21,10 +21,18 @@ from app.models import (
     Risk,
     ActionCard,
     AgentEvent,
+    AgentProposal,
+    AgentConversation,
+    AgentMessage,
+    AgentRun,
 )
 
 # All model tables in reverse dependency order (children first)
 ALL_TABLES = [
+    AgentMessage,
+    AgentRun,
+    AgentConversation,
+    AgentProposal,
     AgentEvent,
     ActionCard,
     Risk,

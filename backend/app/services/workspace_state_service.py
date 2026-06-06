@@ -53,7 +53,12 @@ def _json_object(value: str | None) -> dict | None:
     return parsed if isinstance(parsed, dict) else None
 
 
-def get_workspace_state(session: Session, workspace_id: str, *, project_id: str | None = None) -> WorkspaceStateResponse | None:
+def get_workspace_state(
+    session: Session,
+    workspace_id: str,
+    *,
+    project_id: str | None = None,
+) -> WorkspaceStateResponse | None:
     workspace = session.get(Workspace, workspace_id)
     if not workspace:
         return None

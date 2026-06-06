@@ -4,7 +4,6 @@ from app.schemas.workspace_state import WorkspaceStateResponse
 
 
 def build_request(workspace_state: WorkspaceStateResponse) -> AgentModuleRequest:
-    fallback_member = workspace_state.members[0] if workspace_state.members else None
     fallback_task_title = "下一步任务"
     if workspace_state.project and workspace_state.project.tasks:
         for t in workspace_state.project.tasks:

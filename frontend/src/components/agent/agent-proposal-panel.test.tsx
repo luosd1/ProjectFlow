@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { AgentProposalPanel } from "./agent-proposal-panel";
@@ -46,7 +46,7 @@ describe("AgentProposalPanel", () => {
     expect(screen.getByText("基础建议")).toBeTruthy();
   });
 
-  it("leaves replan proposals to the dedicated risk adjustment panel", () => {
+  it("shows pending replan proposals in the project proposal queue", () => {
     const replanProposal: AgentProposal = {
       id: "proposal-replan",
       project_id: "project-1",
@@ -67,7 +67,14 @@ describe("AgentProposalPanel", () => {
 
     render(<AgentProposalPanel proposals={[replanProposal]} />);
 
-    expect(screen.queryByText("Agent 提案")).toBeNull();
-    expect(screen.queryByText(/Build API/)).toBeNull();
+    expect(screen.getByText("Agent 提案")).toBeTruthy();
+    expect(screen.getByText("1 待确认")).toBeTruthy();
+    expect(screen.getByText("计划调整")).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: /计划调整/ }));
+
+    expect(screen.getByText(/检测到任务阻塞/)).toBeTruthy();
+    expect(screen.getByText(/Build API/)).toBeTruthy();
+    expect(screen.getByRole("button", { name: /确认应用/ })).toBeTruthy();
   });
 });

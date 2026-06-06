@@ -24,6 +24,8 @@ import type {
   Risk,
   ActionCard,
   AgentEvent,
+  AgentConversation,
+  AgentConversationTurn,
   AgentFlowResult,
   DemoResetResult,
 } from "./types";
@@ -507,6 +509,20 @@ export async function listTimelineByProject(projectId: string): Promise<AgentEve
 }
 
 // --- Agent ---
+export async function getAgentConversation(projectId: string): Promise<AgentConversation> {
+  return request<AgentConversation>(`/projects/${projectId}/agent-conversation`);
+}
+
+export async function sendAgentConversationMessage(
+  conversationId: string,
+  content: string,
+): Promise<AgentConversationTurn> {
+  return request<AgentConversationTurn>(`/agent/conversations/${conversationId}/messages`, {
+    method: "POST",
+    body: JSON.stringify({ content }),
+  });
+}
+
 async function runAgentFlow(
   projectId: string,
   endpoint: string,

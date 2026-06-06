@@ -5,7 +5,7 @@ import { motion } from "framer-motion";
 import { ProjectSidebar } from "./project-sidebar";
 import { AgentSidebar } from "./agent-sidebar";
 import { ProjectContent } from "./project-content";
-import type { AddResourceRequest, ProjectState } from "@/lib/types";
+import type { AddResourceRequest, AgentConversation, ProjectState } from "@/lib/types";
 import type { AgentAction } from "./project-actions";
 
 interface ProjectLayoutProps {
@@ -13,9 +13,13 @@ interface ProjectLayoutProps {
   state: ProjectState;
   currentUserId?: string;
   pendingAction?: AgentAction | null;
+  agentConversation?: AgentConversation | null;
+  agentConversationSuggestions?: string[];
+  pendingAgentConversation?: boolean;
   actionError?: string | null;
   actionSuccess?: string | null;
   onRunAgent?: (action: AgentAction) => void;
+  onSendAgentMessage?: (content: string) => void | Promise<void>;
   onRespondToAssignment?: (
     proposalId: string,
     userId: string,
@@ -61,9 +65,13 @@ export function ProjectLayout({
   state,
   currentUserId,
   pendingAction,
+  agentConversation,
+  agentConversationSuggestions,
+  pendingAgentConversation,
   actionError,
   actionSuccess,
   onRunAgent,
+  onSendAgentMessage,
   onRespondToAssignment,
   onStartNegotiation,
   onFinalizeAssignments,
@@ -142,10 +150,14 @@ export function ProjectLayout({
       {/* Right Agent Sidebar */}
       <AgentSidebar
         state={state}
+        conversation={agentConversation}
+        conversationSuggestions={agentConversationSuggestions}
+        pendingConversation={pendingAgentConversation}
         pendingAction={pendingAction}
         actionError={actionError}
         actionSuccess={actionSuccess}
         onRunAgent={onRunAgent ?? (() => {})}
+        onSendMessage={onSendAgentMessage}
         onResetDemo={onResetDemo}
       />
     </div>

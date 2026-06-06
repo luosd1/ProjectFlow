@@ -1,0 +1,326 @@
+import json
+
+from fastapi.testclient import TestClient
+from sqlmodel import Session, SQLModel, create_engine, select
+
+from app.agent.llm_client import MockLLMClient
+from app.models import AgentEvent
+from app.models.agent_conversation import AgentConversation, AgentMessage, AgentRun
+from app.services.agent_conversation_service import (
+    get_or_create_project_conversation,
+    process_conversation_message,
+)
+from app.seed.demo_projectflow import seed_demo_data
+
+
+def _create_project_fixture(client: TestClient):
+    owner = client.post("/api/users", json={"display_name": "Agent Owner"}).json()
+    workspace = client.post(
+        "/api/workspaces",
+        json={"name": "Agent Conversation Workspace"},
+        params={"owner_user_id": owner["id"]},
+    ).json()
+    project = client.post(
+        "/api/projects",
+        json={
+            "workspace_id": workspace["id"],
+            "name": "Conversation Project",
+            "idea": "Build an agent workflow",
+            "deadline": "2026-06-20",
+            "deliverables": "Working demo",
+            "created_by": owner["id"],
+        },
+    ).json()
+    return owner, workspace, project
+
+
+def _session_fixture():
+    engine = create_engine(
+        "sqlite://",
+        connect_args={"check_same_thread": False},
+        json_serializer=json.dumps,
+        json_deserializer=json.loads,
+    )
+    SQLModel.metadata.create_all(engine)
+    return engine
+
+
+def test_project_conversation_endpoint_gets_or_creates_active_conversation(client: TestClient):
+    _owner, _workspace, project = _create_project_fixture(client)
+
+    response = client.get(f"/api/projects/{project['id']}/agent-conversation")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["project_id"] == project["id"]
+    assert payload["status"] == "active"
+    assert payload["messages"] == []
+    assert payload["current_focus"]
+
+
+def test_conversation_blocks_breakdown_before_stages_and_records_messages(client: TestClient):
+    _owner, _workspace, project = _create_project_fixture(client)
+    client.patch(
+        f"/api/projects/{project['id']}",
+        json={
+            "direction_card": {
+                "problem": "方向已确认",
+                "users": "学生团队",
+                "value": "推进项目",
+                "deliverables": ["Demo"],
+                "boundaries": ["MVP"],
+                "risks": ["时间紧"],
+                "suggested_questions": ["是否开始规划？"],
+                "reason": "测试需要已确认方向",
+            }
+        },
+    )
+    conversation = client.get(f"/api/projects/{project['id']}/agent-conversation").json()
+
+    response = client.post(
+        f"/api/agent/conversations/{conversation['id']}/messages",
+        json={"content": "直接帮我拆解任务"},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["run"] is None
+    assert payload["assistant_message"]["role"] == "assistant"
+    assert "阶段计划" in payload["assistant_message"]["content"]
+    assert payload["next_suggestions"]
+
+
+def test_service_uses_llm_turn_plan_and_passes_user_instruction_to_agent_flow(client: TestClient):
+    owner, workspace, project = _create_project_fixture(client)
+    direction = {
+        "problem": "项目方向已明确",
+        "users": "学生项目团队",
+        "value": "按三周训练营节奏推进",
+        "deliverables": ["演示 Demo"],
+        "boundaries": ["先完成 MVP"],
+        "risks": ["时间紧"],
+        "suggested_questions": ["是否优先演示？"],
+        "reason": "测试需要已确认方向卡",
+    }
+    client.patch(f"/api/projects/{project['id']}", json={"direction_card": direction})
+
+    engine = _session_fixture()
+    with Session(engine) as session:
+        # Re-create the API fixture records in this isolated service session.
+        from app.models import Project, User, Workspace, WorkspaceMembership
+
+        session.add(User(id=owner["id"], display_name=owner["display_name"]))
+        session.add(Workspace(id=workspace["id"], name=workspace["name"], owner_user_id=owner["id"]))
+        session.add(WorkspaceMembership(workspace_id=workspace["id"], user_id=owner["id"], role="owner"))
+        session.add(
+            Project(
+                id=project["id"],
+                workspace_id=workspace["id"],
+                name=project["name"],
+                idea=project["idea"],
+                deadline=project["deadline"],
+                deliverables=project["deliverables"],
+                created_by=owner["id"],
+                direction_card=json.dumps(direction, ensure_ascii=False),
+            )
+        )
+        session.commit()
+
+        conversation = get_or_create_project_conversation(session, project["id"])
+        llm_client = MockLLMClient(
+            responses=[
+                json.dumps(
+                    {
+                        "response_type": "run_module",
+                        "selected_module": "plan",
+                        "user_instruction": "把阶段计划压缩成 3 周，优先演示闭环",
+                        "rationale": "用户明确要求重新规划阶段",
+                        "required_inputs": [],
+                        "expected_artifact": "阶段计划提案",
+                        "risk_level": "medium",
+                        "requires_confirmation": True,
+                    },
+                    ensure_ascii=False,
+                ),
+                "{}",
+            ]
+        )
+
+        result = process_conversation_message(
+            session,
+            conversation.id,
+            "把阶段计划压缩成 3 周，优先演示闭环",
+            llm_client=llm_client,
+        )
+
+        assert result.run is not None
+        assert result.run.selected_module == "plan"
+        assert result.run.user_instruction == "把阶段计划压缩成 3 周，优先演示闭环"
+        assert result.run.proposal_id is not None
+
+        event = session.exec(select(AgentEvent)).one()
+        input_snapshot = json.loads(event.input_snapshot)
+        assert input_snapshot["user_instruction"] == "把阶段计划压缩成 3 周，优先演示闭环"
+
+        messages = session.exec(select(AgentMessage)).all()
+        assert [message.role for message in messages] == ["user", "assistant"]
+        assert messages[-1].linked_proposal_id == result.run.proposal_id
+
+        runs = session.exec(select(AgentRun)).all()
+        assert runs[0].status == "proposal_created"
+
+
+def test_service_accepts_llm_planner_alias_fields_for_module_execution():
+    engine = _session_fixture()
+    with Session(engine) as session:
+        seed_demo_data(session)
+        conversation = get_or_create_project_conversation(session, "demo-project-001")
+        llm_client = MockLLMClient(
+            responses=[
+                json.dumps(
+                    {
+                        "type": "run_module",
+                        "module": "risk",
+                        "parameters": {},
+                    },
+                    ensure_ascii=False,
+                ),
+                "{}",
+                "{}",
+            ]
+        )
+
+        result = process_conversation_message(
+            session,
+            conversation.id,
+            "分析当前风险",
+            llm_client=llm_client,
+        )
+
+        assert result.run is not None
+        assert result.turn_plan is not None
+        assert result.turn_plan.response_type == "run_module"
+        assert result.turn_plan.selected_module == "risk"
+        assert result.run.selected_module == "risk"
+        assert result.run.user_instruction == "分析当前风险"
+        assert "风险" in result.assistant_message.content
+
+
+def test_service_uses_llm_planner_content_for_direct_answer():
+    engine = _session_fixture()
+    with Session(engine) as session:
+        seed_demo_data(session)
+        conversation = get_or_create_project_conversation(session, "demo-project-001")
+        llm_client = MockLLMClient(
+            responses=[
+                json.dumps(
+                    {
+                        "turn_type": "clarify",
+                        "content": "你好！你想让我做什么？比如分析风险、生成行动卡，或者聊聊项目进度？",
+                    },
+                    ensure_ascii=False,
+                )
+            ]
+        )
+
+        result = process_conversation_message(
+            session,
+            conversation.id,
+            "hi",
+            llm_client=llm_client,
+        )
+
+        assert result.run is None
+        assert result.assistant_message.content == "你好！你想让我做什么？比如分析风险、生成行动卡，或者聊聊项目进度？"
+        assert result.turn_plan is not None
+        assert result.turn_plan.response_type == "answer"
+
+
+def test_service_direct_answer_never_exposes_parser_diagnostics():
+    engine = _session_fixture()
+    with Session(engine) as session:
+        seed_demo_data(session)
+        conversation = get_or_create_project_conversation(session, "demo-project-001")
+        llm_client = MockLLMClient(responses=["{}"])
+
+        result = process_conversation_message(
+            session,
+            conversation.id,
+            "hi",
+            llm_client=llm_client,
+        )
+
+        assert result.run is None
+        assert "LLM planner" not in result.assistant_message.content
+        assert "可以" in result.assistant_message.content
+
+
+def test_conversation_models_persist_linked_artifacts():
+    engine = _session_fixture()
+    with Session(engine) as session:
+        conversation = AgentConversation(
+            workspace_id="workspace-1",
+            project_id="project-1",
+            current_focus="方向澄清",
+        )
+        session.add(conversation)
+        session.flush()
+
+        message = AgentMessage(
+            conversation_id=conversation.id,
+            role="assistant",
+            content="阶段计划已生成，等待确认。",
+            linked_event_id="event-1",
+            linked_proposal_id="proposal-1",
+        )
+        run = AgentRun(
+            conversation_id=conversation.id,
+            project_id="project-1",
+            user_instruction="按三周倒排",
+            selected_module="plan",
+            status="proposal_created",
+            model="mock",
+            attempts=2,
+            verifier_status="passed",
+            agent_event_id="event-1",
+            proposal_id="proposal-1",
+        )
+        session.add(message)
+        session.add(run)
+        session.commit()
+
+        saved_message = session.exec(select(AgentMessage)).one()
+        saved_run = session.exec(select(AgentRun)).one()
+
+        assert saved_message.linked_event_id == "event-1"
+        assert saved_message.linked_proposal_id == "proposal-1"
+        assert saved_run.user_instruction == "按三周倒排"
+
+
+def test_get_or_create_project_conversation_reuses_existing_record(client: TestClient):
+    owner, workspace, project = _create_project_fixture(client)
+    engine = _session_fixture()
+    with Session(engine) as session:
+        from app.models import Project, User, Workspace, WorkspaceMembership
+
+        session.add(User(id=owner["id"], display_name=owner["display_name"]))
+        session.add(Workspace(id=workspace["id"], name=workspace["name"], owner_user_id=owner["id"]))
+        session.add(WorkspaceMembership(workspace_id=workspace["id"], user_id=owner["id"], role="owner"))
+        session.add(
+            Project(
+                id=project["id"],
+                workspace_id=workspace["id"],
+                name=project["name"],
+                idea=project["idea"],
+                deadline=project["deadline"],
+                deliverables=project["deliverables"],
+                created_by=owner["id"],
+            )
+        )
+        session.commit()
+
+        first = get_or_create_project_conversation(session, project["id"])
+        second = get_or_create_project_conversation(session, project["id"])
+
+        assert first.id == second.id
+        assert session.exec(select(AgentConversation)).all() == [first]
