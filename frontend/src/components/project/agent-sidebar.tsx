@@ -256,14 +256,14 @@ export function AgentSidebar({
                         <div className="mb-1 text-[10px] font-semibold text-neutral-400">
                           {message.role === "user" ? "你" : "Agent"}
                         </div>
-                        {message.content}
+                        {message.role === "user" ? mapQuickReplyDisplay(message.content) : message.content}
                       </div>
                     ))}
 
                     {pendingConversationInstruction && (
                       <div className="ml-5 rounded-lg border border-neutral-200 bg-white p-3 text-xs leading-5 text-neutral-700">
                         <div className="mb-1 text-[10px] font-semibold text-neutral-400">你</div>
-                        {pendingConversationInstruction}
+                        {mapQuickReplyDisplay(pendingConversationInstruction)}
                       </div>
                     )}
                   </div>
@@ -507,6 +507,14 @@ const QUICK_REPLY_INSTRUCTION_MAP: Record<string, string> = {
 
 function mapQuickReplyInstruction(label: string): string {
   return QUICK_REPLY_INSTRUCTION_MAP[label] ?? label;
+}
+
+const QUICK_REPLY_DISPLAY_MAP: Record<string, string> = Object.fromEntries(
+  Object.entries(QUICK_REPLY_INSTRUCTION_MAP).map(([label, instruction]) => [instruction, label]),
+);
+
+function mapQuickReplyDisplay(text: string): string {
+  return QUICK_REPLY_DISPLAY_MAP[text] ?? text;
 }
 
 function normalizeSuggestions(items: AgentSuggestion[] | string[]): AgentSuggestion[] {

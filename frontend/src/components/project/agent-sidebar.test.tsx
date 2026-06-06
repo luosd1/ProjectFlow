@@ -467,6 +467,49 @@ describe("AgentSidebar", () => {
     expect(sentInstruction).not.toBe("分析当前风险");
   });
 
+  it("shows display label instead of raw replan instruction in user message bubble", () => {
+    const conversationWithReplan: AgentConversation = {
+      ...conversationFixture,
+      messages: [
+        ...conversationFixture.messages,
+        {
+          id: "msg-user-replan",
+          conversation_id: "conv-1",
+          role: "user",
+          content: "请执行 replan 模块：根据签到结果调整项目计划。用户点击了快捷回复「根据签到调整计划」，请直接运行 replan 模块生成计划调整草案。",
+          structured_payload: {},
+          created_at: "2026-06-07T10:01:00Z",
+        },
+      ],
+    };
+
+    render(
+      <AgentSidebar
+        state={baseProjectState}
+        conversation={conversationWithReplan}
+        onRunAgent={vi.fn()}
+      />
+    );
+
+    expect(screen.getAllByText("根据签到调整计划").length).toBeGreaterThanOrEqual(1);
+    expect(screen.queryByText(/请执行 replan 模块/)).toBeNull();
+  });
+
+  it("shows display label instead of raw replan instruction in pending user bubble", () => {
+    render(
+      <AgentSidebar
+        state={baseProjectState}
+        conversation={conversationFixture}
+        pendingConversation
+        pendingConversationInstruction="请执行 replan 模块：根据签到结果调整项目计划。用户点击了快捷回复「根据签到调整计划」，请直接运行 replan 模块生成计划调整草案。"
+        onRunAgent={vi.fn()}
+      />
+    );
+
+    expect(screen.getAllByText("根据签到调整计划").length).toBeGreaterThanOrEqual(1);
+    expect(screen.queryByText(/请执行 replan 模块/)).toBeNull();
+  });
+
   it("disables error retry button while pending conversation", () => {
     render(
       <AgentSidebar
