@@ -291,6 +291,25 @@ describe("AgentSidebar", () => {
     expect(screen.getByText("正常建议")).toBeTruthy();
   });
 
+  it("renders backward-compatible string suggestions and sends them on click", () => {
+    const onSendMessage = vi.fn();
+
+    render(
+      <AgentSidebar
+        state={baseProjectState}
+        conversation={conversationFixture}
+        conversationSuggestions={["旧格式建议", "第二个旧格式建议"]}
+        onRunAgent={vi.fn()}
+        onSendMessage={onSendMessage}
+      />
+    );
+
+    const button = screen.getByRole("button", { name: "旧格式建议" });
+    fireEvent.click(button);
+
+    expect(onSendMessage).toHaveBeenCalledWith("旧格式建议");
+  });
+
   it("disables suggestion buttons while pending conversation", () => {
     render(
       <AgentSidebar
