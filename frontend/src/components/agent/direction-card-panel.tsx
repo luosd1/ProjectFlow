@@ -180,7 +180,7 @@ export function DirectionCardPanel({
               </div>
               <ul className="mt-3 space-y-2">
                 {questions.map((question) => (
-                  <li key={question} className="rounded-md bg-paper px-3 py-2 text-sm text-ink/75">
+                  <li key={question} className="rounded-md bg-paper px-3 py-2 text-sm text-ink/75 break-all">
                     {question}
                   </li>
                 ))}
