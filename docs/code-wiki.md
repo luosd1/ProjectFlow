@@ -248,7 +248,7 @@ Project ──1:N──> AgentEvent
 | 模型 | 关键字段 | 说明 |
 |------|---------|------|
 | `User` | id, display_name, email, avatar_url | 轻量账号，MVP 不做密码 |
-| `Workspace` | name, owner_user_id, description | 团队空间，MVP 单 workspace |
+| `Workspace` | name, owner_user_id, description, team_size, use_case | 团队空间，MVP 单 workspace |
 | `WorkspaceMembership` | workspace_id, user_id, role | 成员关系 |
 | `Invitation` | workspace_id, invited_name, token, status | 邀请链接 |
 | `MemberProfile` | user_id, workspace_id, skills(JSON), available_hours_per_week, role_preference, interests, constraints | 成员能力画像 |
@@ -465,7 +465,7 @@ generate_structured_output()
 | `TaskStatusUpdate` | 任务状态更新表单 |
 | `RiskCard` / `RiskPanel` | 风险卡/风险面板（筛选器+高危计数） |
 | `ReplanDiff` | 重排对比（before/after diff） |
-| `WorkspaceCreateForm` | 两步创建工作区 |
+| `WorkspaceCreateForm` | 两步创建工作区（基本信息 + 团队上下文） |
 | `InviteMemberPanel` | 邀请成员面板 |
 
 ### 6.3 数据层
@@ -785,6 +785,8 @@ npm audit --omit=dev                # 安全审计
 | 33 | Stage Plan Timeline Redesign | ✅ 2026-06-05 |
 | 34 | Agent Output Quality & Reliability Hardening | ✅ 2026-06-05 |
 | 35 | Onboarding & Member Form Improvements | ✅ 2026-06-05 |
+| 36 | File Upload, Resource Management & Project Deletion | ✅ 2026-06-06 |
+| 37 | Workspace Creation UX & Landing Page Redesign | ✅ 2026-06-06 |
 
 ---
 

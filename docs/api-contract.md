@@ -1,6 +1,6 @@
 # ProjectFlow API Contract
 
-Status: current as of 2026-06-06. All planned MVP endpoints are implemented; confirmation-to-persist flow for clarify/plan/breakdown/replan; negotiate agent output is timeline-only; Agent workspace context includes current time and project resources; structured assignment citations and action card fields; resource CRUD with file upload and delete; reject endpoint accepts empty body and persists rejection_reason; confirmed_by validated against User table; project delete cascades through all child data; file upload via multipart/form-data with server-side persistence.
+Status: current as of 2026-06-06. All planned MVP endpoints are implemented; confirmation-to-persist flow for clarify/plan/breakdown/replan; negotiate agent output is timeline-only; Agent workspace context includes current time and project resources; structured assignment citations and action card fields; resource CRUD with file upload and delete; reject endpoint accepts empty body and persists rejection_reason; confirmed_by validated against User table; project delete cascades through all child data; file upload via multipart/form-data with server-side persistence; workspace creation accepts team_size and use_case.
 
 This document records the implemented MVP API surface. Post-MVP ideas should be tracked in roadmap docs, not mixed into this contract.
 
@@ -66,6 +66,22 @@ GET /api/workspaces/{workspace_id}
 POST /api/workspaces/{workspace_id}/members
 DELETE /api/workspaces/{workspace_id}/members/{user_id}
 ```
+
+`POST /api/workspaces` request body:
+
+```json
+{
+  "name": "2024 春季开发小队",
+  "description": "团队描述",
+  "team_size": 3,
+  "use_case": "course"
+}
+```
+
+- `name` (required): non-empty string
+- `description` (optional): nullable string
+- `team_size` (optional): integer, parsed from UI selection ("1-2"→1, "3-5"→3, "6-10"→6, "10+"→10)
+- `use_case` (optional): string, one of "course", "competition", "startup", or free-text when "other"
 
 `DELETE` removes both the workspace membership and the associated member profile.
 
