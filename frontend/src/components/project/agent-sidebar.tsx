@@ -28,8 +28,16 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import type { AgentConversation, AgentEvent, ProjectState } from "@/lib/types";
+import type { AgentArtifact, AgentConversation, AgentEvent, AgentSuggestion, ProjectState } from "@/lib/types";
 import type { AgentAction } from "./project-actions";
+import {
+  AgentArtifactCard,
+  AgentContextCard,
+  AgentErrorCard,
+  AgentRunStatusCard,
+  AgentSuggestionRow,
+  focusReason,
+} from "./agent-conversation-cards";
 
 const ALL_AGENT_ACTIONS: {
   id: AgentAction;
@@ -66,13 +74,17 @@ interface AgentSidebarProps {
   selectedProjectId?: string | null;
   hasProject?: boolean;
   conversation?: AgentConversation | null;
-  conversationSuggestions?: string[];
+  conversationSuggestions?: AgentSuggestion[];
+  conversationArtifacts?: AgentArtifact[];
   pendingConversation?: boolean;
+  pendingConversationInstruction?: string | null;
   pendingAction?: AgentAction | null;
   actionSuccess?: string | null;
   actionError?: string | null;
+  conversationError?: string | null;
   onRunAgent: (action: AgentAction) => void;
   onSendMessage?: (content: string) => void | Promise<void>;
+  onConfirmArtifact?: (artifact: AgentArtifact) => void | Promise<void>;
   onResetDemo?: () => void | Promise<void>;
 }
 
@@ -81,12 +93,16 @@ export function AgentSidebar({
   hasProject = true,
   conversation,
   conversationSuggestions = [],
+  conversationArtifacts = [],
   pendingConversation,
+  pendingConversationInstruction = null,
   pendingAction,
   actionSuccess,
   actionError,
+  conversationError = null,
   onRunAgent,
   onSendMessage,
+  onConfirmArtifact,
   onResetDemo,
 }: AgentSidebarProps) {
   const [collapsed, setCollapsed] = useState(false);
@@ -111,8 +127,16 @@ export function AgentSidebar({
   const recentEvents = (state.timeline ?? []).slice(0, 5);
   const pendingProposalCount = state.agent_proposals?.filter((proposal) => proposal.status === "pending").length ?? 0;
   const focus = conversation?.current_focus || inferFocus(state);
-  const messages = conversation?.messages?.slice(-6) ?? [];
-  const suggestions = conversationSuggestions.length > 0 ? conversationSuggestions : inferSuggestions(focus);
+  const messages = conversation?.messages ?? [];
+  const suggestions = conversationSuggestions.length > 0 ? conversationSuggestions : inferStructuredSuggestions(focus);
+
+  const payloadArtifacts = messages.flatMap((message) => {
+    const artifacts = message.structured_payload?.artifacts;
+    return Array.isArray(artifacts) ? (artifacts as AgentArtifact[]) : [];
+  });
+  const visibleArtifacts = Array.from(
+    new Map([...payloadArtifacts, ...conversationArtifacts].map((artifact) => [artifact.id, artifact])).values()
+  );
 
   const submitMessage = async (content: string) => {
     const trimmed = content.trim();
@@ -180,25 +204,9 @@ export function AgentSidebar({
               )}
 
               {hasProject && (
-                <div className="mb-4 rounded-lg border border-moss/20 bg-moss/5 p-3">
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-1.5 text-xs font-semibold text-moss">
-                      <Sparkles className="h-3.5 w-3.5" />
-                      当前焦点
-                    </div>
-                    {pendingProposalCount > 0 && (
-                      <Badge className="bg-moss/15 px-2 py-0 text-[10px] text-moss">
-                        {pendingProposalCount} 待确认
-                      </Badge>
-                    )}
-                  </div>
-                  <p className="mt-2 text-sm font-semibold text-neutral-900">{focus}</p>
-                  <p className="mt-1 text-xs leading-5 text-neutral-600">{focusReason(focus)}</p>
-                </div>
-              )}
-
-              {hasProject && (
                 <div className="mb-4">
+                  <AgentContextCard focus={focus} pendingCount={pendingProposalCount} />
+
                   <div className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-neutral-500">
                     <MessageSquare className="h-3.5 w-3.5" />
                     Agent 对话
@@ -225,23 +233,36 @@ export function AgentSidebar({
                         {message.content}
                       </div>
                     ))}
+
+                    {pendingConversationInstruction && (
+                      <div className="ml-5 rounded-lg border border-neutral-200 bg-white p-3 text-xs leading-5 text-neutral-700">
+                        <div className="mb-1 text-[10px] font-semibold text-neutral-400">你</div>
+                        {pendingConversationInstruction}
+                      </div>
+                    )}
                   </div>
 
-                  {suggestions.length > 0 && (
-                    <div className="mt-3 flex flex-wrap gap-1.5">
-                      {suggestions.slice(0, 3).map((suggestion) => (
-                        <button
-                          key={suggestion}
-                          type="button"
-                          onClick={() => void submitMessage(suggestion)}
-                          disabled={Boolean(pendingConversation)}
-                          className="rounded-full border border-neutral-200 bg-white px-2.5 py-1 text-[11px] text-neutral-600 transition hover:border-moss/30 hover:text-moss disabled:cursor-not-allowed disabled:opacity-50"
-                        >
-                          {suggestion}
-                        </button>
-                      ))}
-                    </div>
+                  {pendingConversation && <AgentRunStatusCard />}
+
+                  {visibleArtifacts.map((artifact) => (
+                    <AgentArtifactCard
+                      key={artifact.id}
+                      artifact={artifact}
+                      onConfirm={onConfirmArtifact}
+                      onRevise={(item) => void submitMessage(`继续修改：${item.title}`)}
+                      onInspect={(item) => void submitMessage(`解释这条建议的影响：${item.title}`)}
+                    />
+                  ))}
+
+                  {conversationError && (
+                    <AgentErrorCard message={conversationError} />
                   )}
+
+                  <AgentSuggestionRow
+                    suggestions={suggestions}
+                    disabled={Boolean(pendingConversation)}
+                    onPick={(instruction) => void submitMessage(instruction)}
+                  />
 
                   <form onSubmit={handleSubmit} className="mt-3">
                     <div className="rounded-lg border border-neutral-200 bg-white p-2 focus-within:border-moss/40">
@@ -436,17 +457,6 @@ function inferFocus(state: ProjectState): string {
   return "执行推进";
 }
 
-function focusReason(focus: string): string {
-  const reasons: Record<string, string> = {
-    方向澄清: "先把目标、边界和取舍确认下来，后续计划才不会建立在模糊假设上。",
-    阶段计划: "方向已经具备基础，可以按截止时间和交付物倒排阶段。",
-    任务拆解: "阶段计划确认后，需要把阶段目标拆成可分配、可检查的任务。",
-    分工确认: "任务明确后，需要结合成员技能、时间和偏好生成并确认分工。",
-    执行推进: "分工确认后，Agent 可以持续生成行动卡、分析风险并建议重排。",
-  };
-  return reasons[focus] ?? "Agent 会根据当前项目状态判断下一步。";
-}
-
 function inferSuggestions(focus: string): string[] {
   const suggestions: Record<string, string[]> = {
     方向澄清: ["先帮我澄清方向", "根据资料生成方向卡", "为什么要先澄清方向？"],
@@ -456,6 +466,15 @@ function inferSuggestions(focus: string): string[] {
     执行推进: ["生成下一步行动卡", "分析当前风险", "根据签到调整计划"],
   };
   return suggestions[focus] ?? ["下一步做什么？"];
+}
+
+function inferStructuredSuggestions(focus: string): AgentSuggestion[] {
+  return inferSuggestions(focus).slice(0, 3).map((label, index) => ({
+    id: `fallback-suggestion-${index + 1}`,
+    label,
+    user_instruction: label,
+    priority: index === 0 ? "primary" : "secondary",
+  }));
 }
 
 function getEventIcon(eventType: AgentEvent["event_type"]) {
