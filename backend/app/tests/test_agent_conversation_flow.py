@@ -256,6 +256,127 @@ def test_conversation_turn_returns_structured_suggestions_and_proposal_artifact(
         assert result.assistant_message.structured_payload["suggestions"][0]["label"] == result.suggestions[0].label
 
 
+def test_conversation_turn_builds_risk_artifact_from_flow_result():
+    engine = _session_fixture()
+    with Session(engine) as session:
+        seed_demo_data(session)
+        conversation = get_or_create_project_conversation(session, "demo-project-001")
+        llm_client = MockLLMClient(
+            responses=[
+                json.dumps(
+                    {
+                        "response_type": "run_module",
+                        "selected_module": "risk",
+                        "user_instruction": "分析当前风险",
+                        "rationale": "用户要求分析项目风险",
+                        "required_inputs": [],
+                        "expected_artifact": "风险分析",
+                        "risk_level": "medium",
+                        "requires_confirmation": False,
+                    },
+                    ensure_ascii=False,
+                ),
+                json.dumps(
+                    {
+                        "risks": [
+                            {
+                                "type": "deadline",
+                                "severity": "medium",
+                                "title": "演示日期临近",
+                                "description": "距离演示只剩两周，集成测试尚未开始。",
+                                "evidence": ["集成测试任务状态为未开始"],
+                                "recommendation": "优先完成核心链路集成测试。",
+                            }
+                        ],
+                        "reason": "基于任务状态和时间线分析得出。",
+                    },
+                    ensure_ascii=False,
+                ),
+            ]
+        )
+
+        result = process_conversation_message(
+            session,
+            conversation.id,
+            "分析当前风险",
+            llm_client=llm_client,
+        )
+
+        assert result.run is not None
+        assert result.run.selected_module == "risk"
+        assert len(result.artifacts) == 1
+        artifact = result.artifacts[0]
+        assert artifact.type == "risk_analysis"
+        assert artifact.status == "draft"
+        assert artifact.linked_entity_ids
+        assert artifact.summary
+        assert artifact.rationale
+        assert artifact.impact
+        assert result.assistant_message.structured_payload["artifacts"][0]["id"] == artifact.id
+        assert result.assistant_message.structured_payload["artifacts"][0]["type"] == "risk_analysis"
+
+
+def test_conversation_turn_builds_push_artifact_from_flow_result():
+    engine = _session_fixture()
+    with Session(engine) as session:
+        seed_demo_data(session)
+        conversation = get_or_create_project_conversation(session, "demo-project-001")
+        llm_client = MockLLMClient(
+            responses=[
+                json.dumps(
+                    {
+                        "response_type": "run_module",
+                        "selected_module": "push",
+                        "user_instruction": "生成下一步行动卡",
+                        "rationale": "用户要求生成推进行动卡",
+                        "required_inputs": [],
+                        "expected_artifact": "下一步行动卡",
+                        "risk_level": "low",
+                        "requires_confirmation": False,
+                    },
+                    ensure_ascii=False,
+                ),
+                json.dumps(
+                    {
+                        "action_cards": [
+                            {
+                                "type": "team_next_step",
+                                "title": "推进前端页面搭建",
+                                "content": "优先完成工作台页面骨架。",
+                                "reason": "前端页面是演示闭环的关键路径。",
+                                "goal": "完成工作台页面骨架",
+                                "start_suggestion": "从三栏布局开始搭建",
+                                "completion_standard": "页面可渲染且路由可跳转",
+                            }
+                        ],
+                        "reason": "基于当前任务状态推荐下一步行动。",
+                    },
+                    ensure_ascii=False,
+                ),
+            ]
+        )
+
+        result = process_conversation_message(
+            session,
+            conversation.id,
+            "生成下一步行动卡",
+            llm_client=llm_client,
+        )
+
+        assert result.run is not None
+        assert result.run.selected_module == "push"
+        assert len(result.artifacts) == 1
+        artifact = result.artifacts[0]
+        assert artifact.type == "action_card"
+        assert artifact.status == "draft"
+        assert artifact.linked_entity_ids
+        assert artifact.summary
+        assert artifact.rationale
+        assert artifact.impact
+        assert result.assistant_message.structured_payload["artifacts"][0]["id"] == artifact.id
+        assert result.assistant_message.structured_payload["artifacts"][0]["type"] == "action_card"
+
+
 def test_service_uses_llm_planner_content_for_direct_answer():
     engine = _session_fixture()
     with Session(engine) as session:

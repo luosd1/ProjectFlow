@@ -177,7 +177,8 @@ def process_conversation_message(
         assistant_content = _success_content(turn_plan, flow_result.proposal_id)
         artifacts = _artifacts_from_flow_result(session, flow_result, turn_plan)
 
-    suggestions = _structured_suggestions(workspace_state)
+    next_labels = _next_suggestions(workspace_state)
+    suggestions = _structured_suggestions(next_labels)
 
     assistant_message = AgentMessage(
         conversation_id=conversation.id,
@@ -190,7 +191,7 @@ def process_conversation_message(
         {
             "turn_plan": turn_plan.model_dump(mode="json"),
             "blocked_reason": blocked_reason,
-            "next_suggestions": _next_suggestions(workspace_state),
+            "next_suggestions": next_labels,
             "suggestions": [suggestion.model_dump(mode="json") for suggestion in suggestions],
             "artifacts": [artifact.model_dump(mode="json") for artifact in artifacts],
         }
@@ -210,7 +211,7 @@ def process_conversation_message(
         assistant_message=_message_to_read(assistant_message),
         run=run_read,
         turn_plan=turn_plan,
-        next_suggestions=_next_suggestions(workspace_state),
+        next_suggestions=next_labels,
         suggestions=suggestions,
         artifacts=artifacts,
     )
@@ -595,8 +596,7 @@ def _has_finalized_assignment(project) -> bool:
     return any(proposal.status == "finalized" for proposal in project.assignment_proposals)
 
 
-def _structured_suggestions(workspace_state) -> list[AgentSuggestionRead]:
-    labels = _next_suggestions(workspace_state)
+def _structured_suggestions(labels: list[str]) -> list[AgentSuggestionRead]:
     suggestions: list[AgentSuggestionRead] = []
     for index, label in enumerate(labels[:3]):
         suggestions.append(
