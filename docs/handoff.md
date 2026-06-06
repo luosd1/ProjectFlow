@@ -649,3 +649,18 @@ Ignored install/build artifacts may exist locally after verification:
 - `frontend/.next/`
 
 They are intentionally ignored and must not be committed.
+
+### Phase 38 — My Tasks View Enhancements (2026-06-06)
+
+Enhanced the "我的任务" (My Tasks) view to improve usability and eliminate nested HTML button hydration errors.
+
+**Changes:**
+- Removed hover requirement for quick actions on pending tasks; quick actions (start, complete, blocked) are now always visible.
+- Added a "..." (MoreHorizontal) DropdownMenu to `TaskRow` for both pending and completed tasks, triggering "签到" (Checkin) and "更新任务状态" (Update Status) actions.
+- Checkin and TaskStatusUpdate components are now rendered inside `Dialog` modals triggered by the DropdownMenu instead of inline blocks at the top of the view.
+- Added `key={selectedTaskForDialog.id}` to `CheckInForm` and `TaskStatusUpdateList` inside Dialogs to reset form state when switching between tasks.
+- Removed duplicated `DialogHeader` from the Checkin Dialog and simplified the internal `CheckInForm` title/description text.
+- Unified the "Checkin" dialog style with the "Update Task Status" dialog style by restoring `<DialogHeader>` in the view component and simplifying the form component wrapper.
+- Fixed HTML button nesting hydration error caused by `DropdownMenuTrigger asChild` conflicting with the Shadcn `Button` component by applying custom styles directly to the `DropdownMenuTrigger` instead of nesting `<Button>`.
+
+**Files modified:** `project-task-views.tsx`, `checkin-form.tsx`.
