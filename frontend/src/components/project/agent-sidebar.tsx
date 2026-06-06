@@ -92,7 +92,7 @@ interface AgentSidebarProps {
   selectedProjectId?: string | null;
   hasProject?: boolean;
   conversation?: AgentConversation | null;
-  conversationSuggestions?: AgentSuggestion[];
+  conversationSuggestions?: AgentSuggestion[] | string[];
   conversationArtifacts?: AgentArtifact[];
   pendingConversation?: boolean;
   pendingConversationInstruction?: string | null;
@@ -146,7 +146,8 @@ export function AgentSidebar({
   const pendingProposalCount = state.agent_proposals?.filter((proposal) => proposal.status === "pending").length ?? 0;
   const focus = conversation?.current_focus || inferFocus(state);
   const messages = conversation?.messages ?? [];
-  const suggestions = conversationSuggestions.length > 0 ? conversationSuggestions : inferStructuredSuggestions(focus);
+  const normalizedSuggestions = normalizeSuggestions(conversationSuggestions);
+  const suggestions = normalizedSuggestions.length > 0 ? normalizedSuggestions : inferStructuredSuggestions(focus);
 
   const payloadArtifacts = messages.flatMap((message) => {
     const artifacts = message.structured_payload?.artifacts;
@@ -466,6 +467,14 @@ export function AgentSidebar({
         )}
       </div>
     </motion.aside>
+  );
+}
+
+function normalizeSuggestions(items: AgentSuggestion[] | string[]): AgentSuggestion[] {
+  return items.map((item, index) =>
+    typeof item === "string"
+      ? { id: `suggestion-${index + 1}`, label: item, user_instruction: item, priority: index === 0 ? "primary" : "secondary" }
+      : item
   );
 }
 
