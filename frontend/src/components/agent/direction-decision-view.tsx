@@ -47,7 +47,7 @@ function FieldBlock({
   return (
     <div>
       <p className="text-xs font-medium text-ink/45">{label}</p>
-      <div className={cn("mt-1 text-sm leading-6 text-ink/75", emphasized && "text-base font-semibold leading-7 text-ink")}>
+      <div className={cn("mt-1 text-sm leading-6 text-ink/75 break-all", emphasized && "text-base font-semibold leading-7 text-ink")}>
         {children}
       </div>
     </div>
@@ -122,7 +122,7 @@ export function DirectionDecisionView({ content, compact }: DirectionDecisionVie
               <SectionTitle>交付物</SectionTitle>
               <ul className="mt-2 grid gap-2 text-sm leading-6 text-ink/75">
                 {deliverables.map((deliverable) => (
-                  <li key={deliverable} className="flex gap-2">
+                  <li key={deliverable} className="flex gap-2 break-all">
                     <CheckCircle2 className="mt-1 h-3.5 w-3.5 shrink-0 text-moss" />
                     <span>{deliverable}</span>
                   </li>
@@ -133,13 +133,13 @@ export function DirectionDecisionView({ content, compact }: DirectionDecisionVie
           {boundaries.length > 0 && (
             <div>
               <SectionTitle>边界</SectionTitle>
-              <div className="mt-2 flex flex-wrap gap-2">
+              <ul className="mt-2 grid gap-2 text-sm leading-6 text-ink/75">
                 {boundaries.map((boundary) => (
-                  <Badge key={boundary} variant="outline" className="border-ink/15 bg-white text-ink/70">
+                  <li key={boundary} className="break-all whitespace-normal">
                     {boundary}
-                  </Badge>
+                  </li>
                 ))}
-              </div>
+              </ul>
             </div>
           )}
         </section>
@@ -152,7 +152,7 @@ export function DirectionDecisionView({ content, compact }: DirectionDecisionVie
               <SectionTitle>风险</SectionTitle>
               <ul className="mt-2 grid gap-2 text-sm leading-6 text-coral/85">
                 {risks.map((risk) => (
-                  <li key={risk} className="flex gap-2">
+                  <li key={risk} className="flex gap-2 break-all">
                     <AlertTriangle className="mt-1 h-3.5 w-3.5 shrink-0" />
                     <span>{risk}</span>
                   </li>
@@ -166,7 +166,7 @@ export function DirectionDecisionView({ content, compact }: DirectionDecisionVie
               <SectionTitle>澄清问题</SectionTitle>
               <ul className="mt-2 grid gap-2 text-sm leading-6 text-ink/75">
                 {questions.map((question) => (
-                  <li key={question}>{question}</li>
+                  <li key={question} className="break-all">{question}</li>
                 ))}
               </ul>
             </div>
@@ -181,7 +181,7 @@ export function DirectionDecisionView({ content, compact }: DirectionDecisionVie
               <SectionTitle>当前假设</SectionTitle>
               <ul className="mt-2 grid gap-2 text-sm leading-6 text-ink/75">
                 {assumptions.map((item) => (
-                  <li key={item}>{item}</li>
+                  <li key={item} className="break-all">{item}</li>
                 ))}
               </ul>
             </div>
@@ -191,7 +191,7 @@ export function DirectionDecisionView({ content, compact }: DirectionDecisionVie
               <SectionTitle>关键信息缺口</SectionTitle>
               <ul className="mt-2 grid gap-2 text-sm leading-6 text-coral/85">
                 {unknowns.map((item) => (
-                  <li key={item}>{item}</li>
+                  <li key={item} className="break-all">{item}</li>
                 ))}
               </ul>
             </div>

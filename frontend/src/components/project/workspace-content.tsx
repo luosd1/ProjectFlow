@@ -23,6 +23,16 @@ import { MemberManagementDialog } from "@/components/member/member-management-di
 import { NewProjectDialog } from "./new-project-dialog";
 import { deleteProject } from "@/lib/api";
 import type { ProjectState, WorkspaceState, Project } from "@/lib/types";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"; // Added this import
 
 const statusLabelMap: Record<string, string> = {
   draft: "草稿",
@@ -186,8 +196,8 @@ export function WorkspaceContent({ state, currentUserId, onNavigateToProject }: 
           icon={<FolderOpen className="h-5 w-5" />}
           accent="emerald"
           action={
-            activeProjects.length > 0
-              ? { label: "查看项目", onClick: () => setNewProjectOpen(true) }
+            activeProjects.length > 0 && onNavigateToProject
+              ? { label: "查看项目", onClick: () => onNavigateToProject(activeProjects[0].id) }
               : undefined
           }
         />
@@ -399,44 +409,42 @@ export function WorkspaceContent({ state, currentUserId, onNavigateToProject }: 
                           {statusLabelMap[p.status] ?? p.status}
                         </Badge>
                       </button>
-                      {
-                        showDeleteConfirm ? (
-                          <div className="flex items-center gap-1 pr-2 shrink-0">
-                            <span className="text-xs text-destructive">确认删除？</span>
-                            <Button
-                              variant="destructive"
-                              size="sm"
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setDeleteConfirmId(p.id)
+                        }}
+                        className="h-8 w-8 p-0 mr-1 shrink-0 text-muted-foreground hover:text-destructive"
+                        aria-label="删除项目"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                      <AlertDialog open={showDeleteConfirm} onOpenChange={(open) => {
+                        if (!open) {
+                          setDeleteConfirmId(null);
+                        }
+                      }}>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>确认删除项目 “{p.name}”？</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              删除后项目将无法恢复。所有相关的阶段、任务、Agent 提案等数据都将被永久删除。
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel disabled={deleting}>取消</AlertDialogCancel>
+                            <AlertDialogAction
                               onClick={() => handleDeleteProject(p.id)}
                               disabled={deleting}
-                              className="h-7 text-xs"
+                              className="bg-destructive hover:bg-destructive/90"
                             >
-                              确定
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => setDeleteConfirmId(null)}
-                              disabled={deleting}
-                              className="h-7 text-xs"
-                            >
-                              取消
-                            </Button>
-                          </div>
-                        ) : (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              setDeleteConfirmId(p.id)
-                            }}
-                            className="h-8 w-8 p-0 mr-1 shrink-0 text-muted-foreground hover:text-destructive"
-                            aria-label="删除项目"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        )
-                      }
+                              {deleting ? "删除中..." : "确认删除"}
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
                     </div>
                   )
                 })}
