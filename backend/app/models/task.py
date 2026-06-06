@@ -22,6 +22,7 @@ class Task(SQLModel, table=True):
     acceptance_criteria: str = Field(default="[]")  # JSON string: ["criterion1", ...]
     can_cut: bool = Field(default=False)
     assignment_reason: str | None = Field(default=None)
+    order_index: int = Field(default=0)
     created_by_agent: bool = Field(default=False)
     updated_at: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc)

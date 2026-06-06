@@ -4,6 +4,7 @@ import { useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
 import {
   CalendarDays,
+  CheckCircle2,
   Users,
   Sparkles,
   ChevronRight,
@@ -14,6 +15,7 @@ import {
   ClipboardCheck,
   AlertTriangle,
   BarChart3,
+  Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -91,6 +93,7 @@ interface ProjectContentProps {
   pendingAction?: AgentAction | null;
   showWorkspace?: boolean;
   onShowWorkspace?: (show: boolean) => void;
+  onNavigateView?: (view: ProjectView) => void;
   onRunAgent?: (action: AgentAction) => void;
   onRespondToAssignment?: (
     proposalId: string,
@@ -175,11 +178,45 @@ export function ProjectContent(props: ProjectContentProps) {
   );
 }
 
+/** Small banner shown in specialist views to guide users to overview for proposal confirmation. */
+function PendingProposalBanner({
+  count,
+  label,
+  onGoToOverview,
+}: {
+  count: number;
+  label: string;
+  onGoToOverview?: () => void;
+}) {
+  if (count === 0) return null;
+  return (
+    <div className="flex items-center gap-3 rounded-lg border border-citron/40 bg-citron/10 px-4 py-3 text-sm">
+      <Sparkles className="h-4 w-4 shrink-0 text-amber-600" />
+      <span className="flex-1 text-ink/75">
+        有 <strong>{count}</strong> 个待确认的 <strong>{label}</strong> 提案 —
+        请到<strong>项目总览</strong>中确认应用
+      </span>
+      {onGoToOverview && (
+        <Button
+          size="sm"
+          variant="outline"
+          className="h-7 shrink-0 border-amber-300 text-xs"
+          onClick={onGoToOverview}
+        >
+          去确认
+          <ChevronRight className="ml-1 h-3 w-3" />
+        </Button>
+      )}
+    </div>
+  );
+}
+
 function ViewRenderer({
   view,
   state,
   currentUserId,
   pendingAction,
+  onNavigateView,
   onRunAgent,
   onRespondToAssignment,
   onStartNegotiation,
@@ -288,8 +325,17 @@ function ViewRenderer({
             const nextAction = action_cards.find(
               (card) => card.status === "active"
             );
-            return (
-              nextAction && (
+            const completedCards = action_cards.filter(
+              (card) => card.status === "done"
+            );
+            const latestDone = completedCards.length > 0
+              ? completedCards.reduce((a, b) =>
+                  new Date(a.created_at).getTime() > new Date(b.created_at).getTime() ? a : b
+                )
+              : null;
+
+            if (nextAction) {
+              return (
                 <section className="rounded-xl border border-moss/20 bg-moss/[0.04] p-5 transition-colors hover:bg-moss/[0.06]">
                   <div className="flex items-start gap-3">
                     <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-moss/10">
@@ -317,8 +363,75 @@ function ViewRenderer({
                     </Button>
                   </div>
                 </section>
-              )
-            );
+              );
+            }
+
+            if (completedCards.length > 0 && latestDone) {
+              return (
+                <section className="rounded-xl border border-ink/10 bg-white p-5">
+                  <div className="flex items-start gap-3">
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-ink/8">
+                      <CheckCircle2 className="h-5 w-5 text-ink/50" />
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="font-semibold text-neutral-900">
+                        全部 {completedCards.length} 张行动卡已完成
+                      </p>
+                      <p className="mt-1 text-sm text-neutral-500">
+                        最近完成：{latestDone.title}
+                      </p>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="shrink-0"
+                      disabled={Boolean(pendingAction)}
+                      onClick={() => onRunAgent?.("push")}
+                    >
+                      {pendingAction === "push" ? (
+                        <><Loader2 className="mr-1 h-3 w-3 animate-spin" /> 推进中…</>
+                      ) : (
+                        <><Sparkles className="mr-1 h-3 w-3" /> 重新推进</>
+                      )}
+                    </Button>
+                  </div>
+                </section>
+              );
+            }
+
+            if (action_cards.length === 0) {
+              return (
+                <section className="rounded-xl border border-dashed border-ink/15 bg-paper/50 p-5">
+                  <div className="flex items-start gap-3">
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-moss/10">
+                      <Sparkles className="h-5 w-5 text-moss/60" />
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="font-semibold text-neutral-900">
+                        运行主动推进获取行动建议
+                      </p>
+                      <p className="mt-1 text-sm text-neutral-500">
+                        Agent 会根据项目进展生成下一步行动卡
+                      </p>
+                    </div>
+                    <Button
+                      size="sm"
+                      className="shrink-0 bg-ink text-white hover:bg-ink/85"
+                      disabled={Boolean(pendingAction)}
+                      onClick={() => onRunAgent?.("push")}
+                    >
+                      {pendingAction === "push" ? (
+                        <><Loader2 className="mr-1 h-3 w-3 animate-spin" /> 推进中…</>
+                      ) : (
+                        <><Sparkles className="mr-1 h-3 w-3" /> 主动推进</>
+                      )}
+                    </Button>
+                  </div>
+                </section>
+              );
+            }
+
+            return null;
           })()}
 
           {/* Stats Row — compact, no fake progress */}
@@ -395,6 +508,7 @@ function ViewRenderer({
               onDismiss={onDismissActionCard}
               onComplete={onCompleteActionCard}
               pending={Boolean(pendingAction)}
+              canOperate={currentUserId === project.created_by}
             />
           </div>
         </div>
@@ -403,6 +517,11 @@ function ViewRenderer({
     case "direction":
       return (
         <div className="space-y-6">
+          <PendingProposalBanner
+            count={state.agent_proposals.filter((p) => p.proposal_type === "clarify" && p.status === "pending").length}
+            label="方向卡"
+            onGoToOverview={onNavigateView ? () => onNavigateView("overview") : undefined}
+          />
           <DirectionCardPanel
             directionCard={project.direction_card}
             timeline={timeline}
@@ -415,12 +534,26 @@ function ViewRenderer({
     case "stages":
       return (
         <div className="space-y-6">
+          <PendingProposalBanner
+            count={state.agent_proposals.filter((p) => (p.proposal_type === "plan" || p.proposal_type === "breakdown") && p.status === "pending").length}
+            label="阶段/任务"
+            onGoToOverview={onNavigateView ? () => onNavigateView("overview") : undefined}
+          />
           <StagePlanBoard
             stages={stages}
             tasks={tasks}
             currentStageId={project.current_stage_id}
+            pendingPlanProposal={
+              state.agent_proposals.find((p) => p.proposal_type === "plan" && p.status === "pending") ?? null
+            }
           />
-          <TaskBreakdownBoard stages={stages} tasks={tasks} />
+          <TaskBreakdownBoard
+            stages={stages}
+            tasks={tasks}
+            pendingProposal={
+              state.agent_proposals.find((p) => p.proposal_type === "breakdown" && p.status === "pending") ?? null
+            }
+          />
         </div>
       );
 

@@ -173,6 +173,7 @@ export type Task = {
   can_cut: boolean;
   assignment_reason?: string | null;
   created_by_agent: boolean;
+  order_index: number;
   updated_at: string;
 };
 

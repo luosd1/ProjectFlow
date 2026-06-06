@@ -16,6 +16,7 @@ def create_task(session: Session, data: TaskCreate) -> Task:
         due_date=data.due_date.isoformat() if hasattr(data.due_date, "isoformat") else data.due_date,
         estimated_hours=data.estimated_hours,
         can_cut=data.can_cut,
+        order_index=data.order_index,
     )
     session.add(task)
     session.commit()
@@ -28,11 +29,15 @@ def get_task(session: Session, task_id: str) -> Task | None:
 
 
 def list_tasks_by_stage(session: Session, stage_id: str) -> list[Task]:
-    return list(session.exec(select(Task).where(Task.stage_id == stage_id)).all())
+    return list(session.exec(
+        select(Task).where(Task.stage_id == stage_id).order_by(Task.order_index, Task.priority, Task.due_date)
+    ).all())
 
 
 def list_tasks_by_project(session: Session, project_id: str) -> list[Task]:
-    return list(session.exec(select(Task).where(Task.project_id == project_id)).all())
+    return list(session.exec(
+        select(Task).where(Task.project_id == project_id).order_by(Task.stage_id, Task.order_index, Task.priority, Task.due_date)
+    ).all())
 
 
 def update_task(session: Session, task_id: str, data: TaskUpdate) -> Task:
@@ -69,6 +74,11 @@ def create_status_update(session: Session, task_id: str, data: TaskStatusUpdateC
         task.status = data.status.value if hasattr(data.status, "value") else data.status
         task.updated_at = datetime.now(UTC)
         session.add(task)
+
+    # Auto-advance stage if all tasks in the current stage are done
+    if task is not None and task.status == "done":
+        from app.services.stage_service import try_advance_stage
+        try_advance_stage(session, task_id)
 
     if auto_commit:
         session.commit()

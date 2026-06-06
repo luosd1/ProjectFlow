@@ -226,7 +226,14 @@ export default function WorkspaceDashboardPage() {
       } else if (result?.status === "failed") {
         setActionError(`${AGENT_ACTION_LABELS[action]}失败，请重试。`);
       } else {
-        setActionSuccess(`${AGENT_ACTION_LABELS[action]}已完成`);
+        // For push, mention what was created
+        const cards = (result?.output as Record<string, unknown>)?.action_cards;
+        if (action === "push" && Array.isArray(cards) && cards.length > 0) {
+          const title = (cards[0] as Record<string, unknown>)?.title;
+          setActionSuccess(`已生成行动卡"${title}"，请在项目总览中查看`);
+        } else {
+          setActionSuccess(`${AGENT_ACTION_LABELS[action]}已完成`);
+        }
       }
     } catch (err: unknown) {
       let msg = "Agent 操作失败，请稍后重试。";

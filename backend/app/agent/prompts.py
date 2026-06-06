@@ -66,8 +66,8 @@ Each stage: "name" string, "goal" string, "start_date" YYYY-MM-DD, "end_date" YY
 Return 3 lean stages within the project deadline unless current state clearly needs fewer.""",
     AgentEventType.breakdown: """TaskBreakdownOutput JSON object:
 Required keys: "tasks" array, "reason" string, "requires_confirmation" true.
-Each task: "stage_id" existing stage id or null, "title" string, "description" string, "priority" one of P0/P1/P2, "due_date" YYYY-MM-DD, "estimated_hours" number, "dependency_ids" existing task id array, "acceptance_criteria" string[], "can_cut" boolean, "reason" string.
-Use only existing stage_id and dependency_ids from WorkspaceState.""",
+Each task: "stage_id" existing stage id or null, "title" string, "description" string, "priority" one of P0/P1/P2, "due_date" YYYY-MM-DD, "estimated_hours" number, "dependency_ids" existing task id array, "acceptance_criteria" string[], "can_cut" boolean, "order_index" integer >=0, "reason" string.
+Use only existing stage_id and dependency_ids from WorkspaceState. Assign order_index in execution order: 0 first, then 1, 2, etc.""",
     AgentEventType.assign: """AssignmentRecommendationOutput JSON object:
 Required keys: "assignments" array, "reason" string, "requires_confirmation" true.
 Each assignment: "task_id" existing task id, "recommended_owner_user_id" existing member id, "backup_owner_user_id" existing member id or null, "reason" string, "skill_match" string, "availability_match" string, "preference_match" string, "constraint_respected" string, "risk_note" string or null.

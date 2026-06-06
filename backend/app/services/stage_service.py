@@ -1,8 +1,11 @@
 import json
+from datetime import UTC, datetime
 
 from sqlmodel import Session, select
 
+from app.models.project import Project
 from app.models.stage import Stage
+from app.models.task import Task
 from app.schemas.stage import StageCreate, StageUpdate
 
 
@@ -49,3 +52,61 @@ def update_stage(session: Session, stage_id: str, data: StageUpdate) -> Stage:
     session.commit()
     session.refresh(stage)
     return stage
+
+
+def try_advance_stage(session: Session, task_id: str) -> str | None:
+    """Check if the task's stage should be auto-completed, and if so activate the next one.
+
+    Returns a short description of what happened (for logging), or None if no change.
+    """
+    task = session.get(Task, task_id)
+    if task is None:
+        return None
+
+    stage = session.get(Stage, task.stage_id)
+    if stage is None:
+        return None
+    if stage.status not in ("active", "at_risk"):
+        return None
+
+    # Are all non-done tasks in this stage done now?
+    pending = session.exec(
+        select(Task).where(
+            Task.stage_id == stage.id,
+            Task.status != "done",
+        )
+    ).all()
+
+    if len(pending) > 0:
+        return None
+
+    # All tasks done — complete this stage
+    stage.status = "completed"
+    session.add(stage)
+
+    # Find the next pending stage and activate it
+    project = session.get(Project, stage.project_id)
+    if project is not None and project.current_stage_id == stage.id:
+        next_stage = session.exec(
+            select(Stage)
+            .where(
+                Stage.project_id == stage.project_id,
+                Stage.status == "pending",
+            )
+            .order_by(Stage.order_index)
+        ).first()
+        if next_stage is not None:
+            next_stage.status = "active"
+            project.current_stage_id = next_stage.id
+            session.add(next_stage)
+            session.add(project)
+            return f"阶段「{stage.name}」已完成 → 自动激活「{next_stage.name}」"
+        else:
+            # No more stages — project is done
+            project.current_stage_id = None
+            project.status = "completed"
+            project.updated_at = datetime.now(UTC)
+            session.add(project)
+            return f"阶段「{stage.name}」已完成，所有阶段已结束，项目标记为已完成"
+
+    return f"阶段「{stage.name}」已完成"

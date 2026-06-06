@@ -34,6 +34,9 @@ def build_request(workspace_state: WorkspaceStateResponse) -> AgentModuleRequest
         event_type=AgentEventType.push,
         user_prompt=(
             "Create exactly 1 action card for the most important next step. "
+            "Scan the active stage: if all tasks in it are done, suggest advancing to the next stage. "
+            "If tasks are overdue or blocked, suggest unblocking actions. "
+            "If no tasks exist for the active stage, suggest running task breakdown. "
             "Prefer blocked, overdue, unassigned, or high-priority tasks. "
             "Each card needs goal, start_suggestion, completion_standard, and a reason citing task status, deadline, or member capacity. "
             "ALL text fields (title, content, reason, goal, start_suggestion, completion_standard) MUST be written in Chinese. "

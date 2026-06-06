@@ -159,6 +159,7 @@ export function WorkspaceLayout({
             pendingAction={pendingAction}
             showWorkspace={false}
             onShowWorkspace={handleShowWorkspace}
+            onNavigateView={onNavigateView}
             onRunAgent={onRunAgent}
             onRespondToAssignment={onRespondToAssignment}
             onStartNegotiation={onStartNegotiation}

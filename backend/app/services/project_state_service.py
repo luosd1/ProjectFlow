@@ -138,6 +138,7 @@ def _task_to_read(task: Task) -> TaskRead:
         can_cut=task.can_cut,
         assignment_reason=task.assignment_reason,
         created_by_agent=task.created_by_agent,
+        order_index=task.order_index,
         updated_at=task.updated_at,
     )
 
@@ -240,7 +241,11 @@ def get_project_state(session: Session, project_id: str) -> ProjectStateRead | N
         ],
         tasks=[
             _task_to_read(task)
-            for task in session.exec(select(Task).where(Task.project_id == project_id)).all()
+            for task in session.exec(
+                select(Task)
+                .where(Task.project_id == project_id)
+                .order_by(Task.stage_id, Task.order_index, Task.priority, Task.due_date)
+            ).all()
         ],
         agent_proposals=[
             _agent_proposal_to_read(proposal)

@@ -53,7 +53,7 @@ def _json_object(value: str | None) -> dict | None:
     return parsed if isinstance(parsed, dict) else None
 
 
-def get_workspace_state(session: Session, workspace_id: str) -> WorkspaceStateResponse | None:
+def get_workspace_state(session: Session, workspace_id: str, *, project_id: str | None = None) -> WorkspaceStateResponse | None:
     workspace = session.get(Workspace, workspace_id)
     if not workspace:
         return None
@@ -93,12 +93,18 @@ def get_workspace_state(session: Session, workspace_id: str) -> WorkspaceStateRe
             constraints=profile.constraints if profile else "",
         ))
 
-    # Active project (first active or draft project in workspace)
-    project_row = session.exec(
-        select(Project)
-        .where(Project.workspace_id == workspace_id)
-        .order_by(Project.created_at.desc())
-    ).first()
+    # Active project — use explicit project_id when provided, otherwise pick
+    # the most-recently-created project in the workspace.
+    if project_id:
+        project_row = session.get(Project, project_id)
+        if project_row is not None and project_row.workspace_id != workspace_id:
+            project_row = None  # project does not belong to this workspace
+    else:
+        project_row = session.exec(
+            select(Project)
+            .where(Project.workspace_id == workspace_id)
+            .order_by(Project.created_at.desc())
+        ).first()
 
     project_state: ProjectState | None = None
     if project_row:

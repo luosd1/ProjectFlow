@@ -136,6 +136,20 @@ export function DirectionCardPanel({
         <div className="rounded-lg border border-ink/10 bg-paper/70 p-5">
           {directionCard ? (
             <DirectionDecisionView content={directionCard} />
+          ) : clarification ? (
+            <div className="flex min-h-40 flex-col items-start justify-center gap-3">
+              <Sparkles className="h-6 w-6 text-citron" />
+              <div>
+                <p className="font-semibold text-ink">方向卡已生成，待确认</p>
+                <p className="mt-1 text-sm text-ink/60">
+                  Agent 已生成方向建议，请在下方的提案卡片中确认应用，或重新运行澄清方向
+                </p>
+              </div>
+              <Button onClick={onRunClarification} disabled={pending} variant="outline" className="border-ink/20">
+                <Sparkles className="h-4 w-4" />
+                重新运行澄清方向
+              </Button>
+            </div>
           ) : (
             <div className="flex min-h-40 flex-col items-start justify-center gap-3">
               <HelpCircle className="h-6 w-6 text-harbor" />
