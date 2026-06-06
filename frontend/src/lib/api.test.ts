@@ -103,6 +103,26 @@ describe("frontend API layer", () => {
           },
           turn_plan: null,
           next_suggestions: ["确认这个阶段计划"],
+          suggestions: [
+            {
+              id: "suggestion-1",
+              label: "确认这个阶段计划",
+              user_instruction: "确认这个阶段计划",
+              priority: "primary",
+            },
+          ],
+          artifacts: [
+            {
+              id: "proposal-artifact-1",
+              type: "proposal",
+              status: "pending_confirmation",
+              title: "阶段计划提案",
+              summary: "三周阶段计划已生成。",
+              rationale: "用户要求按三周节奏重新规划。",
+              impact: ["确认后会更新阶段计划。"],
+              linked_entity_ids: ["proposal-1"],
+            },
+          ],
         });
       }
       throw new Error(`Unexpected request ${url}`);
@@ -116,6 +136,9 @@ describe("frontend API layer", () => {
 
     expect(result.run?.selected_module).toBe("plan");
     expect(result.assistant_message.linked_proposal_id).toBe("proposal-1");
+    expect(result.suggestions[0].user_instruction).toBe("确认这个阶段计划");
+    expect(result.artifacts[0].type).toBe("proposal");
+    expect(result.artifacts[0].linked_entity_ids).toEqual(["proposal-1"]);
   });
 
   it("rejects agent proposals with an explicit nullable reason body", async () => {

@@ -26,6 +26,7 @@ import type {
   AgentEvent,
   AgentConversation,
   AgentConversationTurn,
+  AgentSuggestion,
   AgentFlowResult,
   DemoResetResult,
 } from "./types";
@@ -513,14 +514,33 @@ export async function getAgentConversation(projectId: string): Promise<AgentConv
   return request<AgentConversation>(`/projects/${projectId}/agent-conversation`);
 }
 
+function normalizeAgentConversationTurn(turn: AgentConversationTurn): AgentConversationTurn {
+  const suggestions = Array.isArray(turn.suggestions) && turn.suggestions.length > 0
+    ? turn.suggestions
+    : (turn.next_suggestions ?? []).slice(0, 3).map((label, index): AgentSuggestion => ({
+        id: `suggestion-${index + 1}`,
+        label,
+        user_instruction: label,
+        priority: index === 0 ? "primary" : "secondary",
+      }));
+
+  return {
+    ...turn,
+    suggestions,
+    artifacts: Array.isArray(turn.artifacts) ? turn.artifacts : [],
+    next_suggestions: turn.next_suggestions ?? suggestions.map((suggestion) => suggestion.label),
+  };
+}
+
 export async function sendAgentConversationMessage(
   conversationId: string,
   content: string,
 ): Promise<AgentConversationTurn> {
-  return request<AgentConversationTurn>(`/agent/conversations/${conversationId}/messages`, {
+  const turn = await request<AgentConversationTurn>(`/agent/conversations/${conversationId}/messages`, {
     method: "POST",
     body: JSON.stringify({ content }),
   });
+  return normalizeAgentConversationTurn(turn);
 }
 
 async function runAgentFlow(

@@ -358,6 +358,24 @@ export type AgentConversation = {
   updated_at: string;
 };
 
+export type AgentSuggestion = {
+  id: string;
+  label: string;
+  user_instruction: string;
+  priority: "primary" | "secondary";
+};
+
+export type AgentArtifact = {
+  id: string;
+  type: "proposal" | "risk_analysis" | "action_card" | "assignment" | "direction" | "plan";
+  status: "draft" | "pending_confirmation" | "confirmed" | "dismissed" | "expired";
+  title: string;
+  summary: string;
+  rationale: string;
+  impact: string[];
+  linked_entity_ids: string[];
+};
+
 export type AgentConversationTurn = {
   conversation: AgentConversation;
   user_message: AgentConversationMessage;
@@ -365,6 +383,8 @@ export type AgentConversationTurn = {
   run?: AgentConversationRun | null;
   turn_plan?: AgentTurnPlan | null;
   next_suggestions: string[];
+  suggestions: AgentSuggestion[];
+  artifacts: AgentArtifact[];
 };
 
 export type DemoResetResult = {
