@@ -42,32 +42,10 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { TaskStatusUpdateList } from "@/components/task/task-status-update";
-import { cn } from "@/lib/utils";
+import { cn, cleanJsonString } from "@/lib/utils";
+import { MatchText } from "@/components/ui/match-text";
 import type { ProjectState, Task } from "@/lib/types";
 import type { AgentAction } from "./project-actions";
-
-function cleanJsonString(text: string) {
-  if (!text) return text;
-  // Replace raw dictionary strings like {'name': '产品设计', 'level': 3} with just the name
-  return text.replace(/\{['"]name['"]:\s*['"]([^'"]+)['"][^}]*\}/g, '$1');
-}
-
-function MatchText({ label, text }: { label: string; text: string }) {
-  let cleanedText = cleanJsonString(text);
-  
-  // Strip duplicate label prefix if it exists
-  const labelWithoutColon = label.replace(/[：:]$/, '');
-  const prefixRegex = new RegExp(`^${labelWithoutColon}[：:]\s*`);
-  if (prefixRegex.test(cleanedText)) {
-    cleanedText = cleanedText.replace(prefixRegex, '');
-  }
-
-  return (
-    <p>
-      <span className="font-semibold text-ink/70">{label}</span> {cleanedText}
-    </p>
-  );
-}
 
 type AssignmentResponseHandler = (
   proposalId: string,

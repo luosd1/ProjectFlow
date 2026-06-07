@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowRightLeft, CheckCircle2, ShieldCheck, UserCheck, XCircle, AlertCircle, ChevronDown, ChevronUp } from "lucide-react";
+import { CheckCircle2, ShieldCheck, UserCheck, XCircle, AlertCircle, ChevronDown, ChevronUp } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -21,6 +21,8 @@ import type {
   Task,
   User,
 } from "@/lib/types";
+import { cleanJsonString } from "@/lib/utils";
+import { MatchText } from "@/components/ui/match-text";
 
 type AssignmentFlowPanelProps = {
   proposals: AssignmentProposal[];
@@ -46,7 +48,7 @@ type AssignmentFlowPanelProps = {
 
 function memberName(members: User[], userId?: string | null) {
   if (!userId) return "未分配";
-  return members.find((member) => member.user_id === userId)?.display_name ?? userId;
+  return members.find((member) => member.user_id === userId)?.display_name ?? "未知成员";
 }
 
 function statusLabel(status: AssignmentProposal["status"]) {
@@ -66,29 +68,6 @@ function statusClass(status: AssignmentProposal["status"]) {
   if (status === "negotiating") return "bg-citron/40 text-ink";
   if (status === "owner_confirmed") return "bg-harbor/15 text-harbor";
   return "bg-white text-ink/60";
-}
-
-function cleanJsonString(text: string) {
-  if (!text) return text;
-  // Replace raw dictionary strings like {'name': '产品设计', 'level': 3} with just the name
-  return text.replace(/\{['"]name['"]:\s*['"]([^'"]+)['"][^}]*\}/g, '$1');
-}
-
-function MatchText({ label, text }: { label: string; text: string }) {
-  let cleanedText = cleanJsonString(text);
-  
-  // Strip duplicate label prefix if it exists (e.g., removing "技能匹配：" from "技能匹配：XXX")
-  const labelWithoutColon = label.replace(/[：:]$/, '');
-  const prefixRegex = new RegExp(`^${labelWithoutColon}[：:]\\s*`);
-  if (prefixRegex.test(cleanedText)) {
-    cleanedText = cleanedText.replace(prefixRegex, '');
-  }
-
-  return (
-    <p>
-      <span className="font-semibold text-ink/70">{label}</span> {cleanedText}
-    </p>
-  );
 }
 
 export function AssignmentFlowPanel({
@@ -111,13 +90,6 @@ export function AssignmentFlowPanel({
   const activeStage = stages.find((stage) => stage.status === "active") ?? stages[0];
 
   const canRespond = (status: AssignmentProposal["status"]) => status === "proposed";
-
-  const terminalMessages: Partial<Record<AssignmentProposal["status"], string>> = {
-    owner_confirmed: "成员已接受，等待负责人最终确认。",
-    owner_rejected: "成员已拒绝，需协调。",
-    negotiating: "协商中，需处理。",
-    finalized: "已定稿，任务负责人已正式写入。",
-  };
 
   const submitRejection = async (proposal: AssignmentProposal) => {
     await onRespondToAssignment?.(
@@ -172,7 +144,6 @@ export function AssignmentFlowPanel({
               const selectedPreferredTask = preferredTaskId ? taskById.get(preferredTaskId) : null;
               const isConfirmed = proposal.status === "owner_confirmed" || proposal.status === "finalized";
               const isNegotiating = proposal.status === "owner_rejected" || proposal.status === "negotiating";
-              const isProposed = proposal.status === "proposed";
               const isExpanded = expandedProposals[proposal.id];
 
               // Find related negotiation
