@@ -117,6 +117,7 @@ interface AgentSidebarProps {
 
 export function AgentSidebar({
   state,
+  selectedProjectId,
   hasProject = true,
   conversation,
   conversationSuggestions = [],
@@ -140,8 +141,15 @@ export function AgentSidebar({
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [activityOpen, setActivityOpen] = useState(false);
   const [draft, setDraft] = useState("");
+  const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set());
+  const [confirmedIds, setConfirmedIds] = useState<Set<string>>(new Set());
 
   const toggle = useCallback(() => setCollapsed((c) => !c), []);
+
+  useEffect(() => {
+    setDismissedIds(new Set());
+    setConfirmedIds(new Set());
+  }, [selectedProjectId]);
 
   useEffect(() => {
     const handleKeyDown = (event: globalThis.KeyboardEvent) => {
@@ -180,16 +188,42 @@ export function AgentSidebar({
     rejected: "dismissed",
   };
 
-  const visibleArtifacts = mergedArtifacts.map((artifact) => {
-    if (artifact.type !== "proposal") return artifact;
-    const proposalId = artifact.linked_entity_ids[0];
-    if (!proposalId) return artifact;
-    const proposalStatus = proposalStatusLookup.get(proposalId);
-    if (!proposalStatus) return artifact;
-    const mapped = PROPOSAL_STATUS_TO_ARTIFACT[proposalStatus];
-    if (!mapped || mapped === artifact.status) return artifact;
-    return { ...artifact, status: mapped };
-  });
+  const visibleArtifacts = mergedArtifacts
+    .map((artifact) => {
+      if (artifact.type !== "proposal") return artifact;
+      const proposalId = artifact.linked_entity_ids[0];
+      if (!proposalId) return artifact;
+      const proposalStatus = proposalStatusLookup.get(proposalId);
+      if (!proposalStatus) return artifact;
+      const mapped = PROPOSAL_STATUS_TO_ARTIFACT[proposalStatus];
+      if (!mapped || mapped === artifact.status) return artifact;
+      return { ...artifact, status: mapped };
+    })
+    .filter((artifact) => !dismissedIds.has(artifact.id) && artifact.status !== "confirmed" && artifact.status !== "dismissed");
+
+  const handleDismissArtifact = useCallback((artifact: AgentArtifact) => {
+    setDismissedIds((prev) => new Set(prev).add(artifact.id));
+  }, []);
+
+  const handleConfirmArtifact = useCallback(async (artifact: AgentArtifact) => {
+    if (onConfirmArtifact) {
+      await onConfirmArtifact(artifact);
+    }
+    setConfirmedIds((prev) => new Set(prev).add(artifact.id));
+  }, [onConfirmArtifact]);
+
+  useEffect(() => {
+    if (confirmedIds.size === 0) return;
+    const timer = setTimeout(() => {
+      setDismissedIds((prev) => {
+        const next = new Set(prev);
+        confirmedIds.forEach((id) => next.add(id));
+        return next;
+      });
+      setConfirmedIds(new Set());
+    }, 3000);
+    return () => clearTimeout(timer);
+  }, [confirmedIds]);
 
   const submitMessage = async (content: string) => {
     const trimmed = content.trim();
@@ -272,6 +306,7 @@ export function AgentSidebar({
                         key={message.id}
                         message={message}
                         isLast={index === messages.length - 1}
+                        index={index}
                         onRetry={pendingConversationInstruction ? () => void submitMessage(pendingConversationInstruction) : undefined}
                         onAction={(instruction) => void submitMessage(instruction)}
                       />
@@ -301,16 +336,19 @@ export function AgentSidebar({
                   {streamStatus && <AgentStepIndicator status={streamStatus} />}
                   {pendingConversation && !streamStatus && <AgentRunStatusCard />}
 
-                  {visibleArtifacts.map((artifact) => (
-                    <AgentArtifactCard
-                      key={artifact.id}
-                      artifact={artifact}
-                      disabled={Boolean(pendingConversation)}
-                      onConfirm={onConfirmArtifact}
-                      onRevise={(item) => void submitMessage(`继续修改：${item.title}`)}
-                      onInspect={(item) => void submitMessage(`解释这条建议的影响：${item.title}`)}
-                    />
-                  ))}
+                  <AnimatePresence mode="popLayout">
+                    {visibleArtifacts.map((artifact) => (
+                      <AgentArtifactCard
+                        key={artifact.id}
+                        artifact={artifact}
+                        disabled={Boolean(pendingConversation)}
+                        onConfirm={handleConfirmArtifact}
+                        onDismiss={handleDismissArtifact}
+                        onRevise={(item) => void submitMessage(`继续修改：${item.title}`)}
+                        onInspect={(item) => void submitMessage(`解释这条建议的影响：${item.title}`)}
+                      />
+                    ))}
+                  </AnimatePresence>
 
                   {conversationError && (
                     <AgentErrorCard

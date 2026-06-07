@@ -1,5 +1,6 @@
 "use client";
 
+import { motion } from "framer-motion";
 import {
   AlertTriangle,
   BadgeCheck,
@@ -8,6 +9,7 @@ import {
   Loader2,
   Pencil,
   Sparkles,
+  XCircle,
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -42,7 +44,12 @@ interface AgentContextCardProps {
 
 export function AgentContextCard({ focus, pendingCount = 0 }: AgentContextCardProps) {
   return (
-    <div className="mb-4 rounded-lg border border-moss/20 bg-moss/5 p-3">
+    <motion.div
+      initial={{ opacity: 0, y: 6 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.25, ease: [0.25, 1, 0.5, 1] }}
+      className="mb-4 rounded-lg border border-moss/20 bg-moss/5 p-3"
+    >
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-1.5 text-xs font-semibold text-moss">
           <Sparkles className="h-3.5 w-3.5" />
@@ -56,7 +63,7 @@ export function AgentContextCard({ focus, pendingCount = 0 }: AgentContextCardPr
       </div>
       <p className="mt-2 text-sm font-semibold text-neutral-900">{focus}</p>
       <p className="mt-1 text-xs leading-5 text-neutral-600">{focusReason(focus)}</p>
-    </div>
+    </motion.div>
   );
 }
 
@@ -68,20 +75,31 @@ const RUN_STEPS = ["读取项目状态", "判断下一步影响", "整理可确�
 
 export function AgentRunStatusCard() {
   return (
-    <div className="mb-3 rounded-lg border border-moss/20 bg-moss/5 p-3">
+    <motion.div
+      initial={{ opacity: 0, y: 6 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.2, ease: [0.25, 1, 0.5, 1] }}
+      className="mb-3 rounded-lg border border-moss/20 bg-moss/5 p-3"
+    >
       <div className="flex items-center gap-1.5 text-xs font-semibold text-moss">
         <Loader2 className="h-3.5 w-3.5 animate-spin" />
         Agent 正在处理
       </div>
       <ul className="mt-2 space-y-1">
-        {RUN_STEPS.map((step) => (
-          <li key={step} className="flex items-center gap-1.5 text-xs text-neutral-500">
+        {RUN_STEPS.map((step, index) => (
+          <motion.li
+            key={step}
+            initial={{ opacity: 0, x: -4 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: index * 0.1, duration: 0.2 }}
+            className="flex items-center gap-1.5 text-xs text-neutral-500"
+          >
             <Clock className="h-3 w-3 shrink-0 text-neutral-400" />
             {step}
-          </li>
+          </motion.li>
         ))}
       </ul>
-    </div>
+    </motion.div>
   );
 }
 
@@ -97,7 +115,12 @@ interface AgentErrorCardProps {
 
 export function AgentErrorCard({ message, onRetry, disabled }: AgentErrorCardProps) {
   return (
-    <div className="mb-3 rounded-lg border border-coral/20 bg-coral/10 p-3">
+    <motion.div
+      initial={{ opacity: 0, y: 6 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.2, ease: [0.25, 1, 0.5, 1] }}
+      className="mb-3 rounded-lg border border-coral/20 bg-coral/10 p-3"
+    >
       <div className="flex items-start gap-2 text-xs text-coral">
         <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
         <div>
@@ -116,7 +139,7 @@ export function AgentErrorCard({ message, onRetry, disabled }: AgentErrorCardPro
           重新发送
         </Button>
       )}
-    </div>
+    </motion.div>
   );
 }
 
@@ -137,6 +160,7 @@ interface AgentArtifactCardProps {
   onConfirm?: (artifact: AgentArtifact) => void | Promise<void>;
   onRevise?: (artifact: AgentArtifact) => void | Promise<void>;
   onInspect?: (artifact: AgentArtifact) => void | Promise<void>;
+  onDismiss?: (artifact: AgentArtifact) => void | Promise<void>;
   disabled?: boolean;
 }
 
@@ -145,13 +169,38 @@ export function AgentArtifactCard({
   onConfirm,
   onRevise,
   onInspect,
+  onDismiss,
   disabled,
 }: AgentArtifactCardProps) {
+  const isPending = artifact.status === "pending_confirmation";
+
   return (
-    <div className="mb-3 rounded-lg border border-neutral-200 bg-white p-3">
+    <motion.div
+      layout
+      initial={{ opacity: 0, y: 8, scale: 0.98 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.95, transition: { duration: 0.15 } }}
+      transition={{ duration: 0.25, ease: [0.25, 1, 0.5, 1] }}
+      className={cn(
+        "mb-3 rounded-lg border p-3 transition-shadow",
+        isPending
+          ? "border-moss/30 bg-white shadow-sm shadow-moss/5"
+          : "border-neutral-200 bg-white",
+      )}
+    >
       <div className="flex items-center justify-between gap-2">
         <h4 className="text-sm font-semibold text-neutral-900">{artifact.title}</h4>
-        <Badge className="bg-moss/15 px-2 py-0 text-[10px] text-moss">
+        <Badge
+          className={
+            artifact.status === "confirmed"
+              ? "bg-moss/25 px-2 py-0 text-[10px] text-moss/70"
+              : artifact.status === "dismissed"
+                ? "bg-neutral-200 px-2 py-0 text-[10px] text-neutral-500"
+                : isPending
+                  ? "bg-moss/15 px-2 py-0 text-[10px] text-moss"
+                  : "bg-neutral-100 px-2 py-0 text-[10px] text-neutral-500"
+          }
+        >
           {ARTIFACT_STATUS_LABELS[artifact.status]}
         </Badge>
       </div>
@@ -170,10 +219,10 @@ export function AgentArtifactCard({
         </ul>
       )}
       <div className="mt-2.5 flex items-center gap-1.5">
-        {artifact.status === "pending_confirmation" && onConfirm && (
+        {artifact.type === "proposal" && isPending && onConfirm && (
           <Button
             size="sm"
-            className="h-7 gap-1 bg-moss px-2.5 text-xs text-white hover:bg-moss/90"
+            className="h-7 gap-1 bg-moss px-2.5 text-xs text-white shadow-sm shadow-moss/20 hover:bg-moss/90 active:shadow-none"
             disabled={disabled}
             onClick={() => void onConfirm(artifact)}
           >
@@ -181,11 +230,11 @@ export function AgentArtifactCard({
             确认应用
           </Button>
         )}
-        {onRevise && (
+        {(artifact.status === "draft" || isPending) && onRevise && (
           <Button
             variant="ghost"
             size="sm"
-            className="h-7 gap-1 px-2 text-xs text-neutral-600"
+            className="h-7 gap-1 px-2 text-xs text-neutral-600 hover:bg-neutral-100"
             disabled={disabled}
             onClick={() => void onRevise(artifact)}
           >
@@ -193,11 +242,11 @@ export function AgentArtifactCard({
             继续修改
           </Button>
         )}
-        {onInspect && (
+        {(artifact.status === "draft" || isPending) && onInspect && (
           <Button
             variant="ghost"
             size="sm"
-            className="h-7 gap-1 px-2 text-xs text-neutral-600"
+            className="h-7 gap-1 px-2 text-xs text-neutral-600 hover:bg-neutral-100"
             disabled={disabled}
             onClick={() => void onInspect(artifact)}
           >
@@ -205,8 +254,20 @@ export function AgentArtifactCard({
             查看影响
           </Button>
         )}
+        {artifact.type !== "proposal" && artifact.status === "draft" && onDismiss && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 gap-1 px-2 text-xs text-neutral-500 hover:bg-neutral-100 hover:text-neutral-700"
+            disabled={disabled}
+            onClick={() => void onDismiss(artifact)}
+          >
+            <XCircle className="h-3 w-3" />
+            知道了
+          </Button>
+        )}
       </div>
-    </div>
+    </motion.div>
   );
 }
 
@@ -225,23 +286,35 @@ export function AgentSuggestionRow({ suggestions, disabled = false, onPick }: Ag
   if (visible.length === 0) return null;
 
   return (
-    <div className="mt-3 flex flex-wrap gap-1.5">
-      {visible.map((suggestion) => (
-        <button
+    <motion.div
+      className="mt-3 flex flex-wrap gap-1.5"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.2 }}
+    >
+      {visible.map((suggestion, index) => (
+        <motion.button
           key={suggestion.id}
           type="button"
+          initial={{ opacity: 0, y: 4 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{
+            duration: 0.2,
+            delay: index * 0.06,
+            ease: [0.25, 1, 0.5, 1],
+          }}
           onClick={() => onPick(suggestion.user_instruction)}
           disabled={disabled}
           className={cn(
-            "rounded-full border px-2.5 py-1 text-[11px] transition disabled:cursor-not-allowed disabled:opacity-50",
+            "rounded-full border px-2.5 py-1 text-[11px] transition-all disabled:cursor-not-allowed disabled:opacity-50",
             suggestion.priority === "primary"
-              ? "border-moss/30 bg-moss/10 text-moss hover:bg-moss/20"
-              : "border-neutral-200 bg-white text-neutral-600 hover:border-moss/30 hover:text-moss"
+              ? "border-moss/30 bg-moss/10 text-moss hover:border-moss/40 hover:bg-moss/15 hover:shadow-sm hover:shadow-moss/10"
+              : "border-neutral-200 bg-white text-neutral-600 hover:border-moss/30 hover:text-moss hover:shadow-sm"
           )}
         >
           {suggestion.label}
-        </button>
+        </motion.button>
       ))}
-    </div>
+    </motion.div>
   );
 }

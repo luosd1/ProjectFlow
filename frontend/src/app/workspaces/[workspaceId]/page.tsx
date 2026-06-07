@@ -446,6 +446,7 @@ export default function WorkspaceDashboardPage() {
           return [...prev, { ...artifact, status: "confirmed" as const }];
         });
         await reloadProject();
+        await handleSendAgentMessage(`已确认「${artifact.title}」，请确认结果并告诉我下一步。`);
       } catch {
         setAgentConversationError("确认应用失败，请重试。");
       }

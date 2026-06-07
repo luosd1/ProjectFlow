@@ -1,5 +1,6 @@
 "use client";
 
+import { motion } from "framer-motion";
 import { Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -41,28 +42,40 @@ export function StarterPrompts({ focus, onSelect, disabled }: StarterPromptsProp
   const prompts = FOCUS_PROMPTS[focus] ?? FOCUS_PROMPTS["执行推进"];
 
   return (
-    <div className="mb-4">
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.2 }}
+      className="mb-4"
+    >
       <div className="mb-2 flex items-center gap-1.5 text-xs text-neutral-400">
         <Sparkles className="h-3 w-3" />
         快速开始
       </div>
       <div className="space-y-1.5">
-        {prompts.map((prompt) => (
-          <button
+        {prompts.map((prompt, index) => (
+          <motion.button
             key={prompt.label}
             type="button"
+            initial={{ opacity: 0, y: 4 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{
+              duration: 0.2,
+              delay: index * 0.06,
+              ease: [0.25, 1, 0.5, 1],
+            }}
             disabled={disabled}
             onClick={() => onSelect(prompt.instruction)}
             className={cn(
-              "w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-left text-xs text-neutral-600 transition",
-              "hover:border-moss/30 hover:bg-moss/5 hover:text-moss",
+              "w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-left text-xs text-neutral-600 transition-all",
+              "hover:border-moss/30 hover:bg-moss/5 hover:text-moss hover:shadow-sm",
               "disabled:cursor-not-allowed disabled:opacity-50",
             )}
           >
             {prompt.label}
-          </button>
+          </motion.button>
         ))}
       </div>
-    </div>
+    </motion.div>
   );
 }

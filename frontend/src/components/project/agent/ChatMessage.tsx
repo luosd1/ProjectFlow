@@ -1,5 +1,6 @@
 "use client";
 
+import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import type { AgentConversationMessage } from "@/lib/types";
 import { MarkdownContent } from "./MarkdownContent";
@@ -10,6 +11,7 @@ interface ChatMessageProps {
   isLast?: boolean;
   onRetry?: () => void;
   onAction?: (instruction: string) => void;
+  index?: number;
 }
 
 const QUICK_REPLY_DISPLAY_MAP: Record<string, string> = {
@@ -29,11 +31,18 @@ function displayContent(message: AgentConversationMessage): string {
   return message.content;
 }
 
-export function ChatMessage({ message, isLast, onRetry, onAction }: ChatMessageProps) {
+export function ChatMessage({ message, isLast, onRetry, onAction, index = 0 }: ChatMessageProps) {
   const isUser = message.role === "user";
 
   return (
-    <div
+    <motion.div
+      initial={{ opacity: 0, y: 6 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{
+        duration: 0.2,
+        delay: Math.min(index * 0.04, 0.3),
+        ease: [0.25, 1, 0.5, 1],
+      }}
       className={cn(
         "rounded-lg border p-3",
         isUser
@@ -57,6 +66,6 @@ export function ChatMessage({ message, isLast, onRetry, onAction }: ChatMessageP
           onAction={onAction}
         />
       )}
-    </div>
+    </motion.div>
   );
 }

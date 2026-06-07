@@ -1,4 +1,5 @@
 import json
+import logging
 import time
 from datetime import UTC, datetime
 from html import escape
@@ -7,6 +8,8 @@ from typing import Any, Iterator
 from pydantic import ValidationError
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, desc, select
+
+logger = logging.getLogger(__name__)
 
 from app.agent.llm_client import LLMClient, build_agent_llm_client
 from app.models import AgentEvent, AgentProposal, Project
@@ -270,121 +273,127 @@ def process_conversation_message_stream(
     session.add(user_message)
     session.flush()
 
-    # Phase: planning
-    yield _sse_event("status", {"phase": "planning", "message": "正在理解你的需求..."})
+    try:
+        # Phase: planning
+        yield _sse_event("status", {"phase": "planning", "message": "正在理解你的需求..."})
 
-    turn_plan = _plan_turn(
-        llm,
-        content=content,
-        conversation=conversation,
-        workspace_state=workspace_state,
-        recent_messages=_recent_messages(session, conversation.id),
-    )
-
-    blocked_reason = _policy_block_reason(turn_plan, workspace_state)
-    run_read: AgentRunRead | None = None
-    linked_event_id: str | None = None
-    linked_proposal_id: str | None = None
-    artifacts: list[AgentArtifactRead] = []
-
-    if blocked_reason:
-        yield _sse_event("status", {"phase": "answering", "message": "正在整理回复..."})
-        assistant_content = blocked_reason
-    elif turn_plan.response_type in {"answer", "ask_clarifying_question"} or not turn_plan.selected_module:
-        yield _sse_event("status", {"phase": "answering", "message": "正在整理回复..."})
-        assistant_content = _answer_content(turn_plan, workspace_state)
-    else:
-        module = turn_plan.selected_module
-        status_msg = MODULE_STATUS_MESSAGES.get(module, f"正在执行 {module}")
-        yield _sse_event("status", {"phase": "executing", "module": module, "message": status_msg})
-
-        flow_result = _run_selected_module(
-            session,
-            conversation.workspace_id,
-            conversation.project_id,
-            turn_plan,
+        turn_plan = _plan_turn(
             llm,
+            content=content,
+            conversation=conversation,
+            workspace_state=workspace_state,
+            recent_messages=_recent_messages(session, conversation.id),
         )
-        event_type = MODULE_EVENT_TYPE[module]
-        linked_event_id = _latest_agent_event_id(
-            session,
-            conversation.project_id,
-            conversation.workspace_id,
-            event_type,
-        )
-        linked_proposal_id = flow_result.proposal_id
-        run = AgentRun(
+
+        blocked_reason = _policy_block_reason(turn_plan, workspace_state)
+        run_read: AgentRunRead | None = None
+        linked_event_id: str | None = None
+        linked_proposal_id: str | None = None
+        artifacts: list[AgentArtifactRead] = []
+
+        if blocked_reason:
+            yield _sse_event("status", {"phase": "answering", "message": "正在整理回复..."})
+            assistant_content = blocked_reason
+        elif turn_plan.response_type in {"answer", "ask_clarifying_question"} or not turn_plan.selected_module:
+            yield _sse_event("status", {"phase": "answering", "message": "正在整理回复..."})
+            assistant_content = _answer_content(turn_plan, workspace_state)
+        else:
+            module = turn_plan.selected_module
+            status_msg = MODULE_STATUS_MESSAGES.get(module, f"正在执行 {module}")
+            yield _sse_event("status", {"phase": "executing", "module": module, "message": status_msg})
+
+            flow_result = _run_selected_module(
+                session,
+                conversation.workspace_id,
+                conversation.project_id,
+                turn_plan,
+                llm,
+            )
+            event_type = MODULE_EVENT_TYPE[module]
+            linked_event_id = _latest_agent_event_id(
+                session,
+                conversation.project_id,
+                conversation.workspace_id,
+                event_type,
+            )
+            linked_proposal_id = flow_result.proposal_id
+            run = AgentRun(
+                conversation_id=conversation.id,
+                project_id=conversation.project_id,
+                user_instruction=turn_plan.user_instruction or content,
+                selected_module=module,
+                status="proposal_created" if flow_result.proposal_id else "completed",
+                model=_client_model(llm),
+                attempts=flow_result.attempts,
+                verifier_status="passed",
+                agent_event_id=linked_event_id,
+                proposal_id=flow_result.proposal_id,
+                completed_at=datetime.now(UTC),
+            )
+            session.add(run)
+            session.flush()
+            run_read = _run_to_read(run)
+            assistant_content = _success_content(turn_plan, flow_result.proposal_id)
+            artifacts = _artifacts_from_flow_result(session, flow_result, turn_plan)
+
+            yield _sse_event("status", {"phase": "generating", "message": "正在整理结果..."})
+
+        # Phase: stream the final reply
+        yield _sse_event("status", {"phase": "streaming", "message": "正在生成回复..."})
+
+        # Stream the pre-generated assistant content character by character
+        for char in assistant_content:
+            yield _sse_event("token", {"content": char})
+            time.sleep(0.005)
+
+        full_response = assistant_content
+
+        # Save assistant message
+        next_labels = _next_suggestions(workspace_state)
+        suggestions = _structured_suggestions(next_labels)
+
+        assistant_message = AgentMessage(
             conversation_id=conversation.id,
-            project_id=conversation.project_id,
-            user_instruction=turn_plan.user_instruction or content,
-            selected_module=module,
-            status="proposal_created" if flow_result.proposal_id else "completed",
-            model=_client_model(llm),
-            attempts=flow_result.attempts,
-            verifier_status="passed",
-            agent_event_id=linked_event_id,
-            proposal_id=flow_result.proposal_id,
-            completed_at=datetime.now(UTC),
+            role="assistant",
+            content=full_response,
+            linked_event_id=linked_event_id,
+            linked_proposal_id=linked_proposal_id,
         )
-        session.add(run)
-        session.flush()
-        run_read = _run_to_read(run)
-        assistant_content = _success_content(turn_plan, flow_result.proposal_id)
-        artifacts = _artifacts_from_flow_result(session, flow_result, turn_plan)
+        assistant_message.set_structured_payload(
+            {
+                "turn_plan": turn_plan.model_dump(mode="json"),
+                "blocked_reason": blocked_reason,
+                "next_suggestions": next_labels,
+                "suggestions": [s.model_dump(mode="json") for s in suggestions],
+                "artifacts": [a.model_dump(mode="json") for a in artifacts],
+            }
+        )
+        session.add(assistant_message)
 
-        yield _sse_event("status", {"phase": "generating", "message": "正在整理结果..."})
+        conversation.current_focus = _focus_for_workspace_state(workspace_state)
+        conversation.updated_at = datetime.now(UTC)
+        session.add(conversation)
+        session.commit()
+        session.refresh(user_message)
+        session.refresh(assistant_message)
 
-    # Phase: stream the final reply
-    yield _sse_event("status", {"phase": "streaming", "message": "正在生成回复..."})
+        # Done event with full turn data
+        turn = AgentConversationTurnRead(
+            conversation=_conversation_to_read(session, conversation),
+            user_message=_message_to_read(user_message),
+            assistant_message=_message_to_read(assistant_message),
+            run=run_read,
+            turn_plan=turn_plan,
+            next_suggestions=next_labels,
+            suggestions=suggestions,
+            artifacts=artifacts,
+        )
+        yield _sse_event("done", turn.model_dump(mode="json"))
 
-    # Stream the pre-generated assistant content character by character
-    for char in assistant_content:
-        yield _sse_event("token", {"content": char})
-        time.sleep(0.005)
-
-    full_response = assistant_content
-
-    # Save assistant message
-    next_labels = _next_suggestions(workspace_state)
-    suggestions = _structured_suggestions(next_labels)
-
-    assistant_message = AgentMessage(
-        conversation_id=conversation.id,
-        role="assistant",
-        content=full_response,
-        linked_event_id=linked_event_id,
-        linked_proposal_id=linked_proposal_id,
-    )
-    assistant_message.set_structured_payload(
-        {
-            "turn_plan": turn_plan.model_dump(mode="json"),
-            "blocked_reason": blocked_reason,
-            "next_suggestions": next_labels,
-            "suggestions": [s.model_dump(mode="json") for s in suggestions],
-            "artifacts": [a.model_dump(mode="json") for a in artifacts],
-        }
-    )
-    session.add(assistant_message)
-
-    conversation.current_focus = _focus_for_workspace_state(workspace_state)
-    conversation.updated_at = datetime.now(UTC)
-    session.add(conversation)
-    session.commit()
-    session.refresh(user_message)
-    session.refresh(assistant_message)
-
-    # Done event with full turn data
-    turn = AgentConversationTurnRead(
-        conversation=_conversation_to_read(session, conversation),
-        user_message=_message_to_read(user_message),
-        assistant_message=_message_to_read(assistant_message),
-        run=run_read,
-        turn_plan=turn_plan,
-        next_suggestions=next_labels,
-        suggestions=suggestions,
-        artifacts=artifacts,
-    )
-    yield _sse_event("done", turn.model_dump(mode="json"))
+    except Exception as exc:
+        logger.exception("Agent conversation stream failed")
+        session.rollback()
+        yield _sse_event("error", {"message": f"处理失败：{exc}"})
 
 
 def _plan_turn(
@@ -426,20 +435,31 @@ def _plan_turn(
             ),
         },
     ]
-    try:
-        raw = llm_client.complete(messages, max_tokens=1200)
-        return _parse_turn_plan(raw, content)
-    except (json.JSONDecodeError, TypeError, ValidationError, ValueError):
-        return AgentTurnPlan(
-            response_type="answer",
-            selected_module=None,
-            user_instruction=content,
-            rationale="Planner 输出不可用，按当前项目状态给出安全引导。",
-            required_inputs=[],
-            expected_artifact=None,
-            risk_level="low",
-            requires_confirmation=False,
-        )
+    last_exc: Exception | None = None
+    for attempt in range(3):
+        try:
+            raw = llm_client.complete(messages, max_tokens=1200)
+            if not raw or not raw.strip():
+                logger.warning("Planner returned empty response (attempt %d/3)", attempt + 1)
+                continue
+            logger.debug("Planner raw output (attempt %d): %s", attempt + 1, raw[:500])
+            return _parse_turn_plan(raw, content)
+        except (json.JSONDecodeError, TypeError, ValidationError, ValueError) as exc:
+            last_exc = exc
+            logger.warning("Planner output parsing failed (attempt %d/3): %s | raw=%s", attempt + 1, exc, raw[:300] if 'raw' in dir() else 'N/A')
+            if attempt < 2:
+                continue
+    logger.error("Planner failed after 3 attempts, last error: %s", last_exc)
+    return AgentTurnPlan(
+        response_type="answer",
+        selected_module=None,
+        user_instruction=content,
+        rationale="Planner 输出不可用，按当前项目状态给出安全引导。",
+        required_inputs=[],
+        expected_artifact=None,
+        risk_level="low",
+        requires_confirmation=False,
+    )
 
 
 def _parse_turn_plan(raw: str, user_message: str) -> AgentTurnPlan:
@@ -450,18 +470,35 @@ def _parse_turn_plan(raw: str, user_message: str) -> AgentTurnPlan:
 
 def _load_planner_json(raw: str) -> dict[str, Any]:
     text = raw.strip()
+    # Remove DeepSeek thinking tags and everything after
+    for marker in ("<｜end▁of▁thinking｜>", "<|end▁of▁thinking|>", "```"):
+        idx = text.find(marker)
+        if idx > 0:
+            text = text[:idx].strip()
+    # Try direct parse first
     try:
         payload = json.loads(text)
     except json.JSONDecodeError:
+        # Strip markdown code fences
         if text.startswith("```"):
             text = text.removeprefix("```json").removeprefix("```").strip()
             if text.endswith("```"):
                 text = text[:-3].strip()
+        # Find the first complete JSON object by brace matching
         first = text.find("{")
-        last = text.rfind("}")
-        if first < 0 or last < first:
+        if first < 0:
             raise
-        payload = json.loads(text[first:last + 1])
+        depth = 0
+        end = first
+        for i in range(first, len(text)):
+            if text[i] == "{":
+                depth += 1
+            elif text[i] == "}":
+                depth -= 1
+                if depth == 0:
+                    end = i
+                    break
+        payload = json.loads(text[first:end + 1])
     if not isinstance(payload, dict):
         raise ValueError("planner output must be a JSON object")
     for key in ("turn_plan", "plan", "decision", "action"):
@@ -550,6 +587,7 @@ def _normalize_response_type(value: Any, selected_module: str | None) -> str:
         "module": "run_module",
         "action": "run_module",
         "ask": "ask_clarifying_question",
+        "ask_clarification": "ask_clarifying_question",
         "question": "ask_clarifying_question",
         "clarifying_question": "ask_clarifying_question",
         "revise": "revise_pending_proposal",

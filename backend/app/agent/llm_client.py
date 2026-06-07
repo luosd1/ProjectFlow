@@ -134,6 +134,7 @@ class OpenAICompatibleLLMClient:
         try:
             with request.urlopen(req, timeout=self.timeout_seconds) as response:
                 raw_response = response.read().decode("utf-8")
+                logger.debug("LLM raw response (first 500 chars): %s", raw_response[:500])
                 payload: dict[str, Any] = json.loads(raw_response)
         except urllib_error.HTTPError as exc:
             self._raise_http_error(exc)

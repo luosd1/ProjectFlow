@@ -4,6 +4,43 @@ Status: current as of 2026-06-07.
 
 ## Completed
 
+### Phase 40 — Agent Sidebar UI Polish & Planner Reliability (2026-06-07)
+
+Agent sidebar UI comprehensively polished with Framer Motion animations, artifact dismiss/confirm interactions, and backend planner reliability improvements.
+
+**Backend Improvements:**
+- **Planner retry logic**: `_plan_turn()` now retries up to 3 times on empty/invalid responses before falling back to safe defaults.
+- **Improved JSON parsing**: `_parse_turn_plan()` uses brace-matching instead of `rfind` to extract the first complete JSON object, handling nested structures correctly.
+- **DeepSeek thinking tag handling**: Strips `<｜end▁of▁thinking｜>` and similar markers before JSON parsing.
+- **Enhanced logging**: Debug logs for planner raw output and LLM responses to aid troubleshooting.
+
+**Frontend Animations (Framer Motion):**
+- `ChatMessage`: fade-in + slide-up animation with staggered delay based on message index.
+- `StarterPrompts`: fade-in container + staggered button animations.
+- `StreamingText`: fade-in container + smooth cursor pulse animation (replaces CSS `animate-pulse`).
+- `AgentContextCard`, `AgentRunCard`, `AgentErrorCard`: fade-in + slide-up entrance animations.
+- `AgentArtifactCard`: layout animation with exit animation via `AnimatePresence`.
+
+**Artifact Dismiss/Confirm:**
+- `agent-sidebar.tsx`: Added `dismissedIds` and `confirmedIds` state management.
+- Dismissed/confirmed artifacts filtered from view with 3-second delayed removal after confirmation.
+- `AnimatePresence mode="popLayout"` wraps artifact cards for smooth exit transitions.
+- State resets on project switch.
+
+**ChatComposer Micro-interactions:**
+- Focus state: `focus-within:shadow-sm focus-within:shadow-moss/5` transition.
+- Send button: `shadow-sm shadow-moss/20` with `active:shadow-none` press feedback.
+- Character counter: `transition-colors` for smooth warning state change.
+
+**Confirmation Feedback:**
+- `workspace/page.tsx`: After artifact confirmation, sends follow-up message to Agent: `已确认「{title}」，请确认结果并告诉我下一步。`
+
+**Files modified:** `backend/app/agent/llm_client.py`, `backend/app/services/agent_conversation_service.py`, `frontend/src/app/workspaces/[workspaceId]/page.tsx`, `frontend/src/components/project/agent-conversation-cards.tsx`, `frontend/src/components/project/agent-sidebar.tsx`, `frontend/src/components/project/agent/ChatComposer.tsx`, `frontend/src/components/project/agent/ChatMessage.tsx`, `frontend/src/components/project/agent/StarterPrompts.tsx`, `frontend/src/components/project/agent/StreamingText.tsx`.
+
+**Verification:** backend 245 tests pass, TypeScript compiles, frontend builds successfully, browser verification passed (Agent conversation, risk analysis module, artifact dismiss all working).
+
+---
+
 ### Phase 39 — Agent UX Integration & Stage Auto-Advance (2026-06-07)
 
 Proposal confirmation UX unified, task ordering stabilized, stage auto-advance implemented, and Active Push feedback improved.

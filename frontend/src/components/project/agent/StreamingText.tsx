@@ -1,5 +1,6 @@
 "use client";
 
+import { motion } from "framer-motion";
 import { MarkdownContent } from "./MarkdownContent";
 
 interface StreamingTextProps {
@@ -11,9 +12,23 @@ export function StreamingText({ buffer, className }: StreamingTextProps) {
   if (!buffer) return null;
 
   return (
-    <div className={className}>
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.15 }}
+      className={className}
+    >
       <MarkdownContent content={buffer} />
-      <span className="ml-0.5 inline-block h-3 w-px animate-pulse bg-moss" />
-    </div>
+      <motion.span
+        className="ml-0.5 inline-block h-3.5 w-px bg-moss"
+        animate={{ opacity: [1, 0] }}
+        transition={{
+          duration: 0.8,
+          repeat: Infinity,
+          repeatType: "reverse",
+          ease: "easeInOut",
+        }}
+      />
+    </motion.div>
   );
 }
