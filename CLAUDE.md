@@ -152,6 +152,8 @@ npm audit --omit=dev
 - 用户可见文本中禁止使用原始 ID（user_id, task_id），必须使用成员 display_name（如"小林"）和任务 title（如"后端 API 与数据模型"）
 - LLM max_tokens 为推理模型预留空间（checkin 4000, plan/breakdown/replan 4000, push/risk/clarify/assign 3000, negotiate 2000）
 - AgentProposal 只用于 clarify/plan/breakdown/replan；negotiate 使用分工协商流程和 timeline，不创建通用 AgentProposal
+- **Global Scope Rule**: 所有输出字段禁止提及外部系统（教务系统、移动端 App、GitHub 等），使用通用替代词
+- **Before Output Self-Check**: 输出前自检日期格式（YYYY-MM-DD）、禁止术语、成员/任务引用合法性、requires_confirmation 是否设置
 
 ## Agent Workflow (State Machine)
 
@@ -175,7 +177,7 @@ Agent API 需传 `project_id`（修复多项目 workspace 下 Agent 总作用于
 - **MemberProfile**: 技能、可用时间、意向、限制（绑定 workspace）
 - **Project**: 项目想法、截止日期、交付物、方向卡
 - **Stage**: 阶段目标、时间范围、交付物、完成标准
-- **Task**: 优先级 P0/P1/P2、状态 not_started/in_progress/done/blocked、可砍标记、order_index 排序
+- **Task**: 优先级 P0/P1/P2、状态 not_started/in_progress/done/blocked/cancelled、可砍标记、order_index 排序
 - **AssignmentProposal**: Agent 推荐分工（owner + backup owner + reason），需人工确认
 - **AgentProposal**: Agent 高影响输出暂存（clarify/plan/breakdown/replan），确认后才持久化到项目状态；reject 时记录 rejection_reason
 - **Risk**: 类型 deadline/dependency/workload/scope/review/assignment/checkin，必须有 evidence

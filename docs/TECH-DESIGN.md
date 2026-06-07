@@ -556,7 +556,7 @@ Stage 状态规则：
 | title | string | 任务标题 |
 | description | text | 任务说明 |
 | priority | enum | P0 / P1 / P2 |
-| status | enum | not_started / in_progress / done / blocked |
+| status | enum | not_started / in_progress / done / blocked / cancelled |
 | owner_user_id | UUID nullable | 最终确认负责人 |
 | backup_owner_user_id | UUID nullable | 备选负责人 |
 | due_date | date | 建议截止日期 |
@@ -669,7 +669,7 @@ MVP 不需要做复杂多人拍卖式协调，只做一轮交换确认。
 | id | UUID | 状态更新 ID |
 | task_id | UUID | 对应任务 |
 | user_id | UUID | 更新人 |
-| status | enum | not_started / in_progress / done / blocked |
+| status | enum | not_started / in_progress / done / blocked / cancelled |
 | progress_note | text nullable | 进度说明 |
 | blocker | text nullable | 阻塞问题 |
 | available_hours_change | number nullable | 可用时间变化 |
@@ -706,7 +706,7 @@ MVP 不需要做复杂多人拍卖式协调，只做一轮交换确认。
 | stage_id | UUID nullable | 阶段 |
 | user_id | UUID nullable | 目标成员，空表示团队卡片 |
 | task_id | UUID nullable | 关联任务 |
-| type | enum | personal_task / team_next_step / reminder / risk_action / kickoff_tip / checkin_prompt / assignment_request |
+| type | enum | personal_task / team_next_step / reminder / risk_action / kickoff_tip / checkin_prompt / assignment_request / suggestion |
 | title | string | 卡片标题 |
 | content | text | 卡片内容 |
 | reason | text | 为什么现在推送 |

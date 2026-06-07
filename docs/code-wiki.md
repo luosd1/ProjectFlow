@@ -133,13 +133,13 @@ Stage 完成后 → 下一阶段 → 重新触发阶段性分工推荐
 |------|------|------|------------|
 | Clarification | 项目想法、资源、成员、当前时间 | 方向卡（问题/用户/价值/交付物/边界/风险/依据摘要/假设/未知项/MVP 边界/决策点） | ✅ 需确认后写入 Project.direction_card |
 | Planning | 方向卡、截止日期、交付物 | 阶段计划（3-5 个 Stage） | ✅ 需确认后创建 Stage |
-| Breakdown | 阶段、交付物、资源 | 任务列表（含优先级/依赖/可砍标记） | ✅ 需确认后创建 Task |
+| Breakdown | 阶段、交付物、资源 | 任务列表（含优先级/依赖/可砍标记，任务有 `id` 字段用于 dependency_ids 自引用） | ✅ 需确认后创建 Task |
 | Assignment Recommendation | 任务、成员画像 | 分工提案（owner + backup + reason + 匹配度） | 需 finalize |
 | Assignment Negotiation | 拒绝信息、期望任务 | 交换协调建议 | AgentEvent timeline-only；不进入通用 AgentProposal |
 | Active Push | 项目状态、阶段、分工 | 行动卡（7 种类型） | 直接持久化 |
 | Check-in Analysis | 签到响应 | 状态摘要 + 可能风险 | 直接持久化 |
-| Risk Analysis | 任务、签到、截止日期、分工 | 风险卡（7 种类型 × 3 级严重度） | 直接持久化 |
-| Replanning | 风险、项目状态 | 重排提案（before/after/影响） | ✅ 进入 AgentProposal，确认后才改任务/阶段/行动卡 |
+| Risk Analysis | 任务、签到、截止日期、分工 | 风险卡（有 blocker 时必须产出风险项） | 直接持久化 |
+| Replanning | 风险、项目状态 | 重排提案（必须包含结构性变更 + action_card 格式规范） | ✅ 进入 AgentProposal，确认后才改任务/阶段/行动卡 |
 
 ### Agent 稳定性规则
 
@@ -156,6 +156,8 @@ Stage 完成后 → 下一阶段 → 重新触发阶段性分工推荐
 11. Prompt 必须注入当前日期/时间/时区，避免周期和截止日期误判
 12. clarify/plan/breakdown 必须带项目资源摘要，不能只看项目 idea
 13. AgentProposal 只覆盖 clarify/plan/breakdown/replan；negotiate 保持 timeline-only
+14. **Global Scope Rule**: 所有输出字段禁止提及外部系统（教务系统、移动端 App、GitHub 等），使用通用替代词
+15. **Before Output Self-Check**: 输出前自检日期格式（YYYY-MM-DD）、禁止术语、成员/任务引用是否合法、requires_confirmation 是否设置
 
 ---
 
@@ -209,7 +211,7 @@ FastAPI 应用组装：lifespan 初始化 DB → CORS 中间件（localhost:3000
 | `ResourceType` | text_note / file_stub / link |
 | `StageStatus` | pending / active / completed / at_risk |
 | `TaskPriority` | P0 / P1 / P2 |
-| `TaskStatus` | not_started / in_progress / done / blocked |
+| `TaskStatus` | not_started / in_progress / done / blocked / cancelled |
 | `AssignmentProposalStatus` | proposed / owner_confirmed / owner_rejected / negotiating / finalized |
 | `AssignmentResponseType` | accept / reject |
 | `NegotiationStatus` | pending / accepted / declined / resolved |
@@ -218,7 +220,7 @@ FastAPI 应用组装：lifespan 初始化 DB → CORS 中间件（localhost:3000
 | `RiskType` | deadline / dependency / workload / scope / review / assignment / checkin |
 | `RiskSeverity` | low / medium / high |
 | `RiskStatus` | open / accepted / ignored / resolved |
-| `ActionCardType` | personal_task / team_next_step / reminder / risk_action / kickoff_tip / checkin_prompt / assignment_request |
+| `ActionCardType` | personal_task / team_next_step / reminder / risk_action / kickoff_tip / checkin_prompt / assignment_request / suggestion |
 | `ActionCardStatus` | active / done / dismissed |
 | `AgentEventType` | clarify / plan / breakdown / assign / negotiate / push / checkin / risk / replan / export |
 | `AgentEventStatus` | success / repaired / fallback / failed |
@@ -299,14 +301,14 @@ generate_structured_output()
 
 #### Prompt 构建（[prompts.py](backend/app/agent/prompts.py)）
 
-- `AGENT_SYSTEM_PROMPT` — 全局系统提示
+- `AGENT_SYSTEM_PROMPT` — 全局系统提示（含 **Global Scope Rule** 禁止提及外部系统 + **Before Output Self-Check** 自检日期格式/禁止术语/引用合法性）
 - `OUTPUT_CONTRACT_BY_EVENT_TYPE` — 按 event_type 裁剪的输出格式契约
 - `build_prompt_messages()` — 组装：系统提示 + workspace_state JSON（XML 标签隔离）+ 输出格式契约
 - `_compact_workspace_state_json()` — 紧凑序列化 workspace 状态
 
 #### 输出校验（[output_schemas.py](backend/app/agent/output_schemas.py)）
 
-10 个 Pydantic 校验模型：
+10 个 Pydantic 校验模型（关键 schema 变更：`TaskBreakdownItem` 带 `id` 字段，空值时自动生成 `task-{n}`；`ActionCardProposal.content` 可选；`_validate_references` 接受 breakdown 输出中的新任务 ID 作为合法 dependency_ids）：
 
 | Schema | 对应模块 |
 |--------|---------|
