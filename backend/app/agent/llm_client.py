@@ -1,5 +1,7 @@
 import json
 import logging
+import time
+from collections.abc import Iterator
 from dataclasses import dataclass
 from typing import Any, Protocol
 from urllib import error as urllib_error
@@ -52,6 +54,12 @@ class LLMClient(Protocol):
     def complete(self, messages: list[dict[str, str]], *, max_tokens: int | None = None) -> str:
         """Return the assistant message content."""
 
+    def stream_complete(
+        self, messages: list[dict[str, str]], *, max_tokens: int | None = None
+    ) -> Iterator[str]:
+        """Yield content tokens incrementally."""
+        ...  # pragma: no cover
+
 
 @dataclass(frozen=True)
 class LLMClientSettings:
@@ -78,6 +86,12 @@ class MockLLMClient:
             return "{}"
         index = min(self.calls - 1, len(self.responses) - 1)
         return self.responses[index]
+
+    def stream_complete(self, messages: list[dict[str, str]], *, max_tokens: int | None = None) -> Iterator[str]:
+        content = self.complete(messages, max_tokens=max_tokens)
+        for char in content:
+            yield char
+            time.sleep(0.01)
 
 
 # ---------------------------------------------------------------------------
@@ -148,6 +162,46 @@ class OpenAICompatibleLLMClient:
                 detail=f"response keys: {list(payload.keys()) if isinstance(payload, dict) else type(payload).__name__}",
             )
         return content
+
+    def stream_complete(self, messages: list[dict[str, str]], *, max_tokens: int | None = None) -> Iterator[str]:
+        body = json.dumps(
+            {
+                "model": self.model,
+                "messages": messages,
+                "temperature": 0.05,
+                "max_tokens": max_tokens or 1800,
+                "stream": True,
+            }
+        ).encode("utf-8")
+        req = request.Request(
+            f"{self.base_url}/chat/completions",
+            data=body,
+            method="POST",
+            headers={
+                "Authorization": f"Bearer {self.api_key}",
+                "Content-Type": "application/json",
+            },
+        )
+        try:
+            with request.urlopen(req, timeout=self.timeout_seconds) as response:
+                for line in response:
+                    line = line.decode("utf-8").strip()
+                    if not line or not line.startswith("data: "):
+                        continue
+                    data = line[6:]
+                    if data == "[DONE]":
+                        break
+                    try:
+                        chunk = json.loads(data)
+                        delta = chunk.get("choices", [{}])[0].get("delta", {})
+                        content = delta.get("content")
+                        if content:
+                            yield content
+                    except (json.JSONDecodeError, IndexError, KeyError):
+                        continue
+        except (urllib_error.HTTPError, urllib_error.URLError, TimeoutError) as exc:
+            # Fall back to non-streaming on error
+            yield self.complete(messages, max_tokens=max_tokens)
 
     # ------------------------------------------------------------------
     # Error translation helpers
