@@ -439,8 +439,8 @@ describe("AgentSidebar", () => {
       />
     );
 
-    const button = screen.getByRole("button", { name: "生成下一步行动卡" });
-    fireEvent.click(button);
+    const buttons = screen.getAllByRole("button", { name: "生成下一步行动卡" });
+    fireEvent.click(buttons[0]);
 
     const sentInstruction = onSendMessage.mock.calls[0][0] as string;
     expect(sentInstruction).toContain("push");
@@ -459,8 +459,8 @@ describe("AgentSidebar", () => {
       />
     );
 
-    const button = screen.getByRole("button", { name: "分析当前风险" });
-    fireEvent.click(button);
+    const buttons = screen.getAllByRole("button", { name: "分析当前风险" });
+    fireEvent.click(buttons[0]);
 
     const sentInstruction = onSendMessage.mock.calls[0][0] as string;
     expect(sentInstruction).toContain("risk");
