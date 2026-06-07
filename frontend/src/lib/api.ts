@@ -563,6 +563,80 @@ export async function sendAgentConversationMessage(
   return normalizeAgentConversationTurn(turn);
 }
 
+export type AgentStreamCallbacks = {
+  onStatus: (status: { phase: string; module?: string; message: string }) => void;
+  onToken: (token: string) => void;
+  onDone: (turn: AgentConversationTurn) => void;
+  onError: (error: string) => void;
+};
+
+export async function sendAgentConversationMessageStream(
+  conversationId: string,
+  content: string,
+  callbacks: AgentStreamCallbacks,
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/agent/conversations/${conversationId}/messages/stream`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ content }),
+    signal,
+  });
+
+  if (!response.ok) {
+    const body = await response.text().catch(() => "");
+    throw new Error(`请求失败：${response.status} ${body}`);
+  }
+
+  const reader = response.body?.getReader();
+  if (!reader) throw new Error("无法读取响应流");
+
+  const decoder = new TextDecoder();
+  let buffer = "";
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n");
+      buffer = lines.pop() ?? "";
+
+      let currentEvent = "";
+      for (const line of lines) {
+        if (line.startsWith("event: ")) {
+          currentEvent = line.slice(7).trim();
+        } else if (line.startsWith("data: ")) {
+          const dataStr = line.slice(6);
+          try {
+            const data = JSON.parse(dataStr);
+            switch (currentEvent) {
+              case "status":
+                callbacks.onStatus(data);
+                break;
+              case "token":
+                callbacks.onToken(data.content);
+                break;
+              case "done":
+                callbacks.onDone(normalizeAgentConversationTurn(data));
+                break;
+              case "error":
+                callbacks.onError(data.message);
+                break;
+            }
+          } catch {
+            // skip malformed JSON
+          }
+          currentEvent = "";
+        }
+      }
+    }
+  } finally {
+    reader.releaseLock();
+  }
+}
+
 async function runAgentFlow(
   projectId: string,
   endpoint: string,

@@ -466,3 +466,33 @@ export type TeamMember = {
   capacity: number;
   risk?: boolean;
 };
+
+// --- SSE Streaming Events ---
+
+export type AgentStreamPhase = "planning" | "executing" | "generating" | "streaming" | "answering";
+
+export type AgentStreamStatusEvent = {
+  event: "status";
+  data: { phase: AgentStreamPhase; module?: string; message: string };
+};
+
+export type AgentStreamTokenEvent = {
+  event: "token";
+  data: { content: string };
+};
+
+export type AgentStreamDoneEvent = {
+  event: "done";
+  data: AgentConversationTurn;
+};
+
+export type AgentStreamErrorEvent = {
+  event: "error";
+  data: { message: string };
+};
+
+export type AgentStreamEvent =
+  | AgentStreamStatusEvent
+  | AgentStreamTokenEvent
+  | AgentStreamDoneEvent
+  | AgentStreamErrorEvent;
