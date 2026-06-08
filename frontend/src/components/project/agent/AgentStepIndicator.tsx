@@ -48,11 +48,14 @@ export function AgentStepIndicator({ status }: AgentStepIndicatorProps) {
       initial={{ opacity: 0, y: -4 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -4 }}
-      className="mb-3 rounded-lg border border-moss/20 bg-moss/5 p-3"
+      className="mb-3 rounded-md border border-neutral-200 bg-neutral-50 p-3"
     >
-      <div className="flex items-center gap-1.5 text-xs font-semibold text-moss">
-        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+      <div className="flex items-center gap-1.5 text-xs font-semibold text-neutral-600">
+        <Loader2 className="h-3.5 w-3.5 animate-spin text-neutral-500" />
         Agent 正在处理
+        {status.module && (
+          <span className="font-normal text-neutral-400">· {status.module}</span>
+        )}
       </div>
       <ul className="mt-2 space-y-1">
         <AnimatePresence>
@@ -64,9 +67,9 @@ export function AgentStepIndicator({ status }: AgentStepIndicatorProps) {
               className="flex items-center gap-1.5 text-xs"
             >
               {step.state === "done" ? (
-                <CheckCircle2 className="h-3 w-3 shrink-0 text-moss" />
+                <CheckCircle2 className="h-3 w-3 shrink-0 text-neutral-500" />
               ) : step.state === "active" ? (
-                <Loader2 className="h-3 w-3 shrink-0 animate-spin text-moss" />
+                <Loader2 className="h-3 w-3 shrink-0 animate-spin text-neutral-600" />
               ) : (
                 <Circle className="h-3 w-3 shrink-0 text-neutral-300" />
               )}

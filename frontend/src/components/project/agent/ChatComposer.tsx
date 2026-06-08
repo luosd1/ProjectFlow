@@ -53,15 +53,19 @@ export function ChatComposer({
         if (!trimmed || disabled) return;
         onSubmit(trimmed);
       }
+      if (e.key === "Escape" && value.length > 0) {
+        e.preventDefault();
+        onChange("");
+      }
     },
-    [value, disabled, onSubmit],
+    [value, disabled, onSubmit, onChange],
   );
 
   const nearLimit = value.length > maxLength * 0.9;
 
   return (
     <form onSubmit={handleSubmit}>
-      <div className="rounded-lg border border-neutral-200 bg-white p-2.5 transition-all duration-200 focus-within:border-moss/50 focus-within:shadow-sm focus-within:shadow-moss/10">
+      <div className="rounded-md border border-neutral-200 bg-white p-2.5 transition-all duration-200 focus-within:border-neutral-400">
         <textarea
           ref={textareaRef}
           value={value}
@@ -76,7 +80,7 @@ export function ChatComposer({
         />
         <div className="mt-2 flex items-center justify-between">
           <span className={cn("text-[10px] transition-colors", nearLimit ? "text-coral" : "text-neutral-300")}>
-            {nearLimit ? `${value.length}/${maxLength}` : ""}
+            {nearLimit ? `${value.length}/${maxLength}` : value.length === 0 ? "Enter 发送 · Shift+Enter 换行 · Esc 清空" : ""}
           </span>
           <div className="flex gap-1.5">
             {isStreaming && onStop ? (

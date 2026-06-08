@@ -32,10 +32,10 @@ export function MarkdownContent({ content, className }: MarkdownContentProps) {
         code: ({ children, className, ...props }) => {
           const isInline = !className;
           if (isInline) {
-            return <code className="rounded bg-neutral-100 px-1 py-0.5 text-[11px]" {...props}>{children}</code>;
+            return <code className="rounded bg-neutral-200/60 px-1 py-0.5 text-[11px]" {...props}>{children}</code>;
           }
           return (
-            <pre className="my-1 overflow-x-auto rounded bg-neutral-100 p-2">
+            <pre className="my-1 overflow-x-auto rounded-md bg-neutral-200/60 p-2">
               <code className="text-[11px]" {...props}>{children}</code>
             </pre>
           );

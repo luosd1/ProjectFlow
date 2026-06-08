@@ -21,6 +21,7 @@ import {
   Rocket,
   Sparkles,
   Users,
+  XCircle,
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -33,6 +34,8 @@ import {
   AgentStepIndicator,
   ChatComposer,
   StarterPrompts,
+  AgentGuidedTour,
+  useGuidedTour,
 } from "./agent";
 import type { AgentStreamStatus } from "./agent/AgentStepIndicator";
 import type { AgentAction } from "./project-actions";
@@ -50,16 +53,19 @@ const ALL_AGENT_ACTIONS: {
   label: string;
   icon: ElementType;
   description: string;
+  category: string;
 }[] = [
-  { id: "clarify", label: "方向澄清", icon: Compass, description: "明确项目目标和边界" },
-  { id: "plan", label: "阶段计划", icon: GitBranch, description: "生成阶段计划和时间线" },
-  { id: "breakdown", label: "任务拆解", icon: ListTodo, description: "将阶段拆解为具体任务" },
-  { id: "assign", label: "分工推荐", icon: Users, description: "根据技能推荐分工" },
-  { id: "push", label: "主动推进", icon: Rocket, description: "分析进度并推进项目" },
-  { id: "analyze-checkins", label: "签到分析", icon: ClipboardCheck, description: "分析团队签到状态" },
-  { id: "risk-analysis", label: "风险分析", icon: AlertTriangle, description: "识别潜在风险" },
-  { id: "replan", label: "计划调整", icon: RefreshCw, description: "根据现状调整计划" },
+  { id: "clarify", label: "方向澄清", icon: Compass, description: "明确项目目标和边界", category: "规划" },
+  { id: "plan", label: "阶段计划", icon: GitBranch, description: "生成阶段计划和时间线", category: "规划" },
+  { id: "breakdown", label: "任务拆解", icon: ListTodo, description: "将阶段拆解为具体任务", category: "规划" },
+  { id: "assign", label: "分工推荐", icon: Users, description: "根据技能推荐分工", category: "分工" },
+  { id: "push", label: "主动推进", icon: Rocket, description: "分析进度并推进项目", category: "执行" },
+  { id: "analyze-checkins", label: "签到分析", icon: ClipboardCheck, description: "分析团队签到状态", category: "执行" },
+  { id: "risk-analysis", label: "风险分析", icon: AlertTriangle, description: "识别潜在风险", category: "执行" },
+  { id: "replan", label: "计划调整", icon: RefreshCw, description: "根据现状调整计划", category: "执行" },
 ];
+
+const ACTION_CATEGORIES = ["规划", "分工", "执行"] as const;
 
 const EVENT_STATUS_LABELS: Record<AgentEvent["status"], string> = {
   success: "成功",
@@ -142,6 +148,8 @@ export function AgentSidebar({
   const [draft, setDraft] = useState("");
   const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set());
   const [confirmedIds, setConfirmedIds] = useState<Set<string>>(new Set());
+  const [actionLog, setActionLog] = useState<Array<{ id: string; artifactId: string; type: "confirmed" | "dismissed"; text: string }>>([]);
+  const { active: tourActive, complete: tourComplete } = useGuidedTour();
 
   const toggle = useCallback(() => setCollapsed((c) => !c), []);
 
@@ -149,6 +157,7 @@ export function AgentSidebar({
     const timeout = setTimeout(() => {
       setDismissedIds(new Set());
       setConfirmedIds(new Set());
+      setActionLog([]);
     }, 0);
     return () => clearTimeout(timeout);
   }, [selectedProjectId]);
@@ -205,6 +214,7 @@ export function AgentSidebar({
 
   const handleDismissArtifact = useCallback((artifact: AgentArtifact) => {
     setDismissedIds((prev) => new Set(prev).add(artifact.id));
+    setActionLog((prev) => [...prev, { id: `dismiss-${artifact.id}`, artifactId: artifact.id, type: "dismissed", text: `已忽略「${artifact.title}」` }]);
   }, []);
 
   const handleConfirmArtifact = useCallback(async (artifact: AgentArtifact) => {
@@ -212,7 +222,13 @@ export function AgentSidebar({
       await onConfirmArtifact(artifact);
     }
     setConfirmedIds((prev) => new Set(prev).add(artifact.id));
+    setActionLog((prev) => [...prev, { id: `confirm-${artifact.id}`, artifactId: artifact.id, type: "confirmed", text: `已确认「${artifact.title}」` }]);
   }, [onConfirmArtifact]);
+
+  const handleUndoDismiss = useCallback((entry: { id: string; artifactId: string }) => {
+    setActionLog((prev) => prev.filter((e) => e.id !== entry.id));
+    setDismissedIds((prev) => { const next = new Set(prev); next.delete(entry.artifactId); return next; });
+  }, []);
 
   useEffect(() => {
     if (confirmedIds.size === 0) return;
@@ -236,23 +252,25 @@ export function AgentSidebar({
 
   return (
     <motion.aside
+      data-tour-sidebar
       className={cn(
         "relative flex h-screen flex-col border-l border-neutral-200/70 bg-bg-sidebar transition-all duration-200 ease-out",
         isExpanded ? "w-[22rem]" : "w-12"
       )}
       initial={false}
     >
+      <AgentGuidedTour active={tourActive && isExpanded && hasProject} onComplete={tourComplete} />
       <button
         type="button"
         onClick={toggle}
-        className="absolute -left-3 top-4 z-10 flex h-6 w-6 items-center justify-center rounded-full border border-neutral-200 bg-white text-neutral-400 shadow-sm transition hover:text-neutral-600 focus:outline-none focus:ring-2 focus:ring-moss/30"
+        className="absolute -left-3 top-4 z-10 flex h-6 w-6 items-center justify-center rounded-full border border-neutral-200 bg-white text-neutral-400 shadow-sm transition hover:text-neutral-600 focus:outline-none focus:ring-2 focus:ring-neutral-300"
         aria-label={collapsed ? "展开侧边栏" : "收起侧边栏"}
       >
         {collapsed ? <ChevronLeft className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
       </button>
 
-      <div className="flex h-14 items-center gap-2 border-b border-neutral-100 px-3">
-        <Bot className="h-5 w-5 shrink-0 text-moss" />
+      <div className="flex h-14 items-center gap-2 border-b border-neutral-100 px-3" data-tour="header">
+        <Bot className="h-5 w-5 shrink-0 text-neutral-600" />
         <AnimatePresence>
           {isExpanded && (
             <motion.span
@@ -280,11 +298,11 @@ export function AgentSidebar({
             >
               {!hasProject && (
                 <div className="mb-4 space-y-4">
-                  <div className="rounded-lg border border-neutral-200 bg-white p-4 text-center">
-                    <Bot className="mx-auto mb-3 h-8 w-8 text-moss" />
+                  <div className="rounded-md border border-neutral-200 bg-white p-4 text-center">
+                    <Bot className="mx-auto mb-3 h-8 w-8 text-neutral-600" />
                     <p className="text-sm font-semibold text-neutral-800">Agent 助手</p>
                     <p className="mt-1 text-xs leading-5 text-neutral-500">
-                      选择或创建一个项目，Agent 会帮你澄清方向、拆解任务、推荐分工、跟踪风险
+                      选择或创建一个项目开始。Agent 会通过对话帮你推进，所有建议你确认后才会生效。
                     </p>
                     <button
                       type="button"
@@ -292,29 +310,29 @@ export function AgentSidebar({
                         const event = new CustomEvent("projectflow:create-project");
                         window.dispatchEvent(event);
                       }}
-                      className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-moss px-3 py-1.5 text-xs font-medium text-white shadow-sm shadow-moss/20 transition hover:bg-moss/90 active:shadow-none"
+                      className="mt-3 inline-flex items-center gap-1.5 rounded-md bg-moss px-3 py-1.5 text-xs font-medium text-white shadow-sm shadow-moss/20 transition hover:bg-moss/90 active:shadow-none"
                     >
                       <Rocket className="h-3.5 w-3.5" />
                       创建项目
                     </button>
                   </div>
-                  <div className="space-y-2">
-                    <div className="flex items-start gap-2.5 rounded-lg bg-neutral-50 p-2.5">
-                      <Compass className="mt-0.5 h-4 w-4 shrink-0 text-moss" />
+                  <div className="space-y-1.5">
+                    <div className="flex items-start gap-2.5 rounded-md bg-neutral-50 p-2.5">
+                      <Compass className="mt-0.5 h-4 w-4 shrink-0 text-neutral-500" />
                       <div>
                         <p className="text-xs font-medium text-neutral-700">方向澄清</p>
                         <p className="text-[11px] text-neutral-500">明确项目目标和边界</p>
                       </div>
                     </div>
-                    <div className="flex items-start gap-2.5 rounded-lg bg-neutral-50 p-2.5">
-                      <ListTodo className="mt-0.5 h-4 w-4 shrink-0 text-moss" />
+                    <div className="flex items-start gap-2.5 rounded-md bg-neutral-50 p-2.5">
+                      <ListTodo className="mt-0.5 h-4 w-4 shrink-0 text-neutral-500" />
                       <div>
                         <p className="text-xs font-medium text-neutral-700">任务拆解</p>
                         <p className="text-[11px] text-neutral-500">把阶段目标拆成可执行任务</p>
                       </div>
                     </div>
-                    <div className="flex items-start gap-2.5 rounded-lg bg-neutral-50 p-2.5">
-                      <Rocket className="mt-0.5 h-4 w-4 shrink-0 text-moss" />
+                    <div className="flex items-start gap-2.5 rounded-md bg-neutral-50 p-2.5">
+                      <Rocket className="mt-0.5 h-4 w-4 shrink-0 text-neutral-500" />
                       <div>
                         <p className="text-xs font-medium text-neutral-700">主动推进</p>
                         <p className="text-[11px] text-neutral-500">分析进度并建议下一步行动</p>
@@ -327,7 +345,9 @@ export function AgentSidebar({
               {hasProject && (
                 <div className="mb-4">
                   {/* Layer 1: Context & Priority Alerts */}
-                  <AgentContextCard focus={focus} pendingCount={pendingProposalCount} />
+                  <div data-tour="context">
+                    <AgentContextCard focus={focus} pendingCount={pendingProposalCount} />
+                  </div>
 
                   {/* Layer 2: Pending Artifacts (highest priority) */}
                   <AnimatePresence mode="popLayout">
@@ -352,11 +372,13 @@ export function AgentSidebar({
                     </div>
                     <div className="space-y-2">
                       {messages.length === 0 && !pendingConversationInstruction && (
-                        <StarterPrompts
-                          focus={focus}
-                          onSelect={(instruction) => void submitMessage(instruction)}
-                          disabled={Boolean(pendingConversation)}
-                        />
+                        <div data-tour="prompts">
+                          <StarterPrompts
+                            focus={focus}
+                            onSelect={(instruction) => void submitMessage(instruction)}
+                            disabled={Boolean(pendingConversation)}
+                          />
+                        </div>
                       )}
                       {messages.map((message, index) => (
                         <ChatMessage
@@ -368,6 +390,41 @@ export function AgentSidebar({
                           onAction={(instruction) => void submitMessage(instruction)}
                         />
                       ))}
+
+                      {/* Action log: inline confirm/dismiss records */}
+                      {actionLog.length > 0 && (
+                        <div className="space-y-1 rounded-md border border-neutral-100 bg-neutral-50/50 p-2">
+                          {actionLog.map((entry) => (
+                            <motion.div
+                              key={entry.id}
+                              initial={{ opacity: 0, y: 2 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              transition={{ duration: 0.12 }}
+                              className="flex items-center gap-1.5 text-[11px]"
+                            >
+                              <span
+                                className={cn(
+                                  "h-1.5 w-1.5 shrink-0 rounded-full",
+                                  entry.type === "confirmed" ? "bg-moss" : "bg-neutral-400",
+                                )}
+                              />
+                              <span className={entry.type === "confirmed" ? "text-moss" : "text-neutral-500"}>
+                                {entry.text}
+                              </span>
+                              {entry.type === "dismissed" && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleUndoDismiss(entry)}
+                                  className="ml-auto text-[10px] text-neutral-400 underline decoration-dotted underline-offset-2 hover:text-neutral-600"
+                                  title="恢复此建议"
+                                >
+                                  撤销
+                                </button>
+                              )}
+                            </motion.div>
+                          ))}
+                        </div>
+                      )}
 
                       {pendingConversationInstruction && !streamingBuffer && (
                         <ChatMessage
@@ -383,7 +440,7 @@ export function AgentSidebar({
                       )}
 
                       {streamingBuffer && (
-                        <div className="mr-0 rounded-lg border border-moss/20 bg-moss/5 p-3">
+                        <div className="mr-0 rounded-md border border-neutral-200 bg-neutral-50 p-3">
                           <div className="mb-1 text-[10px] font-semibold text-neutral-400">Agent</div>
                           <StreamingText buffer={streamingBuffer} />
                         </div>
@@ -407,7 +464,7 @@ export function AgentSidebar({
                       onPick={(instruction) => void submitMessage(instruction)}
                     />
 
-                    <div className="mt-3">
+                    <div className="mt-3" data-tour="composer">
                       <ChatComposer
                         value={draft}
                         onChange={setDraft}
@@ -426,7 +483,7 @@ export function AgentSidebar({
                 <motion.div
                   initial={{ opacity: 0, y: -8 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="mb-3 flex items-start gap-2 rounded-lg border border-moss/20 bg-moss/10 p-2.5 text-xs text-moss"
+                  className="mb-3 flex items-start gap-2 rounded-md border border-moss/20 bg-moss/10 p-2.5 text-xs text-moss"
                 >
                   <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0" />
                   <span>{actionSuccess}</span>
@@ -436,7 +493,7 @@ export function AgentSidebar({
                 <motion.div
                   initial={{ opacity: 0, y: -8 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="mb-3 flex items-start gap-2 rounded-lg border border-coral/20 bg-coral/10 p-2.5 text-xs text-coral"
+                  className="mb-3 flex items-start gap-2 rounded-md border border-coral/20 bg-coral/10 p-2.5 text-xs text-coral"
                 >
                   <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
                   <span>{actionError}</span>
@@ -449,7 +506,7 @@ export function AgentSidebar({
                   <button
                     type="button"
                     onClick={() => setActivityOpen((open) => !open)}
-                    className="flex w-full items-center justify-between rounded-lg px-2 py-2 text-xs font-semibold text-neutral-500 transition hover:bg-neutral-50 hover:text-neutral-700"
+                    className="flex w-full items-center justify-between rounded-md px-2 py-2 text-xs font-semibold text-neutral-500 transition hover:bg-neutral-50 hover:text-neutral-700"
                     aria-expanded={activityOpen}
                   >
                     <span className="flex items-center gap-1.5">
@@ -507,7 +564,7 @@ export function AgentSidebar({
                   <button
                     type="button"
                     onClick={() => setAdvancedOpen((open) => !open)}
-                    className="flex w-full items-center justify-between rounded-lg px-2 py-2 text-xs font-semibold text-neutral-500 transition hover:bg-neutral-50 hover:text-neutral-700"
+                    className="flex w-full items-center justify-between rounded-md px-2 py-2 text-xs font-semibold text-neutral-500 transition hover:bg-neutral-50 hover:text-neutral-700"
                     aria-expanded={advancedOpen}
                   >
                     <span className="flex items-center gap-1.5">
@@ -525,25 +582,36 @@ export function AgentSidebar({
                         transition={{ duration: 0.2 }}
                         className="overflow-hidden"
                       >
-                        <div className="mt-1 grid grid-cols-2 gap-1">
-                          {ALL_AGENT_ACTIONS.map((action) => {
-                            const isPending = pendingAction === action.id;
+                        <div className="mt-1 space-y-2">
+                          {ACTION_CATEGORIES.map((category) => {
+                            const actions = ALL_AGENT_ACTIONS.filter((a) => a.category === category);
                             return (
-                              <Button
-                                key={action.id}
-                                variant="ghost"
-                                size="sm"
-                                className="h-8 justify-start gap-1.5 px-2 text-xs text-neutral-600"
-                                disabled={Boolean(pendingAction)}
-                                onClick={() => onRunAgent(action.id)}
-                              >
-                                {isPending ? (
-                                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                                ) : (
-                                  <action.icon className="h-3.5 w-3.5" />
-                                )}
-                                {action.label}
-                              </Button>
+                              <div key={category}>
+                                <p className="mb-1 px-2 text-[10px] font-medium text-neutral-400">{category}</p>
+                                <div className="grid grid-cols-2 gap-1">
+                                  {actions.map((action) => {
+                                    const isPending = pendingAction === action.id;
+                                    return (
+                                      <Button
+                                        key={action.id}
+                                        variant="ghost"
+                                        size="sm"
+                                        className="h-8 justify-start gap-1.5 px-2 text-xs text-neutral-600"
+                                        disabled={Boolean(pendingAction)}
+                                        title={action.description}
+                                        onClick={() => onRunAgent(action.id)}
+                                      >
+                                        {isPending ? (
+                                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                        ) : (
+                                          <action.icon className="h-3.5 w-3.5" />
+                                        )}
+                                        {action.label}
+                                      </Button>
+                                    );
+                                  })}
+                                </div>
+                              </div>
                             );
                           })}
                         </div>
@@ -572,25 +640,7 @@ export function AgentSidebar({
         </AnimatePresence>
 
         {!isExpanded && hasProject && (
-          <div className="flex flex-col items-center gap-2 py-3">
-            <button
-              type="button"
-              onClick={toggle}
-              className="relative flex h-8 w-8 items-center justify-center rounded-lg text-moss transition hover:bg-moss/10 focus:outline-none focus:ring-2 focus:ring-moss/30"
-              title="打开 Agent 对话"
-              aria-label="打开 Agent 对话"
-            >
-              <MessageSquare className="h-4 w-4" />
-              {pendingProposalCount > 0 && (
-                <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-moss px-1 text-[9px] font-semibold text-white">
-                  {pendingProposalCount}
-                </span>
-              )}
-              {Boolean(streamingBuffer) && (
-                <span className="absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full bg-coral animate-pulse" aria-hidden="true" />
-              )}
-            </button>
-          </div>
+          <CollapsedSidebarIcons focus={focus} pendingCount={pendingProposalCount} isStreaming={Boolean(streamingBuffer)} onToggle={toggle} />
         )}
       </div>
     </motion.aside>
@@ -669,6 +719,56 @@ function getEventIcon(eventType: AgentEvent["event_type"]) {
     default:
       return Sparkles;
   }
+}
+
+const FOCUS_ICON_MAP: Record<string, ElementType> = {
+  方向澄清: Compass,
+  阶段计划: GitBranch,
+  任务拆解: ListTodo,
+  分工确认: Users,
+  执行推进: Rocket,
+};
+
+function CollapsedSidebarIcons({
+  focus,
+  pendingCount,
+  isStreaming,
+  onToggle,
+}: {
+  focus: string;
+  pendingCount: number;
+  isStreaming: boolean;
+  onToggle: () => void;
+}) {
+  const Icon = FOCUS_ICON_MAP[focus] ?? Compass;
+
+  return (
+    <div className="flex flex-col items-center gap-1.5 py-3">
+      {/* Current stage indicator */}
+      <div className="flex h-7 w-7 items-center justify-center rounded-md text-neutral-500" title={`当前阶段：${focus}`}>
+        <Icon className="h-3.5 w-3.5" />
+      </div>
+
+      {/* Main toggle button */}
+      <button
+        type="button"
+        onClick={onToggle}
+        className="relative flex h-8 w-8 items-center justify-center rounded-md text-neutral-600 transition hover:bg-neutral-100 focus:outline-none focus:ring-2 focus:ring-neutral-300"
+        title="打开 Agent 对话"
+        aria-label="打开 Agent 对话"
+      >
+        <MessageSquare className="h-4 w-4" />
+        {pendingCount > 0 && (
+          <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-moss px-1 text-[9px] font-semibold text-white">
+            {pendingCount}
+          </span>
+        )}
+        {isStreaming && (
+          <span className="absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full bg-coral animate-pulse" aria-hidden="true" />
+        )}
+      </button>
+    </div>
+  );
 }
 
 function getEventLabel(eventType: AgentEvent["event_type"]) {
