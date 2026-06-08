@@ -1,5 +1,6 @@
 "use client";
 
+import React from "react";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import type { AgentConversationMessage } from "@/lib/types";
@@ -27,7 +28,7 @@ function displayContent(message: AgentConversationMessage): string {
   return message.content.length > 50 ? message.content.slice(0, 50) + "…" : message.content;
 }
 
-export function ChatMessage({ message, isLast, onRetry, onAction, index = 0 }: ChatMessageProps) {
+export const ChatMessage = React.memo(function ChatMessage({ message, isLast, onRetry, onAction, index = 0 }: ChatMessageProps) {
   const isUser = message.role === "user";
 
   return (
@@ -64,4 +65,4 @@ export function ChatMessage({ message, isLast, onRetry, onAction, index = 0 }: C
       )}
     </motion.div>
   );
-}
+});

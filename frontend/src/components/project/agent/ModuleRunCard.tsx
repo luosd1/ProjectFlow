@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import React, { useState } from "react";
 import { motion } from "framer-motion";
 import { ChevronRight, Loader2, CheckCircle2, Cpu } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -23,7 +23,7 @@ const MODULE_LABELS: Record<string, string> = {
   replan: "计划调整",
 };
 
-export function ModuleRunCard({ module, status, message, elapsed }: ModuleRunCardProps) {
+export const ModuleRunCard = React.memo(function ModuleRunCard({ module, status, message, elapsed }: ModuleRunCardProps) {
   const [expanded, setExpanded] = useState(status === "running");
   const label = MODULE_LABELS[module] ?? module;
 
@@ -50,8 +50,8 @@ export function ModuleRunCard({ module, status, message, elapsed }: ModuleRunCar
       </button>
       {expanded && message && (
         <motion.div
-          initial={{ height: 0, opacity: 0 }}
-          animate={{ height: "auto", opacity: 1 }}
+          initial={{ maxHeight: 0, opacity: 0 }}
+          animate={{ maxHeight: 200, opacity: 1 }}
           className="border-t border-neutral-100 px-3 py-2 text-xs text-neutral-500"
         >
           {message}
@@ -59,4 +59,4 @@ export function ModuleRunCard({ module, status, message, elapsed }: ModuleRunCar
       )}
     </div>
   );
-}
+});

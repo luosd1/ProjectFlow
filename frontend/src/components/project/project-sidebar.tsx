@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
@@ -101,6 +101,7 @@ interface ProjectSidebarProps {
   onSelectProject?: (projectId: string) => void;
   onNavigateView?: (view: ProjectView) => void;
   workspaceState?: import("@/lib/types").WorkspaceState;
+  onRefresh?: () => void;
 }
 
 export function ProjectSidebar({
@@ -114,6 +115,7 @@ export function ProjectSidebar({
   onSelectProject,
   onNavigateView,
   workspaceState,
+  onRefresh,
 }: ProjectSidebarProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -152,6 +154,16 @@ export function ProjectSidebar({
   const otherProjects = state.projects?.filter((p) => p.id !== projectId) ?? [];
   const currentMembership = state.memberships?.find((m) => m.user_id === currentUserId);
   const isOwner = currentMembership?.role === "owner";
+
+  const badgeCounts = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const item of MENU_ITEMS) {
+      if (item.badge) {
+        map.set(item.id, item.badge(state, currentUserId));
+      }
+    }
+    return map;
+  }, [state, currentUserId]);
 
   return (
     <motion.aside
@@ -308,9 +320,9 @@ export function ProjectSidebar({
           <AnimatePresence>
             {workspaceExpanded && isExpanded && (
               <motion.div
-                initial={{ height: 0, opacity: 0 }}
-                animate={{ height: "auto", opacity: 1 }}
-                exit={{ height: 0, opacity: 0 }}
+                initial={{ maxHeight: 0, opacity: 0 }}
+                animate={{ maxHeight: 300, opacity: 1 }}
+                exit={{ maxHeight: 0, opacity: 0 }}
                 transition={{ duration: 0.2 }}
                 className="overflow-hidden"
               >
@@ -361,7 +373,7 @@ export function ProjectSidebar({
                 isActive={currentView === item.id && !showWorkspace}
                 isExpanded={isExpanded}
                 onClick={() => handleNavigate(item.id)}
-                badgeCount={item.badge?.(state, currentUserId)}
+                badgeCount={badgeCounts.get(item.id)}
                 disabled={showWorkspace}
               />
             )
@@ -384,7 +396,7 @@ export function ProjectSidebar({
                 isActive={currentView === item.id && !showWorkspace}
                 isExpanded={isExpanded}
                 onClick={() => handleNavigate(item.id)}
-                badgeCount={item.badge?.(state, currentUserId)}
+                badgeCount={badgeCounts.get(item.id)}
                 disabled={showWorkspace}
               />
             )
@@ -463,7 +475,7 @@ export function ProjectSidebar({
         members={state.members ?? []}
         memberships={state.memberships ?? []}
         profiles={state.member_profiles ?? []}
-        onMembersChanged={() => window.location.reload()}
+        onMembersChanged={onRefresh ?? (() => window.location.reload())}
       />
 
       {/* New Workspace Dialog */}

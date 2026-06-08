@@ -192,6 +192,23 @@ def _event_to_read(event: AgentEvent) -> AgentEventRead:
     )
 
 
+def _build_assignment_responses(session: Session, project_id: str) -> list:
+    """Pre-fetch proposal IDs then batch-query responses (avoids SQL subquery issues)."""
+    proposal_ids = [
+        p.id for p in session.exec(
+            select(AssignmentProposal).where(AssignmentProposal.project_id == project_id)
+        ).all()
+    ]
+    if not proposal_ids:
+        return []
+    return [
+        _from_attributes(AssignmentResponseRead, response)
+        for response in session.exec(
+            select(AssignmentResponse).where(AssignmentResponse.proposal_id.in_(proposal_ids))
+        ).all()
+    ]
+
+
 def _catch_up_stage_progress(session: Session, project_id: str) -> None:
     """Auto-advance any active/at_risk stage whose tasks are all done.
 
@@ -206,20 +223,22 @@ def _catch_up_stage_progress(session: Session, project_id: str) -> None:
             Stage.status.in_(["active", "at_risk"]),
         )
     ).all()
+    if not stuck_stages:
+        return
+
+    stuck_stage_ids = [s.id for s in stuck_stages]
+    all_tasks = session.exec(
+        select(Task).where(Task.stage_id.in_(stuck_stage_ids))
+    ).all()
+
+    tasks_by_stage: dict[str, list[Task]] = {}
+    for task in all_tasks:
+        tasks_by_stage.setdefault(task.stage_id, []).append(task)
 
     for stage in stuck_stages:
-        done_tasks = session.exec(
-            select(Task).where(
-                Task.stage_id == stage.id,
-                Task.status == "done",
-            )
-        ).all()
-        pending_tasks = session.exec(
-            select(Task).where(
-                Task.stage_id == stage.id,
-                Task.status != "done",
-            )
-        ).first()
+        stage_tasks = tasks_by_stage.get(stage.id, [])
+        done_tasks = [t for t in stage_tasks if t.status == "done"]
+        pending_tasks = [t for t in stage_tasks if t.status != "done"]
 
         if done_tasks and not pending_tasks:
             try_advance_stage(session, done_tasks[0].id)
@@ -296,16 +315,7 @@ def get_project_state(session: Session, project_id: str) -> ProjectStateRead | N
                 select(AssignmentProposal).where(AssignmentProposal.project_id == project_id)
             ).all()
         ],
-        assignment_responses=[
-            _from_attributes(AssignmentResponseRead, response)
-            for response in session.exec(
-                select(AssignmentResponse).where(
-                    AssignmentResponse.proposal_id.in_(
-                        select(AssignmentProposal.id).where(AssignmentProposal.project_id == project_id)
-                    )
-                )
-            ).all()
-        ],
+        assignment_responses=_build_assignment_responses(session, project_id),
         assignment_negotiations=[
             _from_attributes(AssignmentNegotiationRead, negotiation)
             for negotiation in session.exec(

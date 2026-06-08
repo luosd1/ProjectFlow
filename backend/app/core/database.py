@@ -13,6 +13,10 @@ _engine_kwargs = {}
 if settings.database_url.startswith("sqlite"):
     _engine_kwargs["json_serializer"] = json.dumps
     _engine_kwargs["json_deserializer"] = json.loads
+else:
+    _engine_kwargs["pool_size"] = 5
+    _engine_kwargs["max_overflow"] = 10
+    _engine_kwargs["pool_recycle"] = 3600
 
 engine = create_engine(settings.database_url, connect_args=connect_args, **_engine_kwargs)
 

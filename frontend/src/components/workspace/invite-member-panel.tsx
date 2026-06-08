@@ -185,9 +185,9 @@ export function InviteMemberPanel({ workspaceId }: InviteMemberPanelProps) {
               {invitations.map((inv) => (
                 <motion.div
                   key={inv.invitation_id}
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: "auto" }}
-                  exit={{ opacity: 0, height: 0 }}
+                  initial={{ opacity: 0, maxHeight: 0 }}
+                  animate={{ opacity: 1, maxHeight: 100 }}
+                  exit={{ opacity: 0, maxHeight: 0 }}
                   className="flex items-center justify-between gap-3 rounded-lg border bg-card p-3"
                 >
                   <div className="min-w-0 flex-1">

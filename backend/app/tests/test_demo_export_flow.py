@@ -54,7 +54,7 @@ def _create_review_fixture(client: TestClient):
             "workspace_id": workspace["id"],
             "name": "AI Study Planner",
             "idea": "Help students coordinate a course project demo.",
-            "deadline": "2026-06-07",
+            "deadline": "2026-07-15",
             "deliverables": "Demo and review summary",
             "created_by": owner["id"],
         },

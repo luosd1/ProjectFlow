@@ -1,6 +1,5 @@
 "use client";
 
-import { useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { motion } from "framer-motion";
 import {
@@ -94,6 +93,7 @@ interface ProjectContentProps {
   currentUserId?: string;
   pendingAction?: AgentAction | null;
   showWorkspace?: boolean;
+  currentView?: ProjectView;
   onShowWorkspace?: (show: boolean) => void;
   onNavigateView?: (view: ProjectView) => void;
   onRunAgent?: (action: AgentAction) => void;
@@ -139,9 +139,7 @@ interface ProjectContentProps {
 }
 
 export function ProjectContent(props: ProjectContentProps) {
-  const searchParams = useSearchParams();
-  const currentView =
-    (searchParams.get("view") as ProjectView) || "overview";
+  const currentView = props.currentView ?? "overview";
 
   if (props.showWorkspace) {
     return (

@@ -31,7 +31,7 @@ def _create_agent_fixture(client: TestClient):
             "workspace_id": workspace["id"],
             "name": "Agent Project",
             "idea": "Use agent proposals",
-            "deadline": "2026-06-07",
+            "deadline": "2026-07-15",
             "deliverables": "Demo",
             "created_by": owner["id"],
         },

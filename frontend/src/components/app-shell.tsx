@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useSyncExternalStore } from "react";
-import { motion } from "framer-motion";
 import { ChevronDown, GitBranch, Home, Layers3, LayoutDashboard, Menu, Sparkles, Users } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -255,12 +254,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     <div className={cn("bg-paper text-ink", isProjectDashboard ? "h-screen overflow-hidden" : "min-h-screen")}>
       {!isProjectDashboard && (
         <>
-          <motion.header
-            initial={{ opacity: 0, y: -8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, ease: [0.32, 0.72, 0, 1] }}
+          <header
             className={cn(
-              "top-0 z-40",
+              "top-0 z-40 animate-in fade-in slide-in-from-top-2 duration-500",
               isLandingPage
                 ? "fixed inset-x-0 border-b border-transparent px-4 pt-4"
                 : "sticky border-b border-neutral-200 bg-[#f8faf7]/90 backdrop-blur-md",
@@ -347,7 +343,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 <MobileNav pathname={pathname} workspaceId={workspaceId} isLandingPage={isLandingPage} />
               </div>
             </div>
-          </motion.header>
+          </header>
 
         </>
       )}

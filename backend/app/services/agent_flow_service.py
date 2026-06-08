@@ -1,6 +1,6 @@
 from collections.abc import Callable
 
-from sqlmodel import Session
+from sqlmodel import Session, select
 
 from app.agent.coordinator import CoordinatorAgent
 from app.agent.llm_client import LLMClient
@@ -44,8 +44,10 @@ def run_agent_flow(
     project_id: str | None = None,
     user_instruction: str | None = None,
     llm_client: LLMClient | None = None,
+    workspace_state: WorkspaceStateResponse | None = None,
 ) -> AgentFlowRead:
-    workspace_state = get_workspace_state(session, workspace_id, project_id=project_id)
+    if workspace_state is None:
+        workspace_state = get_workspace_state(session, workspace_id, project_id=project_id)
     if workspace_state is None:
         raise ValueError("Workspace not found")
 
@@ -93,12 +95,20 @@ def _persist_agent_output(
         )
 
     if isinstance(output, AssignmentRecommendationOutput):
+        task_ids = [a.task_id for a in output.assignments]
+        task_stage_map = {
+            t.id: t.stage_id
+            for t in session.exec(select(Task).where(Task.id.in_(task_ids))).all()
+        }
         for assignment in output.assignments:
+            stage_id = task_stage_map.get(assignment.task_id)
+            if not stage_id:
+                raise ValueError(f"No stage available for task {assignment.task_id}")
             proposal = create_assignment_proposal(
                 session,
                 AssignmentProposalCreate(
                     project_id=project_id,
-                    stage_id=_stage_id_for_task(session, assignment.task_id),
+                    stage_id=stage_id,
                     task_id=assignment.task_id,
                     recommended_owner_user_id=assignment.recommended_owner_user_id,
                     backup_owner_user_id=assignment.backup_owner_user_id,
@@ -192,13 +202,6 @@ def _persist_risks(session: Session, project_id: str, risks) -> list[str]:
         )
         created_ids.append(created.id)
     return created_ids
-
-
-def _stage_id_for_task(session: Session, task_id: str) -> str:
-    task = session.get(Task, task_id)
-    if task:
-        return task.stage_id
-    raise ValueError(f"No stage available for task {task_id}")
 
 
 def _create_agent_proposal(

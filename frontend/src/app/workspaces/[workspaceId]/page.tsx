@@ -122,6 +122,13 @@ export default function WorkspaceDashboardPage() {
     showWorkspaceRef.current = showWorkspace;
   }, [showWorkspace]);
 
+  // Abort streaming on unmount
+  useEffect(() => {
+    return () => {
+      abortRef.current?.abort();
+    };
+  }, []);
+
   const [pendingAction, setPendingAction] = useState<AgentAction | null>(null);
   const [pendingAgentConversation, setPendingAgentConversation] = useState(false);
   const [streamingBuffer, setStreamingBuffer] = useState("");
@@ -242,17 +249,27 @@ export default function WorkspaceDashboardPage() {
     router.replace(`/workspaces/${workspaceId}?${params.toString()}`, { scroll: false });
   }, [workspaceId, searchParams, router]);
 
-  const reloadProject = useCallback(async () => {
-    if (!selectedProjectId) return;
-    setActionError(null);
+  const reloadInProgressRef = useRef(false);
+
+  const reloadProject = useCallback(async (projectId?: string) => {
+    if (reloadInProgressRef.current) return;
+    reloadInProgressRef.current = true;
     try {
-      const nextState = await getProjectState(selectedProjectId);
-      setProjectState(nextState);
-      syncProjectShellState(nextState);
-      const conversation = await getAgentConversation(selectedProjectId);
-      setAgentConversation(conversation);
-    } catch {
-      setActionError("刷新项目数据失败，请重试");
+      const pid = projectId || selectedProjectId;
+      if (!pid) return;
+      const [ps, conv] = await Promise.all([
+        getProjectState(pid),
+        getAgentConversation(pid),
+      ]);
+      if (ps) {
+        setProjectState(ps);
+        syncProjectShellState(ps);
+      }
+      if (conv) setAgentConversation(conv);
+    } catch (err) {
+      console.error("reloadProject failed:", err);
+    } finally {
+      reloadInProgressRef.current = false;
     }
   }, [selectedProjectId]);
 
@@ -308,6 +325,7 @@ export default function WorkspaceDashboardPage() {
     setActionError(null);
     setActionSuccess(null);
 
+    // eslint-disable-next-line react-hooks/immutability -- abortRef assignment is a standard React pattern for managing abort controllers
     abortRef.current = new AbortController();
 
     try {
@@ -637,6 +655,7 @@ export default function WorkspaceDashboardPage() {
       onAddResource={handleAddResource}
       onDeleteResource={handleDeleteResource}
       onResetDemo={handleResetDemo}
+      onRefresh={() => reloadProject()}
     />
   );
 }

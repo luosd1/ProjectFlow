@@ -4,8 +4,8 @@ import time
 from collections.abc import Iterator
 from dataclasses import dataclass
 from typing import Any, Protocol
-from urllib import error as urllib_error
-from urllib import request
+
+import httpx
 
 from app.core.config import settings as app_settings
 
@@ -95,6 +95,20 @@ class MockLLMClient:
 
 
 # ---------------------------------------------------------------------------
+# httpx connection pool (module-level singleton)
+# ---------------------------------------------------------------------------
+
+_http_client: httpx.Client | None = None
+
+
+def _get_http_client() -> httpx.Client:
+    global _http_client
+    if _http_client is None or _http_client.is_closed:
+        _http_client = httpx.Client(timeout=None)  # per-request timeout set separately
+    return _http_client
+
+
+# ---------------------------------------------------------------------------
 # OpenAI-compatible client (real provider)
 # ---------------------------------------------------------------------------
 
@@ -113,40 +127,44 @@ class OpenAICompatibleLLMClient:
         self.timeout_seconds = timeout_seconds
 
     def complete(self, messages: list[dict[str, str]], *, max_tokens: int | None = None) -> str:
-        body = json.dumps(
-            {
-                "model": self.model,
-                "messages": messages,
-                "response_format": {"type": "json_object"},
-                "temperature": 0.05,
-                "max_tokens": max_tokens or 1800,
-            }
-        ).encode("utf-8")
-        req = request.Request(
-            f"{self.base_url}/chat/completions",
-            data=body,
-            method="POST",
-            headers={
-                "Authorization": f"Bearer {self.api_key}",
-                "Content-Type": "application/json",
-            },
-        )
+        body = {
+            "model": self.model,
+            "messages": messages,
+            "response_format": {"type": "json_object"},
+            "temperature": 0.05,
+            "max_tokens": max_tokens or 1800,
+        }
+        headers = {
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json",
+        }
+        client = _get_http_client()
         try:
-            with request.urlopen(req, timeout=self.timeout_seconds) as response:
-                raw_response = response.read().decode("utf-8")
-                logger.debug("LLM raw response (first 500 chars): %s", raw_response[:500])
-                payload: dict[str, Any] = json.loads(raw_response)
-        except urllib_error.HTTPError as exc:
-            self._raise_http_error(exc)
-        except urllib_error.URLError as exc:
-            self._raise_url_error(exc)
-        except TimeoutError:
+            response = client.post(
+                f"{self.base_url}/chat/completions",
+                json=body,
+                headers=headers,
+                timeout=self.timeout_seconds,
+            )
+            response.raise_for_status()
+            raw_response = response.text
+            logger.debug("LLM raw response (first 500 chars): %s", raw_response[:500])
+            payload: dict[str, Any] = json.loads(raw_response)
+        except httpx.TimeoutException as exc:
             raise LLMTimeoutError(
                 f"LLM request timed out after {self.timeout_seconds}s",
                 provider="openai-compatible",
                 detail=f"model={self.model} base_url={self.base_url}",
-            )
-        except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+            ) from exc
+        except httpx.ConnectError as exc:
+            raise LLMConnectionError(
+                f"Cannot reach LLM endpoint: {exc}",
+                provider="openai-compatible",
+                detail=f"Check LLM_BASE_URL and network. base_url={self.base_url}",
+            ) from exc
+        except httpx.HTTPStatusError as exc:
+            self._raise_http_error(exc)
+        except (json.JSONDecodeError, UnicodeDecodeError) as exc:
             raise LLMResponseError(
                 f"LLM response was not valid JSON: {exc}",
                 provider="openai-compatible",
@@ -165,28 +183,29 @@ class OpenAICompatibleLLMClient:
         return content
 
     def stream_complete(self, messages: list[dict[str, str]], *, max_tokens: int | None = None) -> Iterator[str]:
-        body = json.dumps(
-            {
-                "model": self.model,
-                "messages": messages,
-                "temperature": 0.05,
-                "max_tokens": max_tokens or 1800,
-                "stream": True,
-            }
-        ).encode("utf-8")
-        req = request.Request(
-            f"{self.base_url}/chat/completions",
-            data=body,
-            method="POST",
-            headers={
-                "Authorization": f"Bearer {self.api_key}",
-                "Content-Type": "application/json",
-            },
-        )
+        body = {
+            "model": self.model,
+            "messages": messages,
+            "temperature": 0.05,
+            "max_tokens": max_tokens or 1800,
+            "stream": True,
+        }
+        headers = {
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json",
+        }
+        client = _get_http_client()
         try:
-            with request.urlopen(req, timeout=self.timeout_seconds) as response:
-                for line in response:
-                    line = line.decode("utf-8").strip()
+            with client.stream(
+                "POST",
+                f"{self.base_url}/chat/completions",
+                json=body,
+                headers=headers,
+                timeout=self.timeout_seconds,
+            ) as response:
+                response.raise_for_status()
+                for line in response.iter_lines():
+                    line = line.strip()
                     if not line or not line.startswith("data: "):
                         continue
                     data = line[6:]
@@ -201,7 +220,7 @@ class OpenAICompatibleLLMClient:
                     except (json.JSONDecodeError, IndexError, KeyError):
                         logger.warning("Skipping malformed SSE chunk")
                         continue
-        except (urllib_error.HTTPError, urllib_error.URLError, TimeoutError) as exc:
+        except (httpx.TimeoutException, httpx.ConnectError, httpx.HTTPStatusError) as exc:
             logger.warning("Streaming failed, falling back to non-streaming: %s", exc)
             yield self.complete(messages, max_tokens=max_tokens)
 
@@ -209,9 +228,9 @@ class OpenAICompatibleLLMClient:
     # Error translation helpers
     # ------------------------------------------------------------------
 
-    def _raise_http_error(self, exc: urllib_error.HTTPError) -> None:
+    def _raise_http_error(self, exc: httpx.HTTPStatusError) -> None:
         """Translate HTTP status codes into specific LLM errors."""
-        status = exc.code
+        status = exc.response.status_code
         if status == 401:
             raise LLMAuthError(
                 "LLM API key was rejected (HTTP 401 Unauthorized)",
@@ -246,21 +265,6 @@ class OpenAICompatibleLLMClient:
             f"Unexpected HTTP {status} from LLM provider",
             provider="openai-compatible",
             detail="Provider returned an unexpected HTTP status.",
-        ) from exc
-
-    def _raise_url_error(self, exc: urllib_error.URLError) -> None:
-        """Translate URL errors (network / DNS) into LLMConnectionError."""
-        reason = exc.reason
-        if isinstance(reason, TimeoutError):
-            raise LLMTimeoutError(
-                f"LLM request timed out after {self.timeout_seconds}s",
-                provider="openai-compatible",
-                detail=f"model={self.model} base_url={self.base_url}",
-            ) from exc
-        raise LLMConnectionError(
-            f"Cannot reach LLM endpoint: {reason}",
-            provider="openai-compatible",
-            detail=f"Check LLM_BASE_URL and network. base_url={self.base_url}",
         ) from exc
 
 

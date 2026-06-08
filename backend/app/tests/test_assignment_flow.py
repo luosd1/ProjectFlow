@@ -24,7 +24,7 @@ def _create_assignment_fixture(client: TestClient):
             "workspace_id": workspace["id"],
             "name": "Assignment Project",
             "idea": "Coordinate task ownership",
-            "deadline": "2026-06-07",
+            "deadline": "2026-07-15",
             "deliverables": "Backend flow",
             "created_by": owner["id"],
         },

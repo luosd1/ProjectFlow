@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session
 
 from app.core.database import get_session
+from app.core.db_utils import require_user
 from app.schemas.assignment import (
     AssignmentNegotiationCreate,
     AssignmentNegotiationFromProposalCreate,
@@ -86,6 +87,7 @@ def api_create_assignment_response(
     data: AssignmentResponseCreate,
     session: Session = Depends(get_session),
 ):
+    require_user(session, data.user_id)
     try:
         return create_assignment_response(session, proposal_id, data)
     except ValueError as exc:

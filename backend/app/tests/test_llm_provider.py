@@ -9,8 +9,8 @@ Covers:
 
 import json
 from unittest.mock import MagicMock, patch
-from urllib import error as urllib_error
 
+import httpx
 import pytest
 from pydantic import SecretStr, ValidationError
 
@@ -124,130 +124,142 @@ class TestOpenAICompatibleClientErrors:
             timeout_seconds=5.0,
         )
 
+    def _mock_httpx_response(self, status_code: int) -> MagicMock:
+        mock_resp = MagicMock(spec=httpx.Response)
+        mock_resp.status_code = status_code
+        mock_resp.text = '{"error":"test"}'
+        return mock_resp
+
     def test_http_401_raises_auth_error(self):
         client = self._make_client()
-        mock_response = MagicMock()
-        mock_response.code = 401
-        mock_response.read.return_value = b'{"error":"invalid api key"}'
+        mock_resp = self._mock_httpx_response(401)
+        httpx_error = httpx.HTTPStatusError("401", request=MagicMock(), response=mock_resp)
 
-        with patch("app.agent.llm_client.request.urlopen", side_effect=urllib_error.HTTPError(
-            url="", code=401, msg="Unauthorized", hdrs=None, fp=mock_response
-        )):
+        with patch("app.agent.llm_client._get_http_client") as mock_get:
+            mock_http = MagicMock()
+            mock_get.return_value = mock_http
+            mock_http.post.side_effect = httpx_error
             with pytest.raises(LLMAuthError) as exc_info:
                 client.complete([{"role": "user", "content": "test"}])
             assert "401" in str(exc_info.value)
 
     def test_http_403_raises_auth_error(self):
         client = self._make_client()
-        mock_response = MagicMock()
-        mock_response.code = 403
-        mock_response.read.return_value = b'{"error":"forbidden"}'
+        mock_resp = self._mock_httpx_response(403)
+        httpx_error = httpx.HTTPStatusError("403", request=MagicMock(), response=mock_resp)
 
-        with patch("app.agent.llm_client.request.urlopen", side_effect=urllib_error.HTTPError(
-            url="", code=403, msg="Forbidden", hdrs=None, fp=mock_response
-        )):
+        with patch("app.agent.llm_client._get_http_client") as mock_get:
+            mock_http = MagicMock()
+            mock_get.return_value = mock_http
+            mock_http.post.side_effect = httpx_error
             with pytest.raises(LLMAuthError) as exc_info:
                 client.complete([{"role": "user", "content": "test"}])
             assert "403" in str(exc_info.value)
 
     def test_http_404_raises_config_error(self):
         client = self._make_client()
-        mock_response = MagicMock()
-        mock_response.code = 404
-        mock_response.read.return_value = b'{"error":"model not found"}'
+        mock_resp = self._mock_httpx_response(404)
+        httpx_error = httpx.HTTPStatusError("404", request=MagicMock(), response=mock_resp)
 
-        with patch("app.agent.llm_client.request.urlopen", side_effect=urllib_error.HTTPError(
-            url="", code=404, msg="Not Found", hdrs=None, fp=mock_response
-        )):
+        with patch("app.agent.llm_client._get_http_client") as mock_get:
+            mock_http = MagicMock()
+            mock_get.return_value = mock_http
+            mock_http.post.side_effect = httpx_error
             with pytest.raises(LLMConfigurationError) as exc_info:
                 client.complete([{"role": "user", "content": "test"}])
             assert "404" in str(exc_info.value)
 
     def test_http_429_raises_llm_error(self):
         client = self._make_client()
-        mock_response = MagicMock()
-        mock_response.code = 429
-        mock_response.read.return_value = b'{"error":"rate limit"}'
+        mock_resp = self._mock_httpx_response(429)
+        httpx_error = httpx.HTTPStatusError("429", request=MagicMock(), response=mock_resp)
 
-        with patch("app.agent.llm_client.request.urlopen", side_effect=urllib_error.HTTPError(
-            url="", code=429, msg="Too Many Requests", hdrs=None, fp=mock_response
-        )):
+        with patch("app.agent.llm_client._get_http_client") as mock_get:
+            mock_http = MagicMock()
+            mock_get.return_value = mock_http
+            mock_http.post.side_effect = httpx_error
             with pytest.raises(LLMError) as exc_info:
                 client.complete([{"role": "user", "content": "test"}])
             assert "429" in str(exc_info.value)
 
     def test_http_500_raises_connection_error(self):
         client = self._make_client()
-        mock_response = MagicMock()
-        mock_response.code = 500
-        mock_response.read.return_value = b'{"error":"internal server error"}'
+        mock_resp = self._mock_httpx_response(500)
+        httpx_error = httpx.HTTPStatusError("500", request=MagicMock(), response=mock_resp)
 
-        with patch("app.agent.llm_client.request.urlopen", side_effect=urllib_error.HTTPError(
-            url="", code=500, msg="Internal Server Error", hdrs=None, fp=mock_response
-        )):
+        with patch("app.agent.llm_client._get_http_client") as mock_get:
+            mock_http = MagicMock()
+            mock_get.return_value = mock_http
+            mock_http.post.side_effect = httpx_error
             with pytest.raises(LLMConnectionError) as exc_info:
                 client.complete([{"role": "user", "content": "test"}])
             assert "500" in str(exc_info.value)
 
-    def test_url_error_raises_connection_error(self):
+    def test_connect_error_raises_connection_error(self):
         client = self._make_client()
-        with patch("app.agent.llm_client.request.urlopen", side_effect=urllib_error.URLError(
-            reason="Connection refused"
-        )):
+
+        with patch("app.agent.llm_client._get_http_client") as mock_get:
+            mock_http = MagicMock()
+            mock_get.return_value = mock_http
+            mock_http.post.side_effect = httpx.ConnectError("Connection refused")
             with pytest.raises(LLMConnectionError) as exc_info:
                 client.complete([{"role": "user", "content": "test"}])
             assert "Cannot reach" in str(exc_info.value)
 
     def test_timeout_error_raises_timeout_error(self):
         client = self._make_client()
-        with patch("app.agent.llm_client.request.urlopen", side_effect=TimeoutError()):
-            with pytest.raises(LLMTimeoutError) as exc_info:
-                client.complete([{"role": "user", "content": "test"}])
-            assert "timed out" in str(exc_info.value)
 
-    def test_url_timeout_raises_timeout_error(self):
-        client = self._make_client()
-        with patch("app.agent.llm_client.request.urlopen", side_effect=urllib_error.URLError(
-            reason=TimeoutError()
-        )):
+        with patch("app.agent.llm_client._get_http_client") as mock_get:
+            mock_http = MagicMock()
+            mock_get.return_value = mock_http
+            mock_http.post.side_effect = httpx.TimeoutException("timed out")
             with pytest.raises(LLMTimeoutError) as exc_info:
                 client.complete([{"role": "user", "content": "test"}])
             assert "timed out" in str(exc_info.value)
 
     def test_malformed_response_raises_response_error(self):
         client = self._make_client()
-        mock_response = MagicMock()
-        mock_response.__enter__ = MagicMock(return_value=mock_response)
-        mock_response.__exit__ = MagicMock(return_value=False)
-        mock_response.read.return_value = b'{"not_choices": true}'
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.text = '{"not_choices": true}'
+        mock_resp.raise_for_status = MagicMock()
 
-        with patch("app.agent.llm_client.request.urlopen", return_value=mock_response):
+        with patch("app.agent.llm_client._get_http_client") as mock_get:
+            mock_http = MagicMock()
+            mock_get.return_value = mock_http
+            mock_http.post.return_value = mock_resp
             with pytest.raises(LLMResponseError) as exc_info:
                 client.complete([{"role": "user", "content": "test"}])
             assert "missing expected structure" in str(exc_info.value)
 
     def test_non_json_provider_response_raises_response_error(self):
         client = self._make_client()
-        mock_response = MagicMock()
-        mock_response.__enter__ = MagicMock(return_value=mock_response)
-        mock_response.__exit__ = MagicMock(return_value=False)
-        mock_response.read.return_value = b"not json"
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.text = "not json"
+        mock_resp.raise_for_status = MagicMock()
 
-        with patch("app.agent.llm_client.request.urlopen", return_value=mock_response):
+        with patch("app.agent.llm_client._get_http_client") as mock_get:
+            mock_http = MagicMock()
+            mock_get.return_value = mock_http
+            mock_http.post.return_value = mock_resp
             with pytest.raises(LLMResponseError) as exc_info:
                 client.complete([{"role": "user", "content": "test"}])
             assert "not valid JSON" in str(exc_info.value)
 
     def test_successful_response(self):
         client = self._make_client()
-        mock_response = MagicMock()
-        mock_response.__enter__ = MagicMock(return_value=mock_response)
-        mock_response.__exit__ = MagicMock(return_value=False)
-        mock_response.read.return_value = json.dumps({
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.text = json.dumps({
             "choices": [{"message": {"content": '{"result": "ok"}'}}]
-        }).encode("utf-8")
+        })
+        mock_resp.raise_for_status = MagicMock()
 
-        with patch("app.agent.llm_client.request.urlopen", return_value=mock_response):
+        with patch("app.agent.llm_client._get_http_client") as mock_get:
+            mock_http = MagicMock()
+            mock_get.return_value = mock_http
+            mock_http.post.return_value = mock_resp
             result = client.complete([{"role": "user", "content": "test"}])
             assert result == '{"result": "ok"}'
 
@@ -290,13 +302,14 @@ class TestLLMDiagnostic:
     def test_real_provider_auth_failure(self, monkeypatch):
         """Simulate a 401 from the provider."""
         monkeypatch.setattr(app_settings, "llm_api_key", SecretStr("sk-bad-key"))
-        mock_response = MagicMock()
-        mock_response.code = 401
-        mock_response.read.return_value = b'{"error":"unauthorized"}'
+        mock_resp = MagicMock()
+        mock_resp.status_code = 401
+        httpx_error = httpx.HTTPStatusError("401", request=MagicMock(), response=mock_resp)
 
-        with patch("app.agent.llm_client.request.urlopen", side_effect=urllib_error.HTTPError(
-            url="", code=401, msg="Unauthorized", hdrs=None, fp=mock_response
-        )):
+        with patch("app.agent.llm_client._get_http_client") as mock_get:
+            mock_http = MagicMock()
+            mock_get.return_value = mock_http
+            mock_http.post.side_effect = httpx_error
             req = LLMDiagnosticRequest(provider="openai")
             result = run_diagnostic(req)
             assert result.status == "error"
@@ -304,7 +317,10 @@ class TestLLMDiagnostic:
 
     def test_real_provider_timeout(self, monkeypatch):
         monkeypatch.setattr(app_settings, "llm_api_key", SecretStr("sk-test"))
-        with patch("app.agent.llm_client.request.urlopen", side_effect=TimeoutError()):
+        with patch("app.agent.llm_client._get_http_client") as mock_get:
+            mock_http = MagicMock()
+            mock_get.return_value = mock_http
+            mock_http.post.side_effect = httpx.TimeoutException("timed out")
             req = LLMDiagnosticRequest(provider="openai", timeout_seconds=1.0)
             result = run_diagnostic(req)
             assert result.status == "error"
@@ -312,9 +328,10 @@ class TestLLMDiagnostic:
 
     def test_real_provider_connection_failure(self, monkeypatch):
         monkeypatch.setattr(app_settings, "llm_api_key", SecretStr("sk-test"))
-        with patch("app.agent.llm_client.request.urlopen", side_effect=urllib_error.URLError(
-            reason="Connection refused"
-        )):
+        with patch("app.agent.llm_client._get_http_client") as mock_get:
+            mock_http = MagicMock()
+            mock_get.return_value = mock_http
+            mock_http.post.side_effect = httpx.ConnectError("Connection refused")
             req = LLMDiagnosticRequest(provider="openai")
             result = run_diagnostic(req)
             assert result.status == "error"
@@ -322,14 +339,17 @@ class TestLLMDiagnostic:
 
     def test_real_provider_success(self, monkeypatch):
         monkeypatch.setattr(app_settings, "llm_api_key", SecretStr("sk-test"))
-        mock_response = MagicMock()
-        mock_response.__enter__ = MagicMock(return_value=mock_response)
-        mock_response.__exit__ = MagicMock(return_value=False)
-        mock_response.read.return_value = json.dumps({
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.text = json.dumps({
             "choices": [{"message": {"content": "ok"}}]
-        }).encode("utf-8")
+        })
+        mock_resp.raise_for_status = MagicMock()
 
-        with patch("app.agent.llm_client.request.urlopen", return_value=mock_response):
+        with patch("app.agent.llm_client._get_http_client") as mock_get:
+            mock_http = MagicMock()
+            mock_get.return_value = mock_http
+            mock_http.post.return_value = mock_resp
             req = LLMDiagnosticRequest(provider="openai")
             result = run_diagnostic(req)
             assert result.status == "ok"
@@ -338,18 +358,21 @@ class TestLLMDiagnostic:
     def test_real_provider_diagnostic_prompt_matches_json_mode(self, monkeypatch):
         monkeypatch.setattr(app_settings, "llm_api_key", SecretStr("sk-test"))
         captured = {}
-        mock_response = MagicMock()
-        mock_response.__enter__ = MagicMock(return_value=mock_response)
-        mock_response.__exit__ = MagicMock(return_value=False)
-        mock_response.read.return_value = json.dumps({
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.text = json.dumps({
             "choices": [{"message": {"content": '{"status":"ok"}'}}]
-        }).encode("utf-8")
+        })
+        mock_resp.raise_for_status = MagicMock()
 
-        def fake_urlopen(req, timeout):
-            captured["body"] = json.loads(req.data.decode("utf-8"))
-            return mock_response
+        def fake_post(url, *, json, headers, timeout):
+            captured["body"] = json
+            return mock_resp
 
-        with patch("app.agent.llm_client.request.urlopen", side_effect=fake_urlopen):
+        with patch("app.agent.llm_client._get_http_client") as mock_get:
+            mock_http = MagicMock()
+            mock_get.return_value = mock_http
+            mock_http.post.side_effect = fake_post
             req = LLMDiagnosticRequest(provider="openai")
             result = run_diagnostic(req)
 
@@ -381,16 +404,19 @@ class TestAPIKeyMasking:
 
     def test_diagnostic_response_never_contains_key_value(self, monkeypatch):
         """Even after a real diagnostic run, the response text must not contain the key."""
-        mock_response = MagicMock()
-        mock_response.__enter__ = MagicMock(return_value=mock_response)
-        mock_response.__exit__ = MagicMock(return_value=False)
-        mock_response.read.return_value = json.dumps({
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.text = json.dumps({
             "choices": [{"message": {"content": "ok"}}]
-        }).encode("utf-8")
+        })
+        mock_resp.raise_for_status = MagicMock()
 
         secret_key = "sk-super-secret-key-12345"
         monkeypatch.setattr(app_settings, "llm_api_key", SecretStr(secret_key))
-        with patch("app.agent.llm_client.request.urlopen", return_value=mock_response):
+        with patch("app.agent.llm_client._get_http_client") as mock_get:
+            mock_http = MagicMock()
+            mock_get.return_value = mock_http
+            mock_http.post.return_value = mock_resp
             req = LLMDiagnosticRequest(provider="openai")
             result = run_diagnostic(req)
             # Serialize the response to JSON — the key must not appear
@@ -401,13 +427,14 @@ class TestAPIKeyMasking:
         """Provider error bodies can be arbitrary; do not echo them into API responses."""
         secret_key = "sk-super-secret-key-12345"
         monkeypatch.setattr(app_settings, "llm_api_key", SecretStr(secret_key))
-        mock_response = MagicMock()
-        mock_response.code = 401
-        mock_response.read.return_value = f'{{"error":"bad key {secret_key}"}}'.encode("utf-8")
+        mock_resp = MagicMock()
+        mock_resp.status_code = 401
+        httpx_error = httpx.HTTPStatusError("401", request=MagicMock(), response=mock_resp)
 
-        with patch("app.agent.llm_client.request.urlopen", side_effect=urllib_error.HTTPError(
-            url="", code=401, msg="Unauthorized", hdrs=None, fp=mock_response
-        )):
+        with patch("app.agent.llm_client._get_http_client") as mock_get:
+            mock_http = MagicMock()
+            mock_get.return_value = mock_http
+            mock_http.post.side_effect = httpx_error
             req = LLMDiagnosticRequest(provider="openai")
             result = run_diagnostic(req)
 

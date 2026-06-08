@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session
 
 from app.core.database import get_session
+from app.core.db_utils import require_user
 from app.schemas.checkin import (
     CheckInCycleCreate,
     CheckInCycleRead,
@@ -47,6 +48,7 @@ def api_create_checkin_response(
     data: CheckInResponseCreate,
     session: Session = Depends(get_session),
 ):
+    require_user(session, data.user_id)
     try:
         return create_checkin_response(session, cycle_id, data)
     except ValueError as exc:

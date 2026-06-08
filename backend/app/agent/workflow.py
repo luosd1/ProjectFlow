@@ -297,7 +297,14 @@ def _log_agent_event(
         "event_type": event_type.value,
         "user_prompt": user_prompt,
         "user_instruction": user_instruction or "",
-        "workspace_state": workspace_state.model_dump(mode="json"),
+        "workspace_summary": {
+            "workspace_id": workspace_state.workspace_id,
+            "project_id": workspace_state.project.id if workspace_state.project else None,
+            "project_name": workspace_state.project.name if workspace_state.project else None,
+            "member_count": len(workspace_state.members),
+            "stage_count": len(workspace_state.project.stages) if workspace_state.project else 0,
+            "task_count": len(workspace_state.project.tasks) if workspace_state.project else 0,
+        },
     }
     if provider_error is not None:
         input_snapshot["provider_error"] = {
@@ -337,7 +344,14 @@ def _log_failed_agent_event(
             "event_type": event_type.value,
             "user_prompt": user_prompt,
             "user_instruction": user_instruction or "",
-            "workspace_state": workspace_state.model_dump(mode="json"),
+            "workspace_summary": {
+                "workspace_id": workspace_state.workspace_id,
+                "project_id": workspace_state.project.id if workspace_state.project else None,
+                "project_name": workspace_state.project.name if workspace_state.project else None,
+                "member_count": len(workspace_state.members),
+                "stage_count": len(workspace_state.project.stages) if workspace_state.project else 0,
+                "task_count": len(workspace_state.project.tasks) if workspace_state.project else 0,
+            },
         }, ensure_ascii=False),
         output_snapshot=json.dumps({"error": str(error)}, ensure_ascii=False),
         reasoning_summary=str(error),

@@ -12,6 +12,7 @@ from sqlmodel import Session, desc, select
 logger = logging.getLogger(__name__)
 
 from app.agent.llm_client import LLMClient, build_agent_llm_client
+from app.agent.prompts import _compact_workspace_state_json
 from app.models import AgentEvent, AgentProposal, Project
 from app.models.agent_conversation import AgentConversation, AgentMessage, AgentRun
 from app.models.enums import AgentEventType
@@ -26,6 +27,7 @@ from app.schemas.agent_conversation import (
 )
 from app.services.agent_flow_service import run_agent_flow
 from app.services.workspace_state_service import get_workspace_state
+from app.schemas.workspace_state import WorkspaceStateResponse
 
 
 MODULE_EVENT_TYPE: dict[str, AgentEventType] = {
@@ -169,6 +171,7 @@ def process_conversation_message(
             conversation.project_id,
             turn_plan,
             llm,
+            workspace_state=workspace_state,
         )
         event_type = MODULE_EVENT_TYPE[turn_plan.selected_module]
         linked_event_id = _latest_agent_event_id(
@@ -308,6 +311,7 @@ def process_conversation_message_stream(
                 conversation.project_id,
                 turn_plan,
                 llm,
+                workspace_state=workspace_state,
             )
             event_type = MODULE_EVENT_TYPE[module]
             linked_event_id = _latest_agent_event_id(
@@ -429,7 +433,7 @@ def _plan_turn(
             "content": (
                 f"<conversation id=\"{conversation.id}\" project_id=\"{conversation.project_id}\" />\n"
                 f"<recent_messages>\n{_messages_json(recent_messages)}\n</recent_messages>\n\n"
-                f"<workspace_state>\n{workspace_state.model_dump_json()}\n</workspace_state>\n\n"
+                f"<workspace_state>\n{escape(_compact_workspace_state_json(AgentEventType.plan, workspace_state))}\n</workspace_state>\n\n"
                 "<allowed_modules>clarify, plan, breakdown, assign, push, checkin, risk, replan</allowed_modules>\n"
                 f"<user_message>\n{escape(content, quote=False)}\n</user_message>"
             ),
@@ -644,6 +648,7 @@ def _run_selected_module(
     project_id: str,
     turn_plan: AgentTurnPlan,
     llm_client: LLMClient,
+    workspace_state: WorkspaceStateResponse | None = None,
 ):
     module = turn_plan.selected_module
     instruction = turn_plan.user_instruction
@@ -696,6 +701,7 @@ def _run_selected_module(
         project_id=project_id,
         user_instruction=instruction,
         llm_client=llm_client,
+        workspace_state=workspace_state,
     )
 
 
@@ -722,6 +728,7 @@ def _conversation_to_read(session: Session, conversation: AgentConversation) -> 
         select(AgentMessage)
         .where(AgentMessage.conversation_id == conversation.id)
         .order_by(AgentMessage.created_at)
+        .limit(200)
     ).all()
     return AgentConversationRead(
         id=conversation.id,

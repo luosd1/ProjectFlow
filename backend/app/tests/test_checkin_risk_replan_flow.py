@@ -19,7 +19,7 @@ def _create_execution_fixture(client: TestClient):
             "workspace_id": workspace["id"],
             "name": "Execution Project",
             "idea": "Keep execution moving",
-            "deadline": "2026-06-07",
+            "deadline": "2026-07-15",
             "deliverables": "Demo",
             "created_by": owner["id"],
         },

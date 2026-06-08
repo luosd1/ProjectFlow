@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { AgentConversationTurn, AgentStreamPhase } from "@/lib/types";
 import { sendAgentConversationMessageStream } from "@/lib/api";
 
@@ -21,6 +21,11 @@ export function useAgentStream({ onDone, onError }: UseAgentStreamOptions) {
   const [isStreaming, setIsStreaming] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
+  const onDoneRef = useRef(onDone);
+  const onErrorRef = useRef(onError);
+  useEffect(() => { onDoneRef.current = onDone; }, [onDone]);
+  useEffect(() => { onErrorRef.current = onError; }, [onError]);
+
   const sendMessage = useCallback(
     async (conversationId: string, content: string) => {
       abortRef.current = new AbortController();
@@ -39,12 +44,12 @@ export function useAgentStream({ onDone, onError }: UseAgentStreamOptions) {
             onDone: (turn) => {
               setStreamingBuffer("");
               setStreamStatus(null);
-              onDone(turn);
+              onDoneRef.current(turn);
             },
             onError: (msg) => {
               setStreamingBuffer("");
               setStreamStatus(null);
-              onError(msg);
+              onErrorRef.current(msg);
             },
           },
           abortRef.current.signal,
@@ -56,14 +61,14 @@ export function useAgentStream({ onDone, onError }: UseAgentStreamOptions) {
         } else {
           setStreamingBuffer("");
           setStreamStatus(null);
-          onError(err instanceof Error ? err.message : "连接中断");
+          onErrorRef.current(err instanceof Error ? err.message : "连接中断");
         }
       } finally {
         setIsStreaming(false);
         abortRef.current = null;
       }
     },
-    [onDone, onError],
+    [],
   );
 
   const stop = useCallback(() => {

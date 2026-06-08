@@ -1,7 +1,7 @@
 "use client";
 
 import type { ElementType } from "react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   AlertTriangle,
@@ -177,40 +177,51 @@ export function AgentSidebar({
   const recentEvents = (state.timeline ?? []).slice(0, 5);
   const pendingProposalCount = state.agent_proposals?.filter((proposal) => proposal.status === "pending").length ?? 0;
   const focus = conversation?.current_focus || inferFocus(state);
-  const messages = conversation?.messages ?? [];
+  const messages = useMemo(() => conversation?.messages ?? [], [conversation]);
   const normalizedSuggestions = normalizeSuggestions(conversationSuggestions);
   const suggestions = normalizedSuggestions.length > 0 ? normalizedSuggestions : inferStructuredSuggestions(focus);
 
-  const payloadArtifacts = messages.flatMap((message) => {
-    const artifacts = message.structured_payload?.artifacts;
-    return Array.isArray(artifacts) ? artifacts.filter(isValidArtifact) : [];
-  });
-  const mergedArtifacts = Array.from(
-    new Map([...payloadArtifacts, ...conversationArtifacts].map((artifact) => [artifact.id, artifact])).values()
+  const payloadArtifacts = useMemo(
+    () => messages.flatMap((message) => {
+      const artifacts = message.structured_payload?.artifacts;
+      return Array.isArray(artifacts) ? artifacts.filter(isValidArtifact) : [];
+    }),
+    [messages],
+  );
+  const mergedArtifacts = useMemo(
+    () => Array.from(
+      new Map([...payloadArtifacts, ...conversationArtifacts].map((artifact) => [artifact.id, artifact])).values(),
+    ),
+    [payloadArtifacts, conversationArtifacts],
   );
 
-  const proposalStatusLookup = new Map(
-    (state.agent_proposals ?? []).map((p) => [p.id, p.status]),
+  const proposalStatusLookup = useMemo(
+    () => new Map((state.agent_proposals ?? []).map((p) => [p.id, p.status])),
+    [state.agent_proposals],
   );
 
-  const PROPOSAL_STATUS_TO_ARTIFACT: Record<string, AgentArtifact["status"] | undefined> = {
-    pending: "pending_confirmation",
-    confirmed: "confirmed",
-    rejected: "dismissed",
-  };
-
-  const visibleArtifacts = mergedArtifacts
-    .map((artifact) => {
-      if (artifact.type !== "proposal") return artifact;
-      const proposalId = artifact.linked_entity_ids[0];
-      if (!proposalId) return artifact;
-      const proposalStatus = proposalStatusLookup.get(proposalId);
-      if (!proposalStatus) return artifact;
-      const mapped = PROPOSAL_STATUS_TO_ARTIFACT[proposalStatus];
-      if (!mapped || mapped === artifact.status) return artifact;
-      return { ...artifact, status: mapped };
-    })
-    .filter((artifact) => !dismissedIds.has(artifact.id) && artifact.status !== "confirmed" && artifact.status !== "dismissed");
+  const visibleArtifacts = useMemo(
+    () => {
+      const PROPOSAL_STATUS_TO_ARTIFACT: Record<string, AgentArtifact["status"] | undefined> = {
+        pending: "pending_confirmation",
+        confirmed: "confirmed",
+        rejected: "dismissed",
+      };
+      return mergedArtifacts
+        .map((artifact) => {
+          if (artifact.type !== "proposal") return artifact;
+          const proposalId = artifact.linked_entity_ids[0];
+          if (!proposalId) return artifact;
+          const proposalStatus = proposalStatusLookup.get(proposalId);
+          if (!proposalStatus) return artifact;
+          const mapped = PROPOSAL_STATUS_TO_ARTIFACT[proposalStatus];
+          if (!mapped || mapped === artifact.status) return artifact;
+          return { ...artifact, status: mapped };
+        })
+        .filter((artifact) => !dismissedIds.has(artifact.id) && artifact.status !== "confirmed" && artifact.status !== "dismissed");
+    },
+    [mergedArtifacts, proposalStatusLookup, dismissedIds],
+  );
 
   const handleDismissArtifact = useCallback((artifact: AgentArtifact) => {
     setDismissedIds((prev) => new Set(prev).add(artifact.id));
@@ -287,15 +298,14 @@ export function AgentSidebar({
       </div>
 
       <div className="flex-1 overflow-y-auto custom-scrollbar">
-        <AnimatePresence>
-          {isExpanded && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.15 }}
-              className="p-3"
-            >
+        <div
+          className="transition-all duration-200 overflow-hidden p-3"
+          style={{
+            width: isExpanded ? "100%" : 0,
+            opacity: isExpanded ? 1 : 0,
+            maxHeight: isExpanded ? "none" : 0,
+          }}
+        >
               {!hasProject && (
                 <div className="mb-4 space-y-4">
                   <div className="rounded-md border border-neutral-200 bg-white p-4 text-center">
@@ -518,9 +528,9 @@ export function AgentSidebar({
                   <AnimatePresence>
                     {activityOpen && (
                       <motion.div
-                        initial={{ height: 0, opacity: 0 }}
-                        animate={{ height: "auto", opacity: 1 }}
-                        exit={{ height: 0, opacity: 0 }}
+                        initial={{ maxHeight: 0, opacity: 0 }}
+                        animate={{ maxHeight: 500, opacity: 1 }}
+                        exit={{ maxHeight: 0, opacity: 0 }}
                         transition={{ duration: 0.2 }}
                         className="overflow-hidden"
                       >
@@ -576,9 +586,9 @@ export function AgentSidebar({
                   <AnimatePresence>
                     {advancedOpen && (
                       <motion.div
-                        initial={{ height: 0, opacity: 0 }}
-                        animate={{ height: "auto", opacity: 1 }}
-                        exit={{ height: 0, opacity: 0 }}
+                        initial={{ maxHeight: 0, opacity: 0 }}
+                        animate={{ maxHeight: 500, opacity: 1 }}
+                        exit={{ maxHeight: 0, opacity: 0 }}
                         transition={{ duration: 0.2 }}
                         className="overflow-hidden"
                       >
@@ -635,9 +645,7 @@ export function AgentSidebar({
                   </Button>
                 </div>
               )}
-            </motion.div>
-          )}
-        </AnimatePresence>
+        </div>
 
         {!isExpanded && hasProject && (
           <CollapsedSidebarIcons focus={focus} pendingCount={pendingProposalCount} isStreaming={Boolean(streamingBuffer)} onToggle={toggle} />

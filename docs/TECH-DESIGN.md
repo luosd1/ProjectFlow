@@ -15,9 +15,10 @@
 
 ## 1.1 Current Implementation Snapshot
 
-Snapshot date: 2026-06-07.
+Snapshot date: 2026-06-08.
 
-- Phase 0-40 全部完成。
+- Phase 0-41 全部完成。
+- Phase 41（2026-06-08）：全面安全审查与性能优化。安全修复：文件上传类型白名单+大小限制+移除路径泄露、资源 file_name 路径穿越防护、workspace_state XML 注入转义、user_id 存在性校验。后端性能：16 个模型全部添加数据库索引、LLM 客户端改用 httpx 连接池复用、AgentEvent input_snapshot 精简为摘要、N+1 查询批量优化、workspace_state 传递避免重复构建。前端性能：reloadProject 防抖去重、React.memo + useMemo 优化、StreamingText 节流渲染、height:auto 动画替换、react-markdown 懒加载、app-shell 移除 framer-motion、useAgentStream 闭包修复、abort 清理、useAgentChat hook 提取、request 可配置超时。
 - Phase 0 / GitHub issue #2 is completed and closed.
 - Phase 1 (models) / GitHub issue #3 is completed and closed.
 - Phase 2 (core APIs) / GitHub issue #4 is completed and closed.
@@ -39,7 +40,7 @@ Snapshot date: 2026-06-07.
 - MVP Usable #19 (Frontend Agent Status and Review UX) is complete.
 - MVP Usable #21 (Real-Provider Verification and MVP Usable Runbook) is complete.
 - Phase 37-40: Agent conversation workflow, chat-first sidebar, streaming, PRD 对照修复（方向卡字段补全、导出中文、卡片样式统一、内联确认、复盘 Agent 总结）。
-- Current verification baseline: backend pytest 245 passing, frontend 26 tests passing, frontend lint passing, frontend build passing, frontend audit 0 vulnerabilities.
+- Current verification baseline: backend pytest 244 passing, frontend lint passing, frontend build passing, frontend audit 0 vulnerabilities.
 
 ---
 

@@ -1,3 +1,4 @@
+import os
 from datetime import datetime
 from pydantic import BaseModel, field_validator
 
@@ -25,6 +26,15 @@ class ResourceCreate(BaseModel):
     def empty_str_to_none(cls, v: object) -> str | None:
         if not isinstance(v, str) or v.strip() == "":
             return None
+        return v
+
+    @field_validator("file_name", mode="after")
+    @classmethod
+    def validate_file_name_path(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        if os.path.sep in v or (os.path.altsep and os.path.altsep in v) or ".." in v:
+            raise ValueError("file_name 不能包含路径分隔符或父目录引用")
         return v
 
 

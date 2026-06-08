@@ -4,6 +4,7 @@ from fastapi import APIRouter, Body, Depends, HTTPException, Query
 from sqlmodel import Session
 
 from app.core.database import get_session
+from app.core.db_utils import require_user
 from app.schemas.agent_proposal import (
     AgentProposalConfirm,
     AgentProposalRead,
@@ -66,6 +67,7 @@ def api_confirm_agent_proposal(
     data: AgentProposalConfirm,
     session: Session = Depends(get_session),
 ):
+    require_user(session, data.confirmed_by)
     try:
         proposal = confirm_proposal(session, proposal_id, data.confirmed_by)
         return _proposal_to_read(proposal)

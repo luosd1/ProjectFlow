@@ -3,19 +3,20 @@ import uuid
 from datetime import datetime, timezone
 
 from sqlmodel import SQLModel, Field
-from sqlalchemy import Column, Text
+from sqlalchemy import Column, Index, Text
 
 from app.models.enums import AgentEventStatus, AgentEventType
 
 
 class AgentEvent(SQLModel, table=True):
     __tablename__ = "agent_events"
+    __table_args__ = (Index("ix_agent_events_project_type_created", "project_id", "event_type", "created_at"),)
 
     id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
-    project_id: str = Field(foreign_key="projects.id")
-    workspace_id: str = Field(foreign_key="workspaces.id")
-    event_type: AgentEventType
-    status: AgentEventStatus = Field(default=AgentEventStatus.success)
+    project_id: str = Field(foreign_key="projects.id", index=True)
+    workspace_id: str = Field(foreign_key="workspaces.id", index=True)
+    event_type: AgentEventType = Field(index=True)
+    status: AgentEventStatus = Field(default=AgentEventStatus.success, index=True)
     input_snapshot: str = Field(default="{}", sa_column=Column(Text, nullable=False))
     output_snapshot: str = Field(default="{}", sa_column=Column(Text, nullable=False))
     reasoning_summary: str = Field(sa_column=Column(Text, nullable=False))

@@ -8,15 +8,15 @@ class Project(SQLModel, table=True):
     __tablename__ = "projects"
 
     id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
-    workspace_id: str = Field(foreign_key="workspaces.id")
+    workspace_id: str = Field(foreign_key="workspaces.id", index=True)
     name: str
     idea: str
     deadline: str  # ISO date string
     deliverables: str
-    status: str = Field(default="draft")  # "draft" | "active" | "at_risk" | "completed"
-    current_stage_id: str | None = Field(default=None, foreign_key="stages.id")
+    status: str = Field(default="draft", index=True)  # "draft" | "active" | "at_risk" | "completed"
+    current_stage_id: str | None = Field(default=None, foreign_key="stages.id", index=True)
     direction_card: str | None = Field(default=None)  # JSON string
-    created_by: str = Field(foreign_key="users.id")
+    created_by: str = Field(foreign_key="users.id", index=True)
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc)
     )

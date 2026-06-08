@@ -75,6 +75,7 @@ interface WorkspaceLayoutProps {
   onAddResource?: (resource: AddResourceRequest) => void | Promise<void>;
   onDeleteResource?: (resourceId: string) => void | Promise<void>;
   onResetDemo?: () => void | Promise<void>;
+  onRefresh?: () => void;
 }
 
 export function WorkspaceLayout({
@@ -119,6 +120,7 @@ export function WorkspaceLayout({
   onAddResource,
   onDeleteResource,
   onResetDemo,
+  onRefresh,
 }: WorkspaceLayoutProps) {
   const [leftCollapsed, setLeftCollapsed] = useState(false);
   const [rightCollapsed, setRightCollapsed] = useState(false);
@@ -156,6 +158,7 @@ export function WorkspaceLayout({
         onSelectProject={handleSelectProject}
         onNavigateView={onNavigateView}
         workspaceState={workspaceState}
+        onRefresh={onRefresh}
       />
 
       {/* Main Content Area */}
@@ -173,6 +176,7 @@ export function WorkspaceLayout({
             state={workspaceState}
             currentUserId={currentUserId}
             onNavigateToProject={handleSelectProject}
+            onRefresh={onRefresh}
           />
         ) : (
           <ProjectContent
@@ -180,6 +184,7 @@ export function WorkspaceLayout({
             currentUserId={currentUserId}
             pendingAction={pendingAction}
             showWorkspace={false}
+            currentView={viewParam ?? "overview"}
             onShowWorkspace={handleShowWorkspace}
             onNavigateView={onNavigateView}
             onRunAgent={onRunAgent}

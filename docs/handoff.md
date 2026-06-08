@@ -1,8 +1,49 @@
 # ProjectFlow Handoff
 
-Status: current as of 2026-06-07.
+Status: current as of 2026-06-08.
 
 ## Completed
+
+### Phase 41 — Security Review & Performance Optimization (2026-06-08)
+
+Comprehensive security audit and performance optimization across backend and frontend.
+
+**Security Fixes (S2/S3/S5/S7/S8):**
+- **S2+S5 File upload hardening**: `routes_uploads.py` — added `ALLOWED_EXTENSIONS` whitelist (pdf/doc/docx/ppt/pptx/xls/xlsx/csv/txt/md/png/jpg/jpeg/gif/zip), `MAX_UPLOAD_BYTES=10MB` limit, chunked read/write via `shutil.copyfileobj`, removed `saved_path` from response, generalized error messages.
+- **S3 XML injection prevention**: `prompts.py` — `workspace_state` JSON now escaped with `html.escape()` before injection into XML tags; removed absolute-path file reading logic and hardcoded `D:\ProjectFlow_Agent` fallback path.
+- **S3 Path traversal prevention**: `schemas/resource.py` — `file_name` field validator rejects path separators (`/`, `\`, `..`).
+- **S7 Prompt injection hardening**: `prompts.py` — removed `_read_resource_file()` absolute-path search and hardcoded directory fallbacks.
+- **S8 User existence validation**: `core/db_utils.py` — new `require_user()` function; applied in `routes_agent_proposals.py`, `routes_assignments.py`, `routes_checkins.py`.
+
+**Backend Performance (P1-P16):**
+- **P1 Database indexes**: All 16 model files — added `index=True` to all foreign key fields; 3 composite indexes on AgentEvent, AgentProposal, AgentMessage.
+- **P3+P8 HTTP client**: `llm_client.py` — replaced `urllib` with `httpx` (module-level connection pool reuse); `pyproject.toml` added `httpx>=0.27.0`.
+- **P4 AgentEvent slimming**: `workflow.py` — `_log_agent_event`/`_log_failed_agent_event` now store lightweight `workspace_summary` instead of full `workspace_state` in `input_snapshot`.
+- **P5+P9 Batch queries**: `agent_flow_service.py` — batch `stage_id` lookup replaces per-task `_stage_id_for_task` loop; `run_agent_flow` accepts optional `workspace_state` to avoid redundant rebuilds.
+- **P6+P16 Batch task queries**: `project_state_service.py` — `_catch_up_stage_progress` uses batch task query; `assignment_responses` uses ID-list query.
+- **P9+P12+P14 Conversation optimization**: `agent_conversation_service.py` — passes `workspace_state` through module chain; `_conversation_to_read` adds `limit(200)`; planner uses compact serialization.
+- **P13 Export scoping**: `export_service.py` — user query filtered by workspace.
+- **P15 Connection pooling**: `core/database.py` — non-SQLite databases get connection pool configuration.
+
+**Frontend Performance (F1-F18):**
+- **F1+F11 SSE reliability**: `page.tsx` — `reloadInProgressRef` debounce; `useEffect` cleanup aborts SSE.
+- **F2 React.memo**: `ChatMessage`, `StreamingText`, `ModuleRunCard`, `AgentStepIndicator` wrapped in `React.memo`.
+- **F3 Streaming throttle**: `StreamingText` — 100ms throttle via `displayBuffer` ref.
+- **F4+F14 maxHeight animation**: 9 locations — replaced `height:auto` with `maxHeight` for GPU-accelerated animations.
+- **F6+F9 useMemo**: `agent-sidebar.tsx` — computed values memoized; expand/collapse preserves content instead of unmounting.
+- **F7 Lazy markdown**: `MarkdownContent.tsx` — `react-markdown` loaded via `next/dynamic`.
+- **F8 App shell**: `app-shell.tsx` — removed `framer-motion`, replaced with CSS animations.
+- **F10 Closure fix**: `useAgentStream.ts` — `onDone`/`onError` stored in refs, `sendMessage` dependency array cleaned.
+- **F12 Agent chat hook**: New `use-agent-chat.ts` — extracted agent conversation state management.
+- **F13+F17 API timeout**: `api.ts` — `request()` supports configurable `timeout` option.
+- **F16 Workspace content**: `workspace-content.tsx` — `onMembersChanged` fix.
+- **F18 SearchParams removal**: `project-content.tsx` — removed `useSearchParams`, uses `currentView` prop.
+
+**Test fixes:** 6 test files updated deadline from "2026-06-07" to "2026-07-15" (expired date causing 422).
+
+**Verification:** backend 244 tests pass; frontend lint 0 error; frontend build success.
+
+---
 
 ### PRD 对照修复 & UI 打磨 (2026-06-07)
 

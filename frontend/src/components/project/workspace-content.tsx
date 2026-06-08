@@ -97,9 +97,10 @@ interface WorkspaceContentProps {
   state: ProjectState | WorkspaceState;
   currentUserId?: string;
   onNavigateToProject?: (projectId: string) => void;
+  onRefresh?: () => void;
 }
 
-export function WorkspaceContent({ state, currentUserId, onNavigateToProject }: WorkspaceContentProps) {
+export function WorkspaceContent({ state, currentUserId, onNavigateToProject, onRefresh }: WorkspaceContentProps) {
   const workspace = state.workspace;
   const memberships = state.memberships ?? [];
   const projects = state.projects ?? [];
@@ -465,7 +466,7 @@ export function WorkspaceContent({ state, currentUserId, onNavigateToProject }: 
         members={members}
         memberships={memberships}
         profiles={profiles}
-        onMembersChanged={() => {}}
+        onMembersChanged={onRefresh ?? (() => window.location.reload())}
       />
 
       <NewProjectDialog

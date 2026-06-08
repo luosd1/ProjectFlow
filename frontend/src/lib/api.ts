@@ -144,9 +144,10 @@ function isMissingAggregateEndpoint(error: unknown) {
   return error instanceof Error && error.message.includes("请求失败：404");
 }
 
-async function request<T>(path: string, options?: RequestInit): Promise<T> {
+async function request<T>(path: string, options?: RequestInit & { timeout?: number }): Promise<T> {
+  const timeoutMs = options?.timeout ?? 120_000;
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 120_000);
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
   const { headers: customHeaders, ...restOptions } = options || {};
   const mergedHeaders = {
@@ -191,7 +192,7 @@ export async function createUser(data: CreateUserRequest): Promise<User> {
 }
 
 export async function listUsers(): Promise<User[]> {
-  const users = await request<BackendUser[]>("/users");
+  const users = await request<BackendUser[]>("/users", { timeout: 10_000 });
   return users.map(normalizeUser);
 }
 
@@ -254,7 +255,7 @@ export async function getWorkspaceState(workspaceId: string): Promise<WorkspaceS
 }
 
 export async function getWorkspace(workspaceId: string): Promise<Workspace> {
-  const workspace = await request<BackendWorkspace>(`/workspaces/${workspaceId}`);
+  const workspace = await request<BackendWorkspace>(`/workspaces/${workspaceId}`, { timeout: 10_000 });
   return normalizeWorkspace(workspace);
 }
 
@@ -282,6 +283,7 @@ export async function acceptInvitation(token: string, userId: string): Promise<v
 }
 
 // --- Member Profile ---
+// TODO: Replace upsertMemberProfile with a dedicated PUT endpoint to avoid the read-then-write race condition
 export async function upsertMemberProfile(
   workspaceId: string,
   userId: string,
@@ -307,7 +309,7 @@ export async function upsertMemberProfile(
 }
 
 export async function listMemberProfilesByWorkspace(workspaceId: string): Promise<MemberProfile[]> {
-  return request<MemberProfile[]>(`/workspaces/${workspaceId}/profiles`);
+  return request<MemberProfile[]>(`/workspaces/${workspaceId}/profiles`, { timeout: 10_000 });
 }
 
 // --- Projects ---
@@ -414,7 +416,7 @@ async function getProjectStateFromSplitEndpoints(projectId: string): Promise<Pro
 }
 
 export async function listProjectsByWorkspace(workspaceId: string): Promise<Project[]> {
-  return request<Project[]>(`/workspaces/${workspaceId}/projects`);
+  return request<Project[]>(`/workspaces/${workspaceId}/projects`, { timeout: 10_000 });
 }
 
 // --- File Upload ---

@@ -11,6 +11,7 @@ from app.models import (
     Task,
     User,
     Workspace,
+    WorkspaceMembership,
 )
 from app.models.enums import AgentEventStatus, AgentEventType
 
@@ -34,10 +35,14 @@ def generate_review_summary(session: Session, project_id: str) -> str:
     action_cards = list(session.exec(select(ActionCard).where(ActionCard.project_id == project_id)).all())
     risks = list(session.exec(select(Risk).where(Risk.project_id == project_id)).all())
 
+    # Get workspace member IDs first
+    member_ids = [m.user_id for m in session.exec(
+        select(WorkspaceMembership).where(WorkspaceMembership.workspace_id == workspace.id)
+    ).all()]
     user_names = {
         user.id: user.display_name
-        for user in session.exec(select(User)).all()
-    }
+        for user in session.exec(select(User).where(User.id.in_(member_ids))).all()
+    } if member_ids else {}
 
     STATUS_LABELS = {
         "draft": "草稿",

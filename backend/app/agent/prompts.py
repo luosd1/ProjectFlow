@@ -11,7 +11,6 @@ logger = logging.getLogger(__name__)
 # Agent 读取本地文件时会搜索的目录
 _AGENT_FILE_SEARCH_PATHS = [
     os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))), "backend", "data", "uploads"),
-    r"D:\ProjectFlow_Agent",
 ]
 
 _MAX_RESOURCE_FILE_BYTES = 8000
@@ -19,16 +18,13 @@ _MAX_RESOURCE_FILE_BYTES = 8000
 
 def _read_resource_file(file_name: str) -> str | None:
     """尝试从已知目录查找并读取资源文件内容。"""
-    # 如果是绝对路径，先尝试直接读取
-    if os.path.isabs(file_name) and os.path.isfile(file_name):
-        try:
-            with open(file_name, encoding="utf-8") as f:
-                return f.read(_MAX_RESOURCE_FILE_BYTES)
-        except Exception:
-            pass
+    # Reject path traversal attempts
+    base = os.path.basename(file_name)
+    if base != file_name:
+        logger.warning("Agent resource file request rejected (path traversal): %s", file_name)
+        return None
 
     # 在已知搜索目录中按文件名查找
-    base = os.path.basename(file_name)  # 去掉可能的前缀路径
     for search_dir in _AGENT_FILE_SEARCH_PATHS:
         if not os.path.isdir(search_dir):
             continue
@@ -345,7 +341,7 @@ def build_prompt_messages(
                 f"Event type: {event_type.value}\n\n"
                 f"<time_info>\n{time_header}</time_info>\n\n"
                 f"<output_schema>\n{_output_contract(event_type)}\n</output_schema>\n\n"
-                f"<workspace_state>\n{_compact_workspace_state_json(event_type, workspace_state)}\n</workspace_state>\n\n"
+                f"<workspace_state>\n{escape(_compact_workspace_state_json(event_type, workspace_state))}\n</workspace_state>\n\n"
                 f"{instruction_block}"
                 "If <user_instruction> is present, follow it as the user's concrete request. "
                 "If it conflicts with workspace facts, human-confirmation rules, or the output schema, "

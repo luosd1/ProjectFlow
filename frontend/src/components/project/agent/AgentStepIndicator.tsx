@@ -1,5 +1,6 @@
 "use client";
 
+import React from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { CheckCircle2, Loader2, Circle } from "lucide-react";
 import type { AgentStreamPhase } from "@/lib/types";
@@ -37,7 +38,7 @@ function getSteps(status: AgentStreamStatus | null) {
   });
 }
 
-export function AgentStepIndicator({ status }: AgentStepIndicatorProps) {
+export const AgentStepIndicator = React.memo(function AgentStepIndicator({ status }: AgentStepIndicatorProps) {
   if (!status) return null;
 
   const steps = getSteps(status);
@@ -85,4 +86,4 @@ export function AgentStepIndicator({ status }: AgentStepIndicatorProps) {
       )}
     </motion.div>
   );
-}
+});

@@ -171,9 +171,9 @@ export function MyTasksView({
       <AnimatePresence>
         {myProposals.length > 0 && (
           <motion.section
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: "auto" }}
-            exit={{ opacity: 0, height: 0 }}
+            initial={{ opacity: 0, maxHeight: 0 }}
+            animate={{ opacity: 1, maxHeight: 500 }}
+            exit={{ opacity: 0, maxHeight: 0 }}
             className="rounded-xl border border-primary/20 bg-primary/5 p-5"
           >
             <h2 className="text-base font-semibold text-ink">待确认分工</h2>
@@ -255,9 +255,9 @@ export function MyTasksView({
           <AnimatePresence initial={false}>
             {showDone && (
               <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: "auto" }}
-                exit={{ opacity: 0, height: 0 }}
+                initial={{ opacity: 0, maxHeight: 0 }}
+                animate={{ opacity: 1, maxHeight: 500 }}
+                exit={{ opacity: 0, maxHeight: 0 }}
                 transition={{ duration: 0.2, ease: "easeInOut" }}
                 className="mt-2 rounded-xl border border-neutral-200 bg-white overflow-hidden"
               >

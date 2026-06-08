@@ -9,7 +9,7 @@ class Workspace(SQLModel, table=True):
 
     id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
     name: str
-    owner_user_id: str = Field(foreign_key="users.id")
+    owner_user_id: str = Field(foreign_key="users.id", index=True)
     description: str | None = Field(default=None)
     team_size: int | None = Field(default=None)
     use_case: str | None = Field(default=None)
@@ -25,8 +25,8 @@ class WorkspaceMembership(SQLModel, table=True):
     __tablename__ = "workspace_memberships"
 
     id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
-    workspace_id: str = Field(foreign_key="workspaces.id")
-    user_id: str = Field(foreign_key="users.id")
+    workspace_id: str = Field(foreign_key="workspaces.id", index=True)
+    user_id: str = Field(foreign_key="users.id", index=True)
     role: str = Field(default="member")  # "owner" | "member"
     joined_at: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc)

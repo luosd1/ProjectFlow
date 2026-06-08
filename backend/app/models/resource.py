@@ -8,7 +8,7 @@ class ProjectResource(SQLModel, table=True):
     __tablename__ = "project_resources"
 
     id: str = Field(default_factory=lambda: str(uuid.uuid4()), primary_key=True)
-    project_id: str = Field(foreign_key="projects.id")
+    project_id: str = Field(foreign_key="projects.id", index=True)
     type: str  # "text_note" | "file_stub" | "link"
     title: str
     content_text: str | None = Field(default=None)
