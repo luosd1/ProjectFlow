@@ -46,8 +46,8 @@ export function ChatMessage({ message, isLast, onRetry, onAction, index = 0 }: C
       className={cn(
         "rounded-lg border p-3",
         isUser
-          ? "ml-8 border-neutral-200 bg-white text-neutral-700"
-          : "mr-0 border-moss/20 bg-moss/5 text-neutral-700",
+          ? "ml-6 border-neutral-200 bg-white text-neutral-700"
+          : "mr-0 border-neutral-200 bg-neutral-50 text-neutral-700",
       )}
     >
       <div className="mb-1 text-[10px] font-semibold text-neutral-400">

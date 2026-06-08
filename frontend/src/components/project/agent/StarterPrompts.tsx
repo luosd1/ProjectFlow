@@ -38,6 +38,14 @@ const FOCUS_PROMPTS: Record<string, { label: string; instruction: string }[]> = 
   ],
 };
 
+const FOCUS_DESCRIPTIONS: Record<string, string> = {
+  方向澄清: "先确认项目目标和边界，后续计划才不会建立在模糊假设上。",
+  阶段计划: "方向已具备基础，可以按截止时间和交付物倒排阶段。",
+  任务拆解: "阶段计划确认后，需要把阶段目标拆成可分配、可检查的任务。",
+  分工确认: "任务明确后，需要结合成员技能、时间和偏好生成并确认分工。",
+  执行推进: "分工已确认，Agent 可以持续生成行动卡、分析风险并建议重排。",
+};
+
 export function StarterPrompts({ focus, onSelect, disabled }: StarterPromptsProps) {
   const prompts = FOCUS_PROMPTS[focus] ?? FOCUS_PROMPTS["执行推进"];
 
@@ -48,11 +56,14 @@ export function StarterPrompts({ focus, onSelect, disabled }: StarterPromptsProp
       transition={{ duration: 0.2 }}
       className="mb-4"
     >
-      <div className="mb-2 flex items-center gap-1.5 text-xs text-neutral-400">
+      <div className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-neutral-400">
         <Sparkles className="h-3 w-3" />
         快速开始
       </div>
-      <div className="space-y-1.5">
+      <p className="mb-2 text-[11px] leading-4 text-neutral-500">
+        {FOCUS_DESCRIPTIONS[focus] ?? "Agent 会根据当前项目状态判断下一步。"}
+      </p>
+      <div className="space-y-1">
         {prompts.map((prompt, index) => (
           <motion.button
             key={prompt.label}
@@ -68,7 +79,7 @@ export function StarterPrompts({ focus, onSelect, disabled }: StarterPromptsProp
             onClick={() => onSelect(prompt.instruction)}
             className={cn(
               "w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-left text-xs text-neutral-600 transition-all",
-              "hover:border-moss/30 hover:bg-moss/5 hover:text-moss hover:shadow-sm",
+              "hover:border-neutral-300 hover:bg-neutral-50 hover:text-neutral-800",
               "disabled:cursor-not-allowed disabled:opacity-50",
             )}
           >

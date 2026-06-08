@@ -28,6 +28,7 @@ export function StreamingText({ buffer, className }: StreamingTextProps) {
           repeatType: "reverse",
           ease: "easeInOut",
         }}
+        aria-hidden="true"
       />
     </motion.div>
   );

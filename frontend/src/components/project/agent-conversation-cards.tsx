@@ -3,9 +3,9 @@
 import { motion } from "framer-motion";
 import {
   AlertTriangle,
+  ArrowRight,
   BadgeCheck,
   Clock,
-  Eye,
   Loader2,
   Pencil,
   Sparkles,
@@ -48,12 +48,12 @@ export function AgentContextCard({ focus, pendingCount = 0 }: AgentContextCardPr
       initial={{ opacity: 0, y: 6 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.25, ease: [0.25, 1, 0.5, 1] }}
-      className="mb-4 rounded-lg border border-moss/20 bg-moss/5 p-3"
+      className="mb-4 rounded-lg border border-neutral-200 bg-white p-3"
     >
       <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-1.5 text-xs font-semibold text-moss">
-          <Sparkles className="h-3.5 w-3.5" />
-          当前最值得推进
+        <div className="flex items-center gap-1.5 text-xs font-semibold text-neutral-500">
+          <Sparkles className="h-3.5 w-3.5 text-moss" />
+          当前阶段
         </div>
         {pendingCount > 0 && (
           <Badge className="bg-moss/15 px-2 py-0 text-[10px] text-moss">
@@ -61,8 +61,8 @@ export function AgentContextCard({ focus, pendingCount = 0 }: AgentContextCardPr
           </Badge>
         )}
       </div>
-      <p className="mt-2 text-sm font-semibold text-neutral-900">{focus}</p>
-      <p className="mt-1 text-xs leading-5 text-neutral-600">{focusReason(focus)}</p>
+      <p className="mt-1.5 text-sm font-semibold text-neutral-900">{focus}</p>
+      <p className="mt-1 text-xs leading-5 text-neutral-500">{focusReason(focus)}</p>
     </motion.div>
   );
 }
@@ -79,10 +79,10 @@ export function AgentRunStatusCard() {
       initial={{ opacity: 0, y: 6 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.2, ease: [0.25, 1, 0.5, 1] }}
-      className="mb-3 rounded-lg border border-moss/20 bg-moss/5 p-3"
+      className="mb-3 rounded-lg border border-neutral-200 bg-white p-3"
     >
-      <div className="flex items-center gap-1.5 text-xs font-semibold text-moss">
-        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+      <div className="flex items-center gap-1.5 text-xs font-semibold text-neutral-600">
+        <Loader2 className="h-3.5 w-3.5 animate-spin text-moss" />
         Agent 正在处理
       </div>
       <ul className="mt-2 space-y-1">
@@ -119,12 +119,12 @@ export function AgentErrorCard({ message, onRetry, disabled }: AgentErrorCardPro
       initial={{ opacity: 0, y: 6 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.2, ease: [0.25, 1, 0.5, 1] }}
-      className="mb-3 rounded-lg border border-coral/20 bg-coral/10 p-3"
+      className="mb-3 rounded-lg border border-coral/30 bg-white p-3"
     >
-      <div className="flex items-start gap-2 text-xs text-coral">
-        <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+      <div className="flex items-start gap-2 text-xs">
+        <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-coral" />
         <div>
-          <p className="font-semibold">Agent 暂时没有完成这次处理</p>
+          <p className="font-semibold text-coral">Agent 暂时没有完成这次处理</p>
           <p className="mt-1 text-neutral-600">{message}</p>
         </div>
       </div>
@@ -184,7 +184,7 @@ export function AgentArtifactCard({
       className={cn(
         "mb-3 rounded-lg border p-3 transition-shadow",
         isPending
-          ? "border-moss/30 bg-white shadow-sm shadow-moss/5"
+          ? "border-moss/40 bg-white shadow-sm shadow-moss/10"
           : "border-neutral-200 bg-white",
       )}
     >
@@ -212,13 +212,13 @@ export function AgentArtifactCard({
         <ul className="mt-2 space-y-0.5">
           {artifact.impact.map((item) => (
             <li key={item} className="flex items-center gap-1 text-xs text-neutral-500">
-              <Eye className="h-3 w-3 shrink-0" />
+              <ArrowRight className="h-3 w-3 shrink-0 text-neutral-400" />
               {item}
             </li>
           ))}
         </ul>
       )}
-      <div className="mt-2.5 flex items-center gap-1.5">
+      <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
         {artifact.type === "proposal" && isPending && onConfirm && (
           <Button
             size="sm"
@@ -232,9 +232,9 @@ export function AgentArtifactCard({
         )}
         {(artifact.status === "draft" || isPending) && onRevise && (
           <Button
-            variant="ghost"
+            variant="outline"
             size="sm"
-            className="h-7 gap-1 px-2 text-xs text-neutral-600 hover:bg-neutral-100"
+            className="h-7 gap-1 border-neutral-200 px-2 text-xs text-neutral-600 hover:bg-neutral-50 hover:text-neutral-800"
             disabled={disabled}
             onClick={() => void onRevise(artifact)}
           >
@@ -246,11 +246,11 @@ export function AgentArtifactCard({
           <Button
             variant="ghost"
             size="sm"
-            className="h-7 gap-1 px-2 text-xs text-neutral-600 hover:bg-neutral-100"
+            className="h-7 gap-1 px-2 text-xs text-neutral-500 hover:bg-neutral-100 hover:text-neutral-700"
             disabled={disabled}
             onClick={() => void onInspect(artifact)}
           >
-            <Eye className="h-3 w-3" />
+            <ArrowRight className="h-3 w-3" />
             查看影响
           </Button>
         )}
@@ -308,8 +308,8 @@ export function AgentSuggestionRow({ suggestions, disabled = false, onPick }: Ag
           className={cn(
             "rounded-full border px-2.5 py-1 text-[11px] transition-all disabled:cursor-not-allowed disabled:opacity-50",
             suggestion.priority === "primary"
-              ? "border-moss/30 bg-moss/10 text-moss hover:border-moss/40 hover:bg-moss/15 hover:shadow-sm hover:shadow-moss/10"
-              : "border-neutral-200 bg-white text-neutral-600 hover:border-moss/30 hover:text-moss hover:shadow-sm"
+              ? "border-moss/30 bg-white text-moss hover:border-moss/40 hover:bg-moss/5"
+              : "border-neutral-200 bg-white text-neutral-600 hover:border-neutral-300 hover:text-neutral-800"
           )}
         >
           {suggestion.label}

@@ -137,7 +137,6 @@ export function AgentSidebar({
   onResetDemo,
 }: AgentSidebarProps) {
   const [collapsed, setCollapsed] = useState(false);
-  const [hovered, setHovered] = useState(false);
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [activityOpen, setActivityOpen] = useState(false);
   const [draft, setDraft] = useState("");
@@ -147,8 +146,11 @@ export function AgentSidebar({
   const toggle = useCallback(() => setCollapsed((c) => !c), []);
 
   useEffect(() => {
-    setDismissedIds(new Set());
-    setConfirmedIds(new Set());
+    const timeout = setTimeout(() => {
+      setDismissedIds(new Set());
+      setConfirmedIds(new Set());
+    }, 0);
+    return () => clearTimeout(timeout);
   }, [selectedProjectId]);
 
   useEffect(() => {
@@ -162,7 +164,7 @@ export function AgentSidebar({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [toggle]);
 
-  const isExpanded = !collapsed || hovered;
+  const isExpanded = !collapsed;
   const recentEvents = (state.timeline ?? []).slice(0, 5);
   const pendingProposalCount = state.agent_proposals?.filter((proposal) => proposal.status === "pending").length ?? 0;
   const focus = conversation?.current_focus || inferFocus(state);
@@ -236,10 +238,8 @@ export function AgentSidebar({
     <motion.aside
       className={cn(
         "relative flex h-screen flex-col border-l border-neutral-200/70 bg-bg-sidebar transition-all duration-200 ease-out",
-        isExpanded ? "w-80" : "w-12"
+        isExpanded ? "w-[22rem]" : "w-12"
       )}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
       initial={false}
     >
       <button
@@ -279,63 +279,57 @@ export function AgentSidebar({
               className="p-3"
             >
               {!hasProject && (
-                <div className="mb-4 rounded-lg border border-neutral-200 bg-neutral-50 p-4 text-center">
-                  <Bot className="mx-auto mb-2 h-6 w-6 text-neutral-300" />
-                  <p className="text-sm text-neutral-500">选择一个项目以查看 Agent 建议</p>
+                <div className="mb-4 space-y-4">
+                  <div className="rounded-lg border border-neutral-200 bg-white p-4 text-center">
+                    <Bot className="mx-auto mb-3 h-8 w-8 text-moss" />
+                    <p className="text-sm font-semibold text-neutral-800">Agent 助手</p>
+                    <p className="mt-1 text-xs leading-5 text-neutral-500">
+                      选择或创建一个项目，Agent 会帮你澄清方向、拆解任务、推荐分工、跟踪风险
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const event = new CustomEvent("projectflow:create-project");
+                        window.dispatchEvent(event);
+                      }}
+                      className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-moss px-3 py-1.5 text-xs font-medium text-white shadow-sm shadow-moss/20 transition hover:bg-moss/90 active:shadow-none"
+                    >
+                      <Rocket className="h-3.5 w-3.5" />
+                      创建项目
+                    </button>
+                  </div>
+                  <div className="space-y-2">
+                    <div className="flex items-start gap-2.5 rounded-lg bg-neutral-50 p-2.5">
+                      <Compass className="mt-0.5 h-4 w-4 shrink-0 text-moss" />
+                      <div>
+                        <p className="text-xs font-medium text-neutral-700">方向澄清</p>
+                        <p className="text-[11px] text-neutral-500">明确项目目标和边界</p>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-2.5 rounded-lg bg-neutral-50 p-2.5">
+                      <ListTodo className="mt-0.5 h-4 w-4 shrink-0 text-moss" />
+                      <div>
+                        <p className="text-xs font-medium text-neutral-700">任务拆解</p>
+                        <p className="text-[11px] text-neutral-500">把阶段目标拆成可执行任务</p>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-2.5 rounded-lg bg-neutral-50 p-2.5">
+                      <Rocket className="mt-0.5 h-4 w-4 shrink-0 text-moss" />
+                      <div>
+                        <p className="text-xs font-medium text-neutral-700">主动推进</p>
+                        <p className="text-[11px] text-neutral-500">分析进度并建议下一步行动</p>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               )}
 
               {hasProject && (
                 <div className="mb-4">
+                  {/* Layer 1: Context & Priority Alerts */}
                   <AgentContextCard focus={focus} pendingCount={pendingProposalCount} />
 
-                  <div className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-neutral-500">
-                    <MessageSquare className="h-3.5 w-3.5" />
-                    Agent 对话
-                  </div>
-                  <div className="space-y-2">
-                    {messages.length === 0 && !pendingConversationInstruction && (
-                      <StarterPrompts
-                        focus={focus}
-                        onSelect={(instruction) => void submitMessage(instruction)}
-                        disabled={Boolean(pendingConversation)}
-                      />
-                    )}
-                    {messages.map((message, index) => (
-                      <ChatMessage
-                        key={message.id}
-                        message={message}
-                        isLast={index === messages.length - 1}
-                        index={index}
-                        onRetry={pendingConversationInstruction ? () => void submitMessage(pendingConversationInstruction) : undefined}
-                        onAction={(instruction) => void submitMessage(instruction)}
-                      />
-                    ))}
-
-                    {pendingConversationInstruction && !streamingBuffer && (
-                      <ChatMessage
-                        message={{
-                          id: "pending",
-                          conversation_id: "",
-                          role: "user",
-                          content: pendingConversationInstruction,
-                          structured_payload: {},
-                          created_at: new Date().toISOString(),
-                        }}
-                      />
-                    )}
-
-                    {streamingBuffer && (
-                      <div className="mr-0 rounded-lg border border-moss/20 bg-moss/5 p-3">
-                        <div className="mb-1 text-[10px] font-semibold text-neutral-400">Agent</div>
-                        <StreamingText buffer={streamingBuffer} />
-                      </div>
-                    )}
-                  </div>
-
-                  {streamStatus && <AgentStepIndicator status={streamStatus} />}
-                  {pendingConversation && !streamStatus && <AgentRunStatusCard />}
-
+                  {/* Layer 2: Pending Artifacts (highest priority) */}
                   <AnimatePresence mode="popLayout">
                     {visibleArtifacts.map((artifact) => (
                       <AgentArtifactCard
@@ -350,31 +344,84 @@ export function AgentSidebar({
                     ))}
                   </AnimatePresence>
 
-                  {conversationError && (
-                    <AgentErrorCard
-                      message={conversationError}
+                  {/* Layer 3: Conversation Stream */}
+                  <div className="mt-6 border-t border-neutral-100 pt-4">
+                    <div className="mb-3 flex items-center gap-1.5 text-xs font-semibold text-neutral-400">
+                      <MessageSquare className="h-3.5 w-3.5" />
+                      对话
+                    </div>
+                    <div className="space-y-2">
+                      {messages.length === 0 && !pendingConversationInstruction && (
+                        <StarterPrompts
+                          focus={focus}
+                          onSelect={(instruction) => void submitMessage(instruction)}
+                          disabled={Boolean(pendingConversation)}
+                        />
+                      )}
+                      {messages.map((message, index) => (
+                        <ChatMessage
+                          key={message.id}
+                          message={message}
+                          isLast={index === messages.length - 1}
+                          index={index}
+                          onRetry={pendingConversationInstruction ? () => void submitMessage(pendingConversationInstruction) : undefined}
+                          onAction={(instruction) => void submitMessage(instruction)}
+                        />
+                      ))}
+
+                      {pendingConversationInstruction && !streamingBuffer && (
+                        <ChatMessage
+                          message={{
+                            id: "pending",
+                            conversation_id: "",
+                            role: "user",
+                            content: pendingConversationInstruction,
+                            structured_payload: {},
+                            created_at: new Date().toISOString(),
+                          }}
+                        />
+                      )}
+
+                      {streamingBuffer && (
+                        <div className="mr-0 rounded-lg border border-moss/20 bg-moss/5 p-3">
+                          <div className="mb-1 text-[10px] font-semibold text-neutral-400">Agent</div>
+                          <StreamingText buffer={streamingBuffer} />
+                        </div>
+                      )}
+                    </div>
+
+                    {streamStatus && <AgentStepIndicator status={streamStatus} />}
+                    {pendingConversation && !streamStatus && <AgentRunStatusCard />}
+
+                    {conversationError && (
+                      <AgentErrorCard
+                        message={conversationError}
+                        disabled={Boolean(pendingConversation)}
+                        onRetry={pendingConversationInstruction ? () => void submitMessage(pendingConversationInstruction) : undefined}
+                      />
+                    )}
+
+                    <AgentSuggestionRow
+                      suggestions={suggestions}
                       disabled={Boolean(pendingConversation)}
-                      onRetry={pendingConversationInstruction ? () => void submitMessage(pendingConversationInstruction) : undefined}
+                      onPick={(instruction) => void submitMessage(instruction)}
                     />
-                  )}
 
-                  <AgentSuggestionRow
-                    suggestions={suggestions}
-                    disabled={Boolean(pendingConversation)}
-                    onPick={(instruction) => void submitMessage(instruction)}
-                  />
-
-                  <ChatComposer
-                    value={draft}
-                    onChange={setDraft}
-                    onSubmit={(text) => void submitMessage(text)}
-                    onStop={onStopStreaming}
-                    disabled={Boolean(pendingConversation)}
-                    isStreaming={Boolean(streamingBuffer)}
-                  />
+                    <div className="mt-3">
+                      <ChatComposer
+                        value={draft}
+                        onChange={setDraft}
+                        onSubmit={(text) => void submitMessage(text)}
+                        onStop={onStopStreaming}
+                        disabled={Boolean(pendingConversation)}
+                        isStreaming={Boolean(streamingBuffer)}
+                      />
+                    </div>
+                  </div>
                 </div>
               )}
 
+              {/* Action Feedback */}
               {actionSuccess && (
                 <motion.div
                   initial={{ opacity: 0, y: -8 }}
@@ -396,6 +443,7 @@ export function AgentSidebar({
                 </motion.div>
               )}
 
+              {/* Layer 4: Recent Activity (collapsed by default) */}
               {recentEvents.length > 0 && (
                 <div className="mb-4 border-t border-neutral-100 pt-3">
                   <button
@@ -453,6 +501,7 @@ export function AgentSidebar({
                 </div>
               )}
 
+              {/* Layer 5: Advanced Actions (collapsed by default) */}
               {hasProject && (
                 <div className="mt-4 border-t border-neutral-100 pt-3">
                   <button
@@ -529,12 +578,16 @@ export function AgentSidebar({
               onClick={toggle}
               className="relative flex h-8 w-8 items-center justify-center rounded-lg text-moss transition hover:bg-moss/10 focus:outline-none focus:ring-2 focus:ring-moss/30"
               title="打开 Agent 对话"
+              aria-label="打开 Agent 对话"
             >
               <MessageSquare className="h-4 w-4" />
               {pendingProposalCount > 0 && (
                 <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-moss px-1 text-[9px] font-semibold text-white">
                   {pendingProposalCount}
                 </span>
+              )}
+              {Boolean(streamingBuffer) && (
+                <span className="absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full bg-coral animate-pulse" aria-hidden="true" />
               )}
             </button>
           </div>
