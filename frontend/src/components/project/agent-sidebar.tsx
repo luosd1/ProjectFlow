@@ -1,7 +1,7 @@
 "use client";
 
 import type { ElementType } from "react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   AlertTriangle,
@@ -47,6 +47,12 @@ import {
   AgentSuggestionRow,
   focusReason,
 } from "./agent-conversation-cards";
+
+// 拖动调整宽度相关常量
+const SIDEBAR_MIN_WIDTH = 280; // 最小宽度 280px (17.5rem)
+const SIDEBAR_MAX_WIDTH = 600; // 最大宽度 600px (37.5rem)
+const SIDEBAR_DEFAULT_WIDTH = 352; // 默认宽度 22rem
+const SIDEBAR_WIDTH_STORAGE_KEY = "agent-sidebar-width";
 
 const ALL_AGENT_ACTIONS: {
   id: AgentAction;
@@ -150,6 +156,63 @@ export function AgentSidebar({
   const [confirmedIds, setConfirmedIds] = useState<Set<string>>(new Set());
   const [actionLog, setActionLog] = useState<Array<{ id: string; artifactId: string; type: "confirmed" | "dismissed"; text: string }>>([]);
   const { active: tourActive, complete: tourComplete } = useGuidedTour();
+
+  // 拖动调整宽度状态
+  const [sidebarWidth, setSidebarWidth] = useState(() => {
+    if (typeof window === "undefined") return SIDEBAR_DEFAULT_WIDTH;
+    const stored = localStorage.getItem(SIDEBAR_WIDTH_STORAGE_KEY);
+    if (stored) {
+      const parsed = parseInt(stored, 10);
+      if (!isNaN(parsed) && parsed >= SIDEBAR_MIN_WIDTH && parsed <= SIDEBAR_MAX_WIDTH) {
+        return parsed;
+      }
+    }
+    return SIDEBAR_DEFAULT_WIDTH;
+  });
+  const [isDragging, setIsDragging] = useState(false);
+  const dragStartX = useRef(0);
+  const dragStartWidth = useRef(0);
+
+  // 拖动开始
+  const handleDragStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+    dragStartX.current = e.clientX;
+    dragStartWidth.current = sidebarWidth;
+  }, [sidebarWidth]);
+
+  // 拖动中（使用 useEffect 绑定全局事件）
+  useEffect(() => {
+    if (!isDragging) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const delta = dragStartX.current - e.clientX; // 向左拖动为正
+      const newWidth = Math.min(SIDEBAR_MAX_WIDTH, Math.max(SIDEBAR_MIN_WIDTH, dragStartWidth.current + delta));
+      setSidebarWidth(newWidth);
+    };
+
+    const handleMouseUp = () => {
+      setIsDragging(false);
+      // 保存到 localStorage
+      setSidebarWidth((current) => {
+        localStorage.setItem(SIDEBAR_WIDTH_STORAGE_KEY, String(current));
+        return current;
+      });
+    };
+
+    document.addEventListener("mousemove", handleMouseMove);
+    document.addEventListener("mouseup", handleMouseUp);
+    // 拖动时禁用文本选择
+    document.body.style.userSelect = "none";
+    document.body.style.cursor = "col-resize";
+
+    return () => {
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
+      document.body.style.userSelect = "";
+      document.body.style.cursor = "";
+    };
+  }, [isDragging]);
 
   const toggle = useCallback(() => setCollapsed((c) => !c), []);
 
@@ -265,9 +328,11 @@ export function AgentSidebar({
     <motion.aside
       data-tour-sidebar
       className={cn(
-        "relative flex h-screen flex-col border-l border-neutral-200/70 bg-bg-sidebar transition-all duration-200 ease-out",
-        isExpanded ? "w-[22rem]" : "w-12"
+        "relative flex h-screen flex-col border-l border-neutral-200/70 bg-bg-sidebar",
+        collapsed ? "w-12" : "",
+        isDragging && "select-none"
       )}
+      style={!collapsed ? { width: `${sidebarWidth}px`, transition: isDragging ? "none" : "width 200ms ease-out" } : undefined}
       initial={false}
     >
       <AgentGuidedTour active={tourActive && isExpanded && hasProject} onComplete={tourComplete} />
@@ -279,6 +344,19 @@ export function AgentSidebar({
       >
         {collapsed ? <ChevronLeft className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
       </button>
+
+      {/* 拖动调整宽度的手柄 */}
+      {isExpanded && (
+        <div
+          className="absolute left-0 top-0 z-20 h-full w-1.5 cursor-col-resize group"
+          onMouseDown={handleDragStart}
+        >
+          <div className={cn(
+            "absolute left-0 top-1/2 -translate-y-1/2 h-12 w-1 rounded-r-full transition-all",
+            isDragging ? "bg-moss" : "bg-neutral-300 group-hover:bg-moss"
+          )} />
+        </div>
+      )}
 
       <div className="flex h-14 items-center gap-2 border-b border-neutral-100 px-3" data-tour="header">
         <Bot className="h-5 w-5 shrink-0 text-neutral-600" />
