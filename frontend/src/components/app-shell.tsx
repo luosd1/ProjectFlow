@@ -3,9 +3,10 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useSyncExternalStore } from "react";
-import { ChevronDown, GitBranch, Home, Layers3, LayoutDashboard, Menu, Sparkles, Users } from "lucide-react";
+import { ChevronDown, GitBranch, Home, LayoutDashboard, Menu, Sparkles, Users } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import { BrandLogo } from "@/components/brand-logo";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -189,8 +190,8 @@ function MobileNav({
       </SheetTrigger>
       <SheetContent side="left" className="w-64 bg-paper p-0">
         <SheetHeader className="border-b border-ink/10 px-5 py-4">
-          <SheetTitle className="font-display text-lg font-black text-ink">
-            ProjectFlow
+          <SheetTitle className="flex items-center">
+            <BrandLogo className="h-8 w-28" />
           </SheetTitle>
           <SheetDescription className="text-xs text-ink/55">
             主动推进型项目 Agent
@@ -270,20 +271,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               )}
             >
               <div className="flex items-center gap-6">
-                <Link href="/" className="flex items-center gap-2">
-                  <span
-                    className={cn(
-                      "flex h-7 w-7 items-center justify-center rounded-[8px] shadow-sm",
-                      isLandingPage
-                        ? "bg-neutral-950 text-white shadow-[0_12px_26px_rgba(16,22,31,0.16)]"
-                        : "bg-neutral-950 text-white",
-                    )}
-                  >
-                    <Layers3 className="h-4 w-4" aria-hidden />
-                  </span>
-                  <span className={cn("font-display text-xl font-normal leading-none", isLandingPage ? "text-neutral-950" : "text-neutral-950")}>
-                    ProjectFlow
-                  </span>
+                <Link href="/" className="flex items-center" aria-label="ProjectFlow 首页">
+                  <BrandLogo priority={isLandingPage} className="h-9 w-32" />
                 </Link>
 
                 <nav className="hidden items-center gap-1 md:flex">

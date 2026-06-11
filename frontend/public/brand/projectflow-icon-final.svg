@@ -1,4 +1,6 @@
-<svg width="128" height="128" viewBox="0 0 128 128" fill="none" color="#101010" xmlns="http://www.w3.org/2000/svg">
+<svg width="128" height="128" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">ProjectFlow icon</title>
+  <desc id="desc">A black outline box with a tall dark F in front, transitioning through layered offset contours into a lighter P behind it.</desc>
   <rect x="14" y="14" width="100" height="100" rx="8" stroke="currentColor" stroke-width="7"/>
   <g stroke="currentColor" fill="none" stroke-linejoin="miter" stroke-linecap="square">
     <path d="M58 94V33H85C96 33 104 41 104 52C104 63 96 71 85 71H70V94" stroke-width="0.78" opacity="0.07"/>

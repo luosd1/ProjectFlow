@@ -19,7 +19,6 @@ import {
   FileCheck2,
   GitBranch,
   HelpCircle,
-  Layers3,
   Loader2,
   MessageCircle,
   MessageSquareText,
@@ -36,6 +35,7 @@ import {
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { BrandLogo } from "@/components/brand-logo";
 
 const WORKSPACE_STORAGE_KEY = "projectflow:last-workspace-id";
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000/api";
@@ -239,9 +239,7 @@ function ProductPreview() {
           />
           <div className="relative flex flex-col gap-4 border-b border-neutral-950/10 bg-white/75 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-3">
-              <span className="flex h-9 w-9 items-center justify-center rounded-[13px] bg-neutral-950 text-white shadow-[0_12px_30px_rgba(16,22,31,0.16)]">
-                <Layers3 className="h-4 w-4" aria-hidden />
-              </span>
+              <BrandLogo mark="icon" className="h-9 w-9" />
               <div>
                 <p className="font-grotesk text-sm font-semibold text-neutral-950">Campus Demo Workspace</p>
                 <p className="mt-0.5 text-xs text-neutral-500">AI Agent 正在整理下一步</p>
@@ -261,7 +259,7 @@ function ProductPreview() {
 
           <div className="relative grid min-h-[560px] lg:grid-cols-[216px_minmax(0,1fr)_316px]">
             <aside className="border-b border-neutral-950/10 bg-[#f4f6f2]/80 p-5 lg:border-b-0 lg:border-r">
-              <p className="font-display text-2xl leading-none text-neutral-950">ProjectFlow</p>
+              <BrandLogo className="h-10 w-36" />
               <p className="mt-2 text-xs leading-5 text-neutral-500">主动推进型项目工作区</p>
               <nav className="mt-7 space-y-1.5" aria-label="产品预览导航">
                 {projectTabs.map((item, index) => (
@@ -537,6 +535,10 @@ export function ProjectFlowHome() {
             animate="visible"
             className="mx-auto max-w-5xl text-center"
           >
+            <motion.div variants={heroItemVariants} className="mb-7 flex justify-center">
+              <BrandLogo priority className="h-16 w-56 sm:h-[4.5rem] sm:w-64" />
+            </motion.div>
+
             <motion.a
               variants={heroItemVariants}
               href="#operating-loop"
@@ -802,13 +804,13 @@ export function ProjectFlowHome() {
                 </p>
                 <div className="flex items-center justify-between gap-4">
                   <div className="flex items-center gap-3">
-                    <span className="flex h-10 w-10 items-center justify-center rounded-full bg-neutral-950 text-sm font-semibold text-white">PF</span>
+                    <BrandLogo mark="icon" className="h-10 w-10" />
                     <div>
                       <p className="text-sm font-semibold text-neutral-950">Agent 建议</p>
                       <p className="text-xs text-neutral-500">范围调整 · 等待确认</p>
                     </div>
                   </div>
-                  <p className="font-display text-2xl text-neutral-950">ProjectFlow</p>
+                  <BrandLogo className="h-10 w-36" />
                 </div>
               </article>
             </Reveal>

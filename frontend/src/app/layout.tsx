@@ -25,7 +25,11 @@ export const metadata: Metadata = {
   title: "ProjectFlow",
   description: "面向大学生项目小队的主动推进型 AI Agent",
   icons: {
-    icon: "/favicon.svg",
+    icon: [
+      { url: "/favicon.svg", type: "image/svg+xml" },
+      { url: "/brand/projectflow-icon-final-1024.png", sizes: "1024x1024", type: "image/png" },
+    ],
+    apple: [{ url: "/brand/projectflow-icon-final-1024.png", sizes: "1024x1024", type: "image/png" }],
   },
 };
 
