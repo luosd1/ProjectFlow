@@ -1,7 +1,7 @@
 ---
 name: health
-description: "Audits the full six-layer Codex config stack when Codex ignores instructions, behaves inconsistently, hooks malfunction, or MCP servers need auditing. Flags issues by severity. Not for debugging code or reviewing PRs."
-when_to_use: "检查Codex, 健康度, 配置检查, 配置对不对, Codex ignoring instructions, check config, settings not working, audit config"
+description: "Audits the full six-layer Claude Code config stack when Claude ignores instructions, behaves inconsistently, hooks malfunction, or MCP servers need auditing. Flags issues by severity. Not for debugging code or reviewing PRs."
+when_to_use: "检查claude, 健康度, 配置检查, 配置对不对, Claude ignoring instructions, check config, settings not working, audit config"
 metadata:
   version: "3.16.0"
 ---
@@ -10,12 +10,12 @@ metadata:
 
 Prefix your first line with 🥷 inline, not as its own paragraph.
 
-Audit the current project's Codex setup against the six-layer framework:
-`AGENTS.md → rules → skills → hooks → subagents → verifiers`
+Audit the current project's Claude Code setup against the six-layer framework:
+`CLAUDE.md → rules → skills → hooks → subagents → verifiers`
 
 Find violations. Identify the misaligned layer. Calibrate to project complexity only.
 
-**Output language:** Check in order: (1) AGENTS.md `## Communication` rule (global over local); (2) user's recent language; (3) English.
+**Output language:** Check in order: (1) CLAUDE.md `## Communication` rule (global over local); (2) user's recent language; (3) English.
 
 ## Step 0: Assess project tier
 
@@ -23,8 +23,8 @@ Pick one. Apply only that tier's requirements.
 
 | Tier | Signal | What's expected |
 |------|--------|-----------------|
-| **Simple** | <500 files, 1 contributor, no CI | AGENTS.md only; 0-1 skills; hooks optional |
-| **Standard** | 500-5K files, small team or CI | AGENTS.md + 1-2 rules; 2-4 skills; basic hooks |
+| **Simple** | <500 files, 1 contributor, no CI | CLAUDE.md only; 0-1 skills; hooks optional |
+| **Standard** | 500-5K files, small team or CI | CLAUDE.md + 1-2 rules; 2-4 skills; basic hooks |
 | **Complex** | >5K files, multi-contributor, active CI | Full six-layer setup required |
 
 ## Step 1: Collect data
@@ -79,11 +79,11 @@ Rules violated, dangerous allowedTools, MCP overhead >12.5%, security findings, 
 Example:
 - [!] `settings.local.json` committed to git (exposes MCP tokens)
   Why: leaked token enables remote code execution via installed MCP servers
-  Action: `git rm --cached .Codex/settings.local.json && echo '.Codex/settings.local.json' >> .gitignore`
+  Action: `git rm --cached .claude/settings.local.json && echo '.claude/settings.local.json' >> .gitignore`
 
 ### [~] Structural -- fix soon
 
-AGENTS.md content in wrong layer, missing hooks, oversized descriptions, verifier gaps.
+CLAUDE.md content in wrong layer, missing hooks, oversized descriptions, verifier gaps.
 
 ### [-] Incremental -- nice to have
 
@@ -104,6 +104,6 @@ If no issues: `All relevant checks passed. Nothing to fix.`
 |---------------|------|
 | Missed the local override | Always read `settings.local.json` too; it shadows the committed file |
 | Subagent timeout reported as MCP failure | MCP failures come from the live probe, not data collection |
-| Reported issues in wrong language | Honor AGENTS.md Communication rule first |
+| Reported issues in wrong language | Honor CLAUDE.md Communication rule first |
 | Flagged intentionally noisy hook as broken | Ask before calling a hook "broken" |
 | Hook seemed not to fire, but it did -- a later UI element rendered above it | Hook firing order is not visual order. Before re-editing the hook config: (a) confirm with `--debug` or by piping output, (b) check whether a diff dialog, permission prompt, or other UI element rendered on top and pushed the hook output offscreen, (c) only then suspect the hook itself. |

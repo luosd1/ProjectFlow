@@ -1,6 +1,6 @@
 ---
 name: waza
-description: 'Engineering skills for Codex: think (architecture), design (UI), check (code review), hunt (debugging), write (prose), learn (research), read (URL/PDF fetch), health (config audit). Triggers on slash commands or intent.'
+description: 'Engineering skills for Claude: think (architecture), design (UI), check (code review), hunt (debugging), write (prose), learn (research), read (URL/PDF fetch), health (config audit). Triggers on slash commands or intent.'
 ---
 
 # Waza: Engineering Skills Dispatcher
@@ -20,7 +20,7 @@ You have eight skills available. Match the user's intent to the right skill, rea
 | Writing, editing prose, polish, remove AI tone | write | `skills/write/SKILL.md` |
 | Deep research, unfamiliar domain, compile sources into output | learn | `skills/learn/SKILL.md` |
 | Any URL or PDF in the message, "read this", "summarize this link" | read | `skills/read/SKILL.md` |
-| Codex ignoring instructions, config audit, hooks/MCP broken | health | `skills/health/SKILL.md` |
+| Claude ignoring instructions, config audit, hooks/MCP broken | health | `skills/health/SKILL.md` |
 
 ## How This Works
 
@@ -33,7 +33,7 @@ If the message could match multiple skills, use these disambiguation rules:
 1. Most specific wins: `/design` is more specific than `/think` for UI decisions.
 2. URL in message: start with `/read`. If the content is research material, chain to `/learn`.
 3. Code already done vs. code broken: done/PR -> `/check`; error/broken -> `/hunt`.
-4. Config vs. code: Codex misbehaving/hooks/MCP -> `/health`; user code errors -> `/hunt`.
+4. Config vs. code: Claude misbehaving/hooks/MCP -> `/health`; user code errors -> `/hunt`.
 5. From scratch vs. editing: new long-form output -> `/learn`; existing draft to polish -> `/write`.
 6. "Judge this" + error -> `/hunt`; "judge this" + should we keep it -> `/think`.
 7. Still ambiguous: read both skills' "Not for" sections; use exclusion. If still unclear, ask the user.

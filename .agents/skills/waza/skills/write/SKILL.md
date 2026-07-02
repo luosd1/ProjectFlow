@@ -57,7 +57,7 @@ Format: tw93/Mole style (numbered list, bold label, one sentence on user effect,
 
 Before drafting, gather style references:
 
-1. Read the target project's `AGENTS.md` for its Release Convention / Release Flow section.
+1. Read the target project's `CLAUDE.md` for its Release Convention / Release Flow section.
 2. Run `gh release view --json body -R <repo>` to read the most recent release as a style, length, and density reference.
 3. For tw93 projects, also read one sibling project's latest release (`gh release view --json body -R tw93/<sibling>`) to calibrate cross-project consistency.
 4. Match the reference release's item count, sentence length, and tone. Do not invent a new format.

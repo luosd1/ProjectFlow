@@ -1,0 +1,378 @@
+<style>
+  .pf-wrap {
+    display: grid;
+    grid-template-columns: 360px 1fr;
+    gap: 22px;
+    align-items: start;
+  }
+
+  .pf-copy {
+    color: #64748b;
+    line-height: 1.65;
+    margin: 0 0 18px;
+  }
+
+  .pf-stage {
+    border: 1px solid #d9e3ef;
+    border-radius: 18px;
+    background: #ffffff;
+    padding: 16px;
+  }
+
+  .pf-stage h3 {
+    margin: 0 0 12px;
+    color: #172033;
+  }
+
+  .pf-stage ol {
+    margin: 0;
+    padding-left: 20px;
+    color: #475569;
+    line-height: 1.7;
+  }
+
+  .pf-preview {
+    border: 1px solid #cfdbea;
+    border-radius: 22px;
+    background: #eef4fb;
+    overflow: hidden;
+    min-height: 720px;
+    display: grid;
+    grid-template-rows: auto 1fr auto;
+  }
+
+  .pf-header {
+    background: #fbfdff;
+    border-bottom: 1px solid #d9e3ef;
+    padding: 14px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .pf-title {
+    display: flex;
+    gap: 9px;
+    align-items: center;
+    font-size: 18px;
+    font-weight: 850;
+    color: #172033;
+  }
+
+  .pf-icon {
+    width: 30px;
+    height: 30px;
+    border-radius: 9px;
+    background: #2f73d5;
+  }
+
+  .pf-badge {
+    border: 1px solid #c8d7eb;
+    border-radius: 999px;
+    background: #edf5ff;
+    color: #2f73d5;
+    font-size: 12px;
+    padding: 5px 9px;
+    font-weight: 800;
+  }
+
+  .pf-stream {
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    overflow: hidden;
+  }
+
+  .pf-focus {
+    border: 1px solid #c7d9f4;
+    background: #e7f0fc;
+    border-radius: 16px;
+    padding: 13px;
+    color: #24364f;
+  }
+
+  .pf-focus strong {
+    display: block;
+    margin-bottom: 5px;
+    color: #172033;
+  }
+
+  .pf-message {
+    max-width: 86%;
+    border-radius: 16px;
+    padding: 12px 13px;
+    color: #263850;
+    font-size: 14px;
+    line-height: 1.55;
+  }
+
+  .pf-agent {
+    align-self: flex-start;
+    background: #e7effb;
+    border: 1px solid #c8d9f2;
+  }
+
+  .pf-user {
+    align-self: flex-end;
+    background: #ffffff;
+    border: 1px solid #d8e2ee;
+  }
+
+  .pf-suggestions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .pf-chip {
+    border: 1px solid #c6d5e8;
+    background: #ffffff;
+    border-radius: 999px;
+    color: #344a66;
+    padding: 7px 10px;
+    font-size: 13px;
+    font-weight: 750;
+  }
+
+  .pf-chip-primary {
+    border-color: #2f73d5;
+    background: #2f73d5;
+    color: #ffffff;
+  }
+
+  .pf-running {
+    border: 1px solid #c8d9f2;
+    background: #f9fbff;
+    border-radius: 16px;
+    padding: 12px;
+  }
+
+  .pf-running-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #2f73d5;
+    font-weight: 850;
+  }
+
+  .pf-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 99px;
+    background: #2f73d5;
+    box-shadow: 14px 0 0 #8bb4ef, 28px 0 0 #c8d9f2;
+  }
+
+  .pf-steps {
+    display: grid;
+    gap: 8px;
+    margin-top: 10px;
+  }
+
+  .pf-step {
+    color: #64748b;
+    font-size: 13px;
+  }
+
+  .pf-step.done {
+    color: #1d7f55;
+  }
+
+  .pf-artifact {
+    border: 1px solid #b9cff0;
+    background: #ffffff;
+    border-radius: 17px;
+    padding: 13px;
+  }
+
+  .pf-artifact-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .pf-artifact h4 {
+    margin: 0 0 5px;
+    color: #172033;
+    font-size: 15px;
+  }
+
+  .pf-artifact p {
+    margin: 0;
+    color: #64748b;
+    line-height: 1.5;
+    font-size: 13px;
+  }
+
+  .pf-mini {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+    margin-top: 10px;
+  }
+
+  .pf-mini div {
+    border: 1px solid #dde7f3;
+    border-radius: 12px;
+    padding: 9px;
+    background: #f8fbff;
+    color: #475569;
+    font-size: 12px;
+  }
+
+  .pf-mini strong {
+    display: block;
+    color: #172033;
+    margin-bottom: 3px;
+  }
+
+  .pf-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 12px;
+  }
+
+  .pf-button {
+    border-radius: 10px;
+    border: 1px solid #c8d7eb;
+    background: #f8fbff;
+    color: #344a66;
+    padding: 8px 10px;
+    font-weight: 800;
+    font-size: 13px;
+  }
+
+  .pf-button-primary {
+    border-color: #2f73d5;
+    background: #2f73d5;
+    color: #ffffff;
+  }
+
+  .pf-composer {
+    margin: 0 16px 16px;
+    background: #ffffff;
+    border: 1px solid #cfdbea;
+    border-radius: 17px;
+    min-height: 82px;
+    padding: 11px;
+    display: grid;
+    grid-template-rows: 1fr auto;
+    gap: 10px;
+  }
+
+  .pf-placeholder {
+    color: #90a0b5;
+  }
+
+  .pf-composer-bottom {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .pf-tools {
+    color: #64748b;
+    font-size: 12px;
+  }
+
+  .pf-send {
+    border-radius: 10px;
+    background: #2f73d5;
+    color: #fff;
+    padding: 8px 12px;
+    font-size: 13px;
+    font-weight: 850;
+  }
+
+  @media (max-width: 980px) {
+    .pf-wrap {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
+
+<h2>C 方案细化：对话 + 下一步建议流</h2>
+<p class="pf-copy">这版把“流畅”定义成：用户点一个建议后立即进入执行态，Agent 用步骤状态解释正在做什么；生成结果直接回到对话里，确认入口就在结果卡上，不再让用户去页面里猜位置。</p>
+
+<div class="pf-wrap">
+  <div class="pf-stage">
+    <h3>建议采用的交互节奏</h3>
+    <ol>
+      <li>顶部只保留当前焦点和待确认数量，不再占据大量空间。</li>
+      <li>每轮 Agent 回复最多给 3 个建议选项，主建议高亮。</li>
+      <li>点击建议后，先插入用户消息，再立刻显示运行状态。</li>
+      <li>运行状态显示“读取签到 / 判断影响 / 生成草案”等短步骤。</li>
+      <li>产物卡直接出现在对话中，带确认、修改、查看影响。</li>
+      <li>确认后给明确成功反馈，并把下一个建议接上。</li>
+    </ol>
+  </div>
+
+  <div class="pf-preview">
+    <div class="pf-header">
+      <div class="pf-title"><span class="pf-icon"></span>Agent</div>
+      <div class="pf-badge">1 待确认</div>
+    </div>
+
+    <div class="pf-stream">
+      <div class="pf-focus">
+        <strong>当前最值得推进</strong>
+        阶段计划已确认，但签到显示后端任务有阻塞。建议先根据签到调整计划。
+      </div>
+
+      <div class="pf-message pf-agent">
+        我建议先处理计划调整。确认前不会修改项目，我会先生成一份可审阅草案。
+      </div>
+
+      <div class="pf-suggestions">
+        <span class="pf-chip pf-chip-primary">根据签到调整计划</span>
+        <span class="pf-chip">分析当前风险</span>
+        <span class="pf-chip">解释为什么</span>
+      </div>
+
+      <div class="pf-message pf-user">根据签到调整计划</div>
+
+      <div class="pf-running">
+        <div class="pf-running-head">
+          <span class="pf-dot"></span>
+          <span>正在生成计划调整草案</span>
+        </div>
+        <div class="pf-steps">
+          <div class="pf-step done">已读取最近签到和任务状态</div>
+          <div class="pf-step done">已识别后端阻塞对截止时间的影响</div>
+          <div class="pf-step">正在整理可确认的调整项...</div>
+        </div>
+      </div>
+
+      <div class="pf-artifact">
+        <div class="pf-artifact-top">
+          <div>
+            <h4>计划调整草案</h4>
+            <p>核心实现阶段存在延期风险。建议把后端协助前置、集成测试提前，演示脚本打磨降级到 P2。</p>
+          </div>
+          <div class="pf-badge">草案</div>
+        </div>
+        <div class="pf-mini">
+          <div><strong>影响</strong>3 个任务</div>
+          <div><strong>风险</strong>降低后端阻塞</div>
+          <div><strong>确认后</strong>写入提案队列</div>
+        </div>
+        <div class="pf-actions">
+          <span class="pf-button pf-button-primary">确认应用</span>
+          <span class="pf-button">继续修改</span>
+          <span class="pf-button">查看影响</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="pf-composer">
+      <div class="pf-placeholder">告诉 Agent 你的具体要求...</div>
+      <div class="pf-composer-bottom">
+        <div class="pf-tools">Enter 发送 · Shift Enter 换行</div>
+        <div class="pf-send">发送</div>
+      </div>
+    </div>
+  </div>
+</div>
