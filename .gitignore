@@ -33,6 +33,8 @@ scripts/
 .playwright-mcp/
 backend/tmp-logs/
 vendor_imports/tools/
+vendor_imports/research/**/repos/
+vendor_imports/research/**/npm/
 
 # Worktrees
 .worktrees/
