@@ -29,6 +29,9 @@ from app.schemas.runtime import (
 class AgentRuntimeService:
     """Service for managing agent run lifecycle and event persistence."""
 
+    # In-process idempotency cache (MVP/dev). Production should use Redis.
+    _idempotency_cache: dict[str, AppendResponse] = {}
+
     def __init__(self, session: Session):
         self.session = session
 
@@ -137,8 +140,9 @@ class AgentRuntimeService:
                 persisted=True,
             ))
 
-        # Update state version and timestamp
-        run.state_version += 1
+        # Update state version only when state changed, always update timestamp
+        if request.state_patch:
+            run.state_version += 1
         run.updated_at = datetime.now(timezone.utc)
 
         # Set completion time if run completed
@@ -161,53 +165,39 @@ class AgentRuntimeService:
         )
 
     def _apply_state_patch(self, run: AgentRunV2, patch: dict) -> None:
-        """Apply state patch to run."""
+        """Apply state patch to run with validation."""
         if "status" in patch:
-            run.status = patch["status"]
+            run.status = AgentRunStatus(patch["status"])
         if "current_turn" in patch:
-            run.current_turn = patch["current_turn"]
+            run.current_turn = int(patch["current_turn"])
         if "current_step" in patch:
-            run.current_step = patch["current_step"]
+            run.current_step = int(patch["current_step"])
         if "model_provider" in patch:
-            run.model_provider = patch["model_provider"]
+            run.model_provider = str(patch["model_provider"])
         if "model_name" in patch:
-            run.model_name = patch["model_name"]
+            run.model_name = str(patch["model_name"])
         if "pending_tool_call_id" in patch:
             run.pending_tool_call_id = patch["pending_tool_call_id"]
         if "pending_tool_name" in patch:
             run.pending_tool_name = patch["pending_tool_name"]
         if "pending_tool_version" in patch:
-            run.pending_tool_version = patch["pending_tool_version"]
+            run.pending_tool_version = int(patch["pending_tool_version"])
         if "pending_idempotency_key" in patch:
             run.pending_idempotency_key = patch["pending_idempotency_key"]
         if "last_event_seq" in patch:
-            run.last_event_seq = patch["last_event_seq"]
+            run.last_event_seq = int(patch["last_event_seq"])
 
     def _is_duplicate_request(self, run_id: str, idempotency_key: str) -> bool:
-        """Check if this is a duplicate request using idempotency key.
-
-        Idempotency key format: run_id:tool_call_id:tool_name:tool_version
-        We store processed keys in a simple in-memory cache for now.
-        In production, this would use Redis or similar.
-        """
-        # For MVP, use a simple approach: check if the key matches
-        # the last processed key for this run
-        # TODO: Implement proper idempotency storage in production
-        return False
+        """Check if this is a duplicate request using idempotency key."""
+        return idempotency_key in self._idempotency_cache
 
     def _cache_response(self, run_id: str, idempotency_key: str, response: AppendResponse) -> None:
-        """Cache response for idempotency key.
-
-        TODO: Implement proper caching in production (Redis, etc.)
-        """
-        pass
+        """Cache response for idempotency key (in-process, MVP)."""
+        self._idempotency_cache[idempotency_key] = response
 
     def _get_cached_response(self, run_id: str, idempotency_key: str) -> AppendResponse:
-        """Get cached response for duplicate request.
-
-        TODO: Implement proper cache retrieval in production
-        """
-        raise NotImplementedError("Idempotency cache not implemented")
+        """Get cached response for duplicate request."""
+        return self._idempotency_cache[idempotency_key]
 
 
 # ─── Singleton accessor ─────────────────────────────────────────────────────
