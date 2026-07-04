@@ -40,6 +40,12 @@ export interface ResumePolicy {
   requiresRegenerationOnMismatch: boolean;
 }
 
+export interface RunBudgetLimits {
+  maxSteps: number;
+  maxToolCalls: number;
+  timeoutMs: number;
+}
+
 export interface AgentRunState {
   runId: string;
   conversationId: string;
@@ -52,6 +58,7 @@ export interface AgentRunState {
   pendingToolCall?: PendingToolCall;
   sideEffects: SideEffect[];
   lastEventSeq: number;
+  budgetLimits: RunBudgetLimits;
   resumePolicy: ResumePolicy;
   createdAt: string;
   updatedAt: string;
@@ -84,6 +91,11 @@ export function createRunState(input: CreateRunStateInput): AgentRunState {
     model: input.model,
     sideEffects: [],
     lastEventSeq: 0,
+    budgetLimits: {
+      maxSteps: input.maxSteps,
+      maxToolCalls: input.maxToolCalls,
+      timeoutMs: input.timeoutMs,
+    },
     resumePolicy: {
       manifestVersion: 1,
       requiresRegenerationOnMismatch: true,

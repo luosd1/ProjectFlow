@@ -106,7 +106,10 @@ function evaluateByRiskCategory(category: RiskCategory, manifest: ProjectFlowToo
  */
 export function canExecuteInParallel(manifests: ProjectFlowToolManifest[]): boolean {
   return manifests.every(
-    (m) => m.execution.mode === "parallel" && m.execution.providerParallelToolCallsAllowed,
+    (m) =>
+      m.riskCategory === "read_only"
+      && m.execution.mode === "parallel"
+      && m.execution.providerParallelToolCallsAllowed,
   );
 }
 

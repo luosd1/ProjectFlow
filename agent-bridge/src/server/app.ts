@@ -13,6 +13,7 @@ import { handleHealth } from "./routes/health.js";
 import { getSessionStore } from "@/runtime/session-store.js";
 import { FastapiClient } from "@/tools/fastapi-client.js";
 import { ToolRegistry } from "@/tools/registry.js";
+import { registerMockTools } from "@/tools/mock-tools.js";
 import { EventStream } from "@/events/stream.js";
 import type { RunContext } from "./routes/utils.js";
 
@@ -51,6 +52,9 @@ export function createServer(config: SidecarConfig): Server {
     serviceToken: config.serviceToken,
   });
   const toolRegistry = new ToolRegistry();
+  if (config.defaultModelProvider === "mock") {
+    registerMockTools(toolRegistry);
+  }
   const stream = new EventStream();
 
   const ctx: RunContext = {

@@ -1,6 +1,6 @@
 # ProjectFlow Handoff
 
-Status: current as of 2026-07-04.
+Status: current as of 2026-07-05.
 
 ## Latest Architecture Handoff
 
@@ -10,21 +10,20 @@ T41 Agent Runtime TypeScript sidecar (`agent-bridge/`) implemented slices S3, S1
 
 **What was built:**
 
-- **S3 (Sidecar Skeleton + Pi Runtime Adapter)**: HTTP server on port 4000, `executeRun()` wrapping Pi's `runAgentLoop`, `toPiTool()` conversion, `handlePiEvent()` mapping, FastAPI service-to-service client, model router (openai/openrouter/deepseek/anthropic/mock), context builder with stable prefix + dynamic suffix + XML tag isolation, wire format adapter (snake_case ↔ camelCase). 10/10 acceptance criteria pass.
-- **S14 (Skills System)**: `SkillIndex` (directory scan + YAML frontmatter), `SkillLoader` (lazy SKILL.md + on-demand references), `selectSkill()` (keyword confidence scoring), 6 SKILL.md files with `allowed-tools` constraints. 7/7 acceptance criteria pass.
-- **S16 (Debug Raw Payload Mode)**: `traceIncludeSensitiveData` config (default false), `hashValue()` SHA-256 utility, trace envelope with `redacted` flag, result normalizer with truncation + hash. 5/5 acceptance criteria pass.
+- **S3 (Sidecar Skeleton + Pi Runtime Adapter)**: HTTP server on port 4000, `executeRun()` wrapping Pi's `runAgentLoop`, `toPiTool()` conversion, `handlePiEvent()` mapping, FastAPI service-to-service client, model router (openai/openrouter/deepseek/anthropic/mock), context builder with stable prefix + dynamic suffix + escaped XML data, mock provider/tool loop, cancel signal handling, wire format adapter (snake_case ↔ camelCase). 10/10 acceptance criteria pass.
+- **S14 (Skills System)**: `SkillIndex` (directory scan + YAML frontmatter), `SkillLoader` (lazy SKILL.md + bounded on-demand references), `selectSkill()` (keyword confidence scoring), 6 SKILL.md files with `allowed-tools` constraints and reference files. 7/7 acceptance criteria pass.
+- **S16 (Debug Raw Payload Mode)**: `traceIncludeSensitiveData` config (default false), `DebugPayloadStore` separate raw payload storage with retention, `hashValue()` SHA-256 utility, trace envelope with redacted/default-hash behavior, result normalizer with truncation + hash. 5/5 acceptance criteria pass.
 
-**Code review:** Two-axis review (Standards + Spec) completed. 2 hard violations fixed (`as any` removal, typed WorkspaceState), 5 judgement calls deferred.
+**Code review:** Two-axis review (Standards + Spec) completed. Hard violations fixed around XML escaping, skill tool filtering, provider parallel gating, manifest input schema forwarding, FastAPI tool envelope, cancel terminal state, references, and S16 debug storage. Judgement calls remain for future refactors around `skill-selector.ts` matching strategy and `pi-runtime.ts` module size.
 
-**Test results:** 68 sidecar unit tests pass, 12 backend S2 API tests pass, typecheck 0 errors.
+**Test results:** 79 sidecar unit tests pass, sidecar lint/typecheck/build pass, backend runtime schema/API tests pass (40 tests).
 
 **What remains (deferred):**
 - S5: Read-only tool registration (4 tools) — not in current acceptance criteria
 - S8: Assignment proposal tool registration — not in current acceptance criteria
 - S11: Frontend integration — blocked by S10 (event bridge)
-- S16: Debug mode wiring — trace envelope always emits hashes regardless of flag
 
-**Key files:** `agent-bridge/src/runtime/pi-runtime.ts`, `agent-bridge/src/server/app.ts`, `agent-bridge/src/policy/policy-engine.ts`, `agent-bridge/src/skills/skill-selector.ts`
+**Key files:** `agent-bridge/src/runtime/pi-runtime.ts`, `agent-bridge/src/runtime/context-builder.ts`, `agent-bridge/src/events/debug-payload-store.ts`, `agent-bridge/src/server/app.ts`, `agent-bridge/src/policy/policy-engine.ts`, `agent-bridge/src/skills/skill-selector.ts`
 
 ### T41 — Agent Runtime Architecture Docs (2026-07-04)
 

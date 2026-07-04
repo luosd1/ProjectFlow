@@ -40,6 +40,8 @@ export async function handleStartRun(
 
   // Store run in session store
   ctx.sessionStore.set(runState.runId, runState);
+  const abortController = new AbortController();
+  ctx.sessionStore.setAbortController(runState.runId, abortController);
 
   // Return run_id immediately, execute loop asynchronously
   sendJson(res, 200, {
@@ -70,19 +72,23 @@ export async function handleStartRun(
     ctx.stream,
     {
       traceIncludeSensitiveData: parsed.runtime_config?.trace_include_sensitive_data ?? ctx.config.traceIncludeSensitiveData,
+      signal: abortController.signal,
     },
     {
       onEvent: (type, payload) => {
         ctx.stream.emit(type as StreamEventType, { type, ...payload } as RuntimeEvent);
       },
       onComplete: (state) => {
+        ctx.sessionStore.clearAbortController(state.runId);
         console.log(`[agent-bridge] run ${state.runId} completed`);
       },
       onError: (error, state) => {
+        ctx.sessionStore.clearAbortController(state.runId);
         console.error(`[agent-bridge] run ${state.runId} failed:`, error.message);
       },
     },
   ).catch((err) => {
+    ctx.sessionStore.clearAbortController(runState.runId);
     console.error(`[agent-bridge] run ${runState.runId} uncaught error:`, err);
   });
 }

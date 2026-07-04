@@ -19,16 +19,19 @@
 
 import type { AgentRunState } from "@/types/run-state.js";
 import type { ContextBuildInput, SkillContext } from "./context-builder.js";
-import { buildContext } from "./context-builder.js";
+import { buildContext, filterModelCallableManifests } from "./context-builder.js";
 import type { ModelRouter } from "./model-router.js";
 import type { FastapiClient } from "@/tools/fastapi-client.js";
 import type { ToolRegistry, ToolExecutionContext } from "@/tools/registry.js";
 import { normalizeResult } from "@/tools/result-normalizer.js";
-import { evaluatePolicy } from "@/policy/policy-engine.js";
+import { canExecuteInParallel, evaluatePolicy } from "@/policy/policy-engine.js";
 import { BudgetManager } from "@/policy/budget.js";
 import { createToolTrace } from "@/events/trace-envelope.js";
+import { getDebugPayloadStore, type DebugPayloadStore } from "@/events/debug-payload-store.js";
 import type { EventStream } from "@/events/stream.js";
 import { createEvent } from "@/types/runtime-event.js";
+import type { ToolTrace } from "@/types/tool-result.js";
+import type { WireProjectFlowToolResult } from "@/types/wire.js";
 
 // Pi imports
 import {
@@ -43,8 +46,8 @@ import {
   type AfterToolCallContext,
   type StreamFn,
 } from "@earendil-works/pi-agent-core";
-import type { Model, Api } from "@earendil-works/pi-ai";
-import { Type } from "@earendil-works/pi-ai";
+import type { Model, Api, AssistantMessage, Message, ToolCall, Usage, TSchema } from "@earendil-works/pi-ai";
+import { createAssistantMessageEventStream, Type } from "@earendil-works/pi-ai";
 
 export interface RunInput {
   conversationId: string;
@@ -74,6 +77,7 @@ function toPiTool(
   fastapiClient: FastapiClient,
   budget: BudgetManager,
   traceIncludeSensitiveData: boolean,
+  debugPayloadStore: DebugPayloadStore,
 ): AgentTool<any> | null {
   const registered = registry.get(toolName);
   if (!registered) return null;
@@ -84,12 +88,12 @@ function toPiTool(
     name: manifest.name,
     description: manifest.description,
     label: manifest.name,
-    parameters: Type.Object({}),
+    parameters: toToolParameters(manifest.inputSchema),
     executionMode: manifest.execution.mode === "parallel" ? "parallel" : "sequential",
     execute: async (
       toolCallId: string,
       params: unknown,
-      _signal?: AbortSignal,
+      signal?: AbortSignal,
     ): Promise<AgentToolResult<any>> => {
       const idempotencyKey = `${runState.runId}_${toolCallId}`;
       const context: ToolExecutionContext = {
@@ -98,6 +102,9 @@ function toPiTool(
         conversationId: runState.conversationId,
         workspaceId: runState.workspaceId,
         projectId: runState.projectId,
+        toolName,
+        toolVersion: manifest.version,
+        manifestVersion: manifest.resume.manifestVersion,
         idempotencyKey,
       };
 
@@ -105,6 +112,34 @@ function toPiTool(
       const span = toolTrace.startSpan("tool.execution");
 
       try {
+        if (signal?.aborted) {
+          throw new Error("运行已取消");
+        }
+
+        const budgetCheck = budget.checkAll();
+        if (!budgetCheck.allowed) {
+          const observation = budgetCheck.message ?? "运行预算已超限";
+          const trace = toolTrace.toResultTrace();
+          const appendResponse = await fastapiClient.appendEvents(runState.runId, {
+            idempotency_key: idempotencyKey,
+            tool_results: [{
+              tool_call_id: toolCallId,
+              tool_name: toolName,
+              tool_version: manifest.version,
+              result: {
+                status: "failed",
+                error: { code: "BUDGET_EXCEEDED", message: observation },
+                side_effect_status: "no_side_effect",
+                observation,
+                trace,
+              },
+            }],
+          });
+          updateLastEventSeq(runState, appendResponse.state_version, appendResponse.events.map((event) => event.event_seq));
+          throw new Error(`BUDGET_EXCEEDED: ${observation}`);
+        }
+
+        budget.useToolCall();
         const rawResult = await registered.execute(params as Record<string, unknown>, context);
         toolTrace.endSpan(span, { status: "success" });
 
@@ -113,10 +148,17 @@ function toPiTool(
           redaction: manifest.resultLimit.redaction,
           recordInput: manifest.privacy.traceIncludeInputs,
           recordOutput: manifest.privacy.traceIncludeOutputs,
+          includeSensitiveData: traceIncludeSensitiveData,
+          debugPayloadStore,
+          debugPayloadContext: {
+            runId: runState.runId,
+            toolCallId,
+            toolName,
+          },
         });
 
         // Persist via append API
-        await fastapiClient.appendEvents(runState.runId, {
+        const appendResponse = await fastapiClient.appendEvents(runState.runId, {
           idempotency_key: idempotencyKey,
           tool_results: [{
             tool_call_id: toolCallId,
@@ -127,13 +169,13 @@ function toPiTool(
               data: normalized.data,
               side_effect_status: normalized.sideEffectStatus,
               observation: normalized.observation,
-              trace: normalized.trace,
+              trace: toWireTrace(normalized.trace),
             },
           }],
         });
+        updateLastEventSeq(runState, appendResponse.state_version, appendResponse.events.map((event) => event.event_seq));
 
         runState.sideEffects.push({ toolCallId, status: normalized.sideEffectStatus });
-        budget.useToolCall();
 
         if (normalized.status !== "success") {
           throw new Error(normalized.observation);
@@ -245,20 +287,23 @@ export async function executeRun(
   stream: EventStream,
   options: {
     traceIncludeSensitiveData?: boolean;
+    signal?: AbortSignal;
+    debugPayloadStore?: DebugPayloadStore;
     model?: Model<Api>;
     streamFn?: StreamFn;
   } = {},
   callbacks: RunCallbacks = {},
 ): Promise<AgentRunState> {
   const budget = new BudgetManager({
-    maxSteps: 8,
-    maxToolCalls: 6,
-    timeoutMs: 180000,
+    maxSteps: runState.budgetLimits.maxSteps,
+    maxToolCalls: runState.budgetLimits.maxToolCalls,
+    timeoutMs: runState.budgetLimits.timeoutMs,
     maxOutputTokens: 4096,
     maxToolResultBytes: 32768,
   });
 
   const traceIncludeSensitiveData = options.traceIncludeSensitiveData ?? false;
+  const debugPayloadStore = options.debugPayloadStore ?? getDebugPayloadStore();
 
   try {
     // Step 1: Context building
@@ -278,11 +323,12 @@ export async function executeRun(
     const builtContext = buildContext(contextInput);
 
     // Step 2: Build Pi tools from registry
-    const toolNames = toolRegistry.getManifests().map((m) => m.name);
+    const exposedManifests = filterModelCallableManifests(toolRegistry.getManifests(), input.skillContext);
+    const toolNames = exposedManifests.map((m) => m.name);
     const piTools: AgentTool<any>[] = [];
     for (const name of toolNames) {
       const piTool = toPiTool(
-        name, toolRegistry, runState, fastapiClient, budget, traceIncludeSensitiveData,
+        name, toolRegistry, runState, fastapiClient, budget, traceIncludeSensitiveData, debugPayloadStore,
       );
       if (piTool) piTools.push(piTool);
     }
@@ -299,13 +345,17 @@ export async function executeRun(
 
     // Step 5: Create model instance (mock for now, real provider when configured)
     const model = options.model ?? createMockModel(resolvedModel.name);
+    const streamFn = options.streamFn ?? (resolvedModel.provider === "mock" ? createMockStreamFn() : undefined);
 
     // Step 6: Build AgentLoopConfig with hooks
     const config: AgentLoopConfig = {
       model,
-      convertToLlm: (messages: AgentMessage[]) => messages as any[],
-      toolExecution: "parallel",
+      convertToLlm: (messages: AgentMessage[]): Message[] => messages as Message[],
+      toolExecution: canExecuteInParallel(exposedManifests) ? "parallel" : "sequential",
       beforeToolCall: async (_ctx: BeforeToolCallContext) => {
+        if (options.signal?.aborted) {
+          return { block: true, reason: "运行已取消" };
+        }
         // Policy gate — check if tool is allowed
         const toolName = _ctx.toolCall.name;
         const tool = toolRegistry.get(toolName);
@@ -342,13 +392,18 @@ export async function executeRun(
       agentContext,
       config,
       piEventSink,
-      undefined, // signal
-      options.streamFn,
+      options.signal,
+      streamFn,
     );
 
     // Step 8: Complete (if not already completed by agent_end event)
     // Status may have been mutated by handlePiEvent callback during runAgentLoop
-    if ((runState.status as string) !== "completed") {
+    const statusAfterRun = runState.status as string;
+    if (options.signal?.aborted || statusAfterRun === "cancelling" || statusAfterRun === "cancelled") {
+      runState.status = "cancelled";
+      runState.completedAt = new Date().toISOString();
+      runState.updatedAt = new Date().toISOString();
+    } else if ((runState.status as string) !== "completed") {
       runState.status = "completed";
       runState.completedAt = new Date().toISOString();
       runState.updatedAt = new Date().toISOString();
@@ -357,19 +412,112 @@ export async function executeRun(
 
     return runState;
   } catch (err) {
-    runState.status = "failed";
+    const wasCancelled = options.signal?.aborted || runState.status === "cancelling" || runState.status === "cancelled";
+    runState.status = wasCancelled ? "cancelled" : "failed";
     runState.completedAt = new Date().toISOString();
     runState.updatedAt = new Date().toISOString();
     const error = err instanceof Error ? err : new Error(String(err));
 
-    const pfEvent = createEvent("run.failed", runState.runId, runState.status, {
-      error: error.message,
-    });
-    stream.emit("runtime.error", pfEvent);
-    callbacks.onError?.(error, runState);
+    if (wasCancelled) {
+      const pfEvent = createEvent("run.cancelled", runState.runId, runState.status, {
+        reason: "运行已取消",
+      });
+      stream.emit("run.status", pfEvent);
+      callbacks.onComplete?.(runState);
+    } else {
+      const pfEvent = createEvent("run.failed", runState.runId, runState.status, {
+        error: error.message,
+        ...(error.message.startsWith("BUDGET_EXCEEDED") ? { code: "BUDGET_EXCEEDED" } : {}),
+      });
+      stream.emit("runtime.error", pfEvent);
+      callbacks.onError?.(error, runState);
+    }
 
     return runState;
   }
+}
+
+function toToolParameters(inputSchema: unknown): TSchema {
+  if (inputSchema && typeof inputSchema === "object") {
+    return inputSchema as TSchema;
+  }
+  return Type.Object({});
+}
+
+function updateLastEventSeq(runState: AgentRunState, stateVersion: number, eventSeqs: number[]): void {
+  runState.lastEventSeq = Math.max(runState.lastEventSeq, stateVersion, ...eventSeqs);
+}
+
+function toWireTrace(trace: ToolTrace): NonNullable<WireProjectFlowToolResult["trace"]> {
+  return {
+    ...(trace.inputHash ? { input_hash: trace.inputHash } : {}),
+    ...(trace.outputHash ? { output_hash: trace.outputHash } : {}),
+    ...(trace.debugPayloadId ? { debug_payload_id: trace.debugPayloadId } : {}),
+    redacted: trace.redacted,
+  };
+}
+
+const EMPTY_USAGE: Usage = {
+  input: 0,
+  output: 0,
+  cacheRead: 0,
+  cacheWrite: 0,
+  totalTokens: 0,
+  cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
+};
+
+function createMockStreamFn(): StreamFn {
+  return (model, context, options) => {
+    const stream = createAssistantMessageEventStream();
+
+    queueMicrotask(() => {
+      if (options?.signal?.aborted) {
+        const aborted = createAssistantMessage(model, [{ type: "text", text: "运行已取消" }], "aborted");
+        stream.push({ type: "error", reason: "aborted", error: aborted });
+        return;
+      }
+
+      const hasToolResult = context.messages.some((message) => message.role === "toolResult");
+      const firstTool = context.tools?.[0];
+      if (firstTool && !hasToolResult) {
+        const toolCall: ToolCall = {
+          type: "toolCall",
+          id: "mock_tool_call_1",
+          name: firstTool.name,
+          arguments: {},
+        };
+        const message = createAssistantMessage(model, [toolCall], "toolUse");
+        stream.push({ type: "done", reason: "toolUse", message });
+        return;
+      }
+
+      const message = createAssistantMessage(
+        model,
+        [{ type: "text", text: "已完成 ProjectFlow mock tool loop。" }],
+        "stop",
+      );
+      stream.push({ type: "done", reason: "stop", message });
+    });
+
+    return stream;
+  };
+}
+
+function createAssistantMessage(
+  model: Model<Api>,
+  content: AssistantMessage["content"],
+  stopReason: AssistantMessage["stopReason"],
+): AssistantMessage {
+  return {
+    role: "assistant",
+    content,
+    api: model.api,
+    provider: model.provider,
+    model: model.name,
+    usage: EMPTY_USAGE,
+    stopReason,
+    timestamp: Date.now(),
+  };
 }
 
 /**

@@ -38,12 +38,16 @@ export async function handleCancelRun(
   if (cancelableStatuses.includes(run.status)) {
     run.status = "cancelling";
     run.updatedAt = new Date().toISOString();
-    // TODO: Signal the runtime loop via AbortController
+    ctx.sessionStore.abort(runId);
+    run.status = "cancelled";
+    run.completedAt = new Date().toISOString();
+    run.updatedAt = run.completedAt;
+    ctx.sessionStore.clearAbortController(runId);
   }
 
   sendJson(res, 200, {
     run_id: run.runId,
     status: run.status,
-    cancelled: run.status === "cancelling",
+    cancelled: run.status === "cancelled",
   });
 }

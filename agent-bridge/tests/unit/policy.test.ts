@@ -142,6 +142,17 @@ describe("policy-engine", () => {
       ];
       expect(canExecuteInParallel(manifests)).toBe(false);
     });
+
+    it("returns false when any parallel-capable tool is not read_only", () => {
+      const manifests = [
+        makeManifest({
+          riskCategory: "draft_only",
+          effects: { effectType: "proposal_create", idempotencyKeyRequired: true, replaySafe: false },
+          execution: { mode: "parallel", maxConcurrency: 1, providerParallelToolCallsAllowed: true },
+        }),
+      ];
+      expect(canExecuteInParallel(manifests)).toBe(false);
+    });
   });
 
   describe("validateManifestSafety", () => {
