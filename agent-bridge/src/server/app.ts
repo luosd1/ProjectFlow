@@ -5,12 +5,18 @@
 
 import { createServer as createHttpServer, type IncomingMessage, type ServerResponse, type Server } from "node:http";
 import type { SidecarConfig } from "./config.js";
+import { sendJson } from "./routes/utils.js";
 import { handleStartRun } from "./routes/start-run.js";
 import { handleGetRun } from "./routes/get-run.js";
 import { handleCancelRun } from "./routes/cancel-run.js";
 import { handleHealth } from "./routes/health.js";
+import { getSessionStore } from "@/runtime/session-store.js";
+import { FastapiClient } from "@/tools/fastapi-client.js";
+import { ToolRegistry } from "@/tools/registry.js";
+import { EventStream } from "@/events/stream.js";
+import type { RunContext } from "./routes/utils.js";
 
-type RouteHandler = (req: IncomingMessage, res: ServerResponse, params: Record<string, string>) => Promise<void>;
+type RouteHandler = (req: IncomingMessage, res: ServerResponse, params: Record<string, string>, ctx: RunContext) => Promise<void>;
 
 interface Route {
   method: string;
@@ -37,12 +43,24 @@ function readBody(req: IncomingMessage): Promise<string> {
   });
 }
 
-function sendJson(res: ServerResponse, status: number, data: unknown): void {
-  res.writeHead(status, { "Content-Type": "application/json" });
-  res.end(JSON.stringify(data));
-}
-
 export function createServer(config: SidecarConfig): Server {
+  // Build shared context — no secrets exposed on req
+  const sessionStore = getSessionStore();
+  const fastapiClient = new FastapiClient({
+    baseUrl: config.fastapiBaseUrl,
+    serviceToken: config.serviceToken,
+  });
+  const toolRegistry = new ToolRegistry();
+  const stream = new EventStream();
+
+  const ctx: RunContext = {
+    config,
+    sessionStore,
+    fastapiClient,
+    toolRegistry,
+    stream,
+  };
+
   const routes: Route[] = [
     compileRoute("POST", "/runs", handleStartRun),
     compileRoute("GET", "/runs/:runId", handleGetRun),
@@ -79,16 +97,15 @@ export function createServer(config: SidecarConfig): Server {
         if (req.method === "POST") {
           (req as any).bodyText = await readBody(req);
         }
-        (req as any).config = config;
-        await route.handler(req, res, params);
+        await route.handler(req, res, params, ctx);
       } catch (err) {
         console.error(`[agent-bridge] error in ${route.method} ${url.pathname}:`, err);
-        sendJson(res, 500, { error: "internal_error", message: "Internal server error" });
+        sendJson(res, 500, { error: "internal_error", message: "服务器内部错误" });
       }
       return;
     }
 
-    sendJson(res, 404, { error: "not_found", message: `No route for ${req.method} ${url.pathname}` });
+    sendJson(res, 404, { error: "not_found", message: `未找到路由: ${req.method} ${url.pathname}` });
   });
 
   return server;

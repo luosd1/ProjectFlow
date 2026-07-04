@@ -1,10 +1,10 @@
 /**
- * Pi runtime adapter — wraps the agent session and runAgentLoop.
+ * Pi runtime adapter — wraps @earendil-works/pi-agent-core's runAgentLoop.
  *
  * This is the core orchestration module that:
  * 1. Receives a run request from FastAPI
  * 2. Builds model context via context-builder
- * 3. Runs the agent loop (mock or real provider)
+ * 3. Runs the agent loop using Pi's runAgentLoop
  * 4. On each tool call: beforeToolCall → policy gate → execute → afterToolCall
  * 5. Persists events/results via FastAPI append API
  * 6. Loops until model produces final answer or budget exhausted
@@ -26,9 +26,24 @@ import type { ToolRegistry, ToolExecutionContext } from "@/tools/registry.js";
 import { normalizeResult } from "@/tools/result-normalizer.js";
 import { evaluatePolicy } from "@/policy/policy-engine.js";
 import { BudgetManager } from "@/policy/budget.js";
-import { createToolTrace, createRunTrace } from "@/events/trace-envelope.js";
+import { createToolTrace } from "@/events/trace-envelope.js";
 import type { EventStream } from "@/events/stream.js";
 import { createEvent } from "@/types/runtime-event.js";
+
+// Pi imports
+import {
+  runAgentLoop,
+  type AgentContext,
+  type AgentEvent,
+  type AgentTool,
+  type AgentToolResult,
+  type AgentMessage,
+  type BeforeToolCallContext,
+  type AfterToolCallContext,
+  type StreamFn,
+} from "@earendil-works/pi-agent-core";
+import type { Model, Api } from "@earendil-works/pi-ai";
+import { Type } from "@earendil-works/pi-ai";
 
 export interface RunInput {
   conversationId: string;
@@ -48,8 +63,174 @@ export interface RunCallbacks {
 }
 
 /**
- * Execute a complete agent run.
- * This is the main entry point for the runtime loop.
+ * Convert a ProjectFlow ToolRegistry tool to a Pi AgentTool.
+ * Throws on tool execution failure (Pi convention).
+ */
+function toPiTool(
+  toolName: string,
+  registry: ToolRegistry,
+  runState: AgentRunState,
+  fastapiClient: FastapiClient,
+  budget: BudgetManager,
+  traceIncludeSensitiveData: boolean,
+): AgentTool<any> | null {
+  const registered = registry.get(toolName);
+  if (!registered) return null;
+
+  const manifest = registered.manifest;
+
+  return {
+    name: manifest.name,
+    description: manifest.description,
+    label: manifest.name,
+    parameters: Type.Object({}),
+    executionMode: manifest.execution.mode === "parallel" ? "parallel" : "sequential",
+    execute: async (
+      toolCallId: string,
+      params: unknown,
+      _signal?: AbortSignal,
+    ): Promise<AgentToolResult<any>> => {
+      const idempotencyKey = `${runState.runId}_${toolCallId}`;
+      const context: ToolExecutionContext = {
+        runId: runState.runId,
+        toolCallId,
+        conversationId: runState.conversationId,
+        workspaceId: runState.workspaceId,
+        projectId: runState.projectId,
+        idempotencyKey,
+      };
+
+      const toolTrace = createToolTrace(runState.runId, toolCallId, toolName, traceIncludeSensitiveData);
+      const span = toolTrace.startSpan("tool.execution");
+
+      try {
+        const rawResult = await registered.execute(params as Record<string, unknown>, context);
+        toolTrace.endSpan(span, { status: "success" });
+
+        const normalized = normalizeResult(rawResult, params, {
+          maxBytes: manifest.resultLimit.maxBytes,
+          redaction: manifest.resultLimit.redaction,
+          recordInput: manifest.privacy.traceIncludeInputs,
+          recordOutput: manifest.privacy.traceIncludeOutputs,
+        });
+
+        // Persist via append API
+        await fastapiClient.appendEvents(runState.runId, {
+          idempotency_key: idempotencyKey,
+          tool_results: [{
+            tool_call_id: toolCallId,
+            tool_name: toolName,
+            tool_version: manifest.version,
+            result: {
+              status: normalized.status,
+              data: normalized.data,
+              side_effect_status: normalized.sideEffectStatus,
+              observation: normalized.observation,
+              trace: normalized.trace,
+            },
+          }],
+        });
+
+        runState.sideEffects.push({ toolCallId, status: normalized.sideEffectStatus });
+        budget.useToolCall();
+
+        if (normalized.status !== "success") {
+          throw new Error(normalized.observation);
+        }
+
+        return {
+          content: [{ type: "text" as const, text: normalized.observation }],
+          details: normalized.data,
+        };
+      } catch (err) {
+        toolTrace.endSpan(span, { status: "error", error: String(err) });
+        throw err; // Pi convention: throw on failure
+      }
+    },
+  };
+}
+
+/**
+ * Map a Pi AgentEvent to a ProjectFlow event type and emit to stream.
+ */
+function handlePiEvent(
+  event: AgentEvent,
+  runState: AgentRunState,
+  stream: EventStream,
+  callbacks: RunCallbacks,
+): void {
+  switch (event.type) {
+    case "agent_start": {
+      runState.status = "context_building";
+      const pfEvent = createEvent("agent.started", runState.runId, runState.status);
+      stream.emit("run.status", pfEvent);
+      callbacks.onEvent?.("agent.started", { run_id: runState.runId });
+      break;
+    }
+    case "turn_start": {
+      runState.currentTurn++;
+      runState.status = "model_streaming";
+      runState.updatedAt = new Date().toISOString();
+      callbacks.onEvent?.("agent.status", { run_id: runState.runId, phase: "turn_start" });
+      break;
+    }
+    case "message_update": {
+      const pfEvent = createEvent("agent.delta", runState.runId, runState.status, {
+        content: (event as any).assistantMessageEvent,
+      });
+      stream.emit("agent.delta", pfEvent);
+      break;
+    }
+    case "tool_execution_start": {
+      runState.status = "tool_running";
+      runState.currentStep++;
+      runState.pendingToolCall = {
+        toolCallId: event.toolCallId,
+        toolName: event.toolName,
+        toolVersion: 1,
+        idempotencyKey: `${runState.runId}_${event.toolCallId}`,
+      };
+      const pfEvent = createEvent("tool.started", runState.runId, runState.status, {
+        tool_name: event.toolName,
+        tool_call_id: event.toolCallId,
+      });
+      stream.emit("tool.started", pfEvent);
+      callbacks.onEvent?.("tool.started", { tool_name: event.toolName, tool_call_id: event.toolCallId });
+      break;
+    }
+    case "tool_execution_end": {
+      runState.status = "persisting_tool_result";
+      runState.pendingToolCall = undefined;
+      const pfEventType = event.isError ? "tool.failed" : "tool.completed";
+      const pfEvent = createEvent(pfEventType, runState.runId, runState.status, {
+        tool_name: event.toolName,
+        tool_call_id: event.toolCallId,
+        is_error: event.isError,
+      });
+      stream.emit(event.isError ? "tool.failed" : "tool.completed", pfEvent);
+      callbacks.onEvent?.(pfEventType, { tool_name: event.toolName });
+      break;
+    }
+    case "turn_end": {
+      runState.status = "model_streaming";
+      runState.updatedAt = new Date().toISOString();
+      callbacks.onEvent?.("agent.status", { run_id: runState.runId, phase: "turn_end" });
+      break;
+    }
+    case "agent_end": {
+      runState.status = "completed";
+      runState.completedAt = new Date().toISOString();
+      runState.updatedAt = new Date().toISOString();
+      const pfEvent = createEvent("agent.completed", runState.runId, runState.status);
+      stream.emit("run.status", pfEvent);
+      callbacks.onEvent?.("agent.completed", { run_id: runState.runId });
+      break;
+    }
+  }
+}
+
+/**
+ * Execute a complete agent run using Pi's runAgentLoop.
  */
 export async function executeRun(
   runState: AgentRunState,
@@ -58,7 +239,11 @@ export async function executeRun(
   modelRouter: ModelRouter,
   fastapiClient: FastapiClient,
   stream: EventStream,
-  options: { traceIncludeSensitiveData?: boolean } = {},
+  options: {
+    traceIncludeSensitiveData?: boolean;
+    model?: Model<Api>;
+    streamFn?: StreamFn;
+  } = {},
   callbacks: RunCallbacks = {},
 ): Promise<AgentRunState> {
   const budget = new BudgetManager({
@@ -69,7 +254,7 @@ export async function executeRun(
     maxToolResultBytes: 32768,
   });
 
-  const runTrace = createRunTrace(runState.runId, options.traceIncludeSensitiveData ?? false);
+  const traceIncludeSensitiveData = options.traceIncludeSensitiveData ?? false;
 
   try {
     // Step 1: Context building
@@ -86,33 +271,83 @@ export async function executeRun(
       skillContext: input.skillContext,
       currentTime: new Date().toISOString(),
     };
-    const context = buildContext(contextInput);
+    const builtContext = buildContext(contextInput);
 
-    // Step 2: Start model streaming
+    // Step 2: Build Pi tools from registry
+    const toolNames = toolRegistry.getManifests().map((m) => m.name);
+    const piTools: AgentTool<any>[] = [];
+    for (const name of toolNames) {
+      const piTool = toPiTool(
+        name, toolRegistry, runState, fastapiClient, budget, traceIncludeSensitiveData,
+      );
+      if (piTool) piTools.push(piTool);
+    }
+
+    // Step 3: Build Pi AgentContext
+    const agentContext: AgentContext = {
+      systemPrompt: builtContext.systemPrompt,
+      messages: [{ role: "user", content: builtContext.userMessage, timestamp: new Date().toISOString() } as any],
+      tools: piTools,
+    };
+
+    // Step 4: Resolve model
+    const resolvedModel = modelRouter.resolve(runState.model.provider, runState.model.name);
+
+    // Step 5: Create model instance (mock for now, real provider when configured)
+    const model = options.model ?? createMockModel(resolvedModel.name);
+
+    // Step 6: Build AgentLoopConfig with hooks
+    const config: any = {
+      model,
+      convertToLlm: (messages: AgentMessage[]) => messages as any[],
+      toolExecution: "parallel",
+      beforeToolCall: async (_ctx: BeforeToolCallContext) => {
+        // Policy gate — check if tool is allowed
+        const toolName = _ctx.toolCall.name;
+        const tool = toolRegistry.get(toolName);
+        if (tool) {
+          const policy = evaluatePolicy(tool.manifest);
+          if (policy.decision === "block" || policy.decision === "deny") {
+            return { block: true, reason: policy.reason };
+          }
+        }
+        return undefined;
+      },
+      afterToolCall: async (_ctx: AfterToolCallContext) => {
+        // Result normalization is handled in the tool's execute function
+        return undefined;
+      },
+    };
+
+    // Step 7: Run the agent loop
     runState.status = "model_streaming";
-    runState.currentTurn++;
     runState.updatedAt = new Date().toISOString();
-    callbacks.onEvent?.("state.changed", { run_id: runState.runId, status: runState.status });
 
-    // Step 3: Run the agent loop (mock implementation for now)
+    const piEventSink = async (event: AgentEvent) => {
+      handlePiEvent(event, runState, stream, callbacks);
+    };
+
+    const promptMessage: AgentMessage = {
+      role: "user",
+      content: builtContext.userMessage,
+      timestamp: new Date().toISOString(),
+    } as any;
+
     await runAgentLoop(
-      runState,
-      context,
-      toolRegistry,
-      modelRouter,
-      fastapiClient,
-      budget,
-      runTrace,
-      options.traceIncludeSensitiveData ?? false,
-      stream,
-      callbacks,
+      [promptMessage],
+      agentContext,
+      config,
+      piEventSink,
+      undefined, // signal
+      options.streamFn,
     );
 
-    // Step 4: Complete
-    runState.status = "completed";
-    runState.completedAt = new Date().toISOString();
-    runState.updatedAt = new Date().toISOString();
-    callbacks.onEvent?.("run.completed", { run_id: runState.runId });
+    // Step 8: Complete (if not already completed by agent_end event)
+    if (runState.status !== "completed" as any) {
+      runState.status = "completed";
+      runState.completedAt = new Date().toISOString();
+      runState.updatedAt = new Date().toISOString();
+    }
     callbacks.onComplete?.(runState);
 
     return runState;
@@ -121,190 +356,31 @@ export async function executeRun(
     runState.completedAt = new Date().toISOString();
     runState.updatedAt = new Date().toISOString();
     const error = err instanceof Error ? err : new Error(String(err));
-    callbacks.onEvent?.("run.failed", { run_id: runState.runId, error: error.message });
+
+    const pfEvent = createEvent("run.failed", runState.runId, runState.status, {
+      error: error.message,
+    });
+    stream.emit("runtime.error", pfEvent);
     callbacks.onError?.(error, runState);
+
     return runState;
   }
 }
 
 /**
- * The agent loop — processes model responses and tool calls.
- * In mock mode, simulates a simple tool call sequence.
+ * Create a mock model for testing when no real provider is configured.
  */
-async function runAgentLoop(
-  runState: AgentRunState,
-  context: ReturnType<typeof buildContext>,
-  toolRegistry: ToolRegistry,
-  _modelRouter: ModelRouter,
-  fastapiClient: FastapiClient,
-  budget: BudgetManager,
-  _runTrace: ReturnType<typeof createRunTrace>,
-  includeSensitiveData: boolean,
-  stream: EventStream,
-  callbacks: RunCallbacks,
-): Promise<string> {
-  // Mock implementation: simulate a simple loop
-  // In production, this would call the actual model provider
-
-  const toolNames = context.tools.map((t: any) => t.function?.name).filter(Boolean);
-  if (toolNames.length === 0) {
-    return "没有可用的工具，无法执行操作。";
-  }
-
-  // Simulate calling up to 2 tools
-  const toolsToCall = toolNames.slice(0, 2);
-  const observations: string[] = [];
-
-  for (const toolName of toolsToCall) {
-    // Check budget
-    const budgetCheck = budget.checkAll();
-    if (!budgetCheck.allowed) {
-      const event = createEvent("runtime.error", runState.runId, runState.status, {
-        code: "BUDGET_EXCEEDED",
-        scope: budgetCheck.exceeded,
-        message: budgetCheck.message,
-      });
-      stream.emit("runtime.error", event);
-      throw new Error(budgetCheck.message);
-    }
-
-    // Check cancel signal
-    if (runState.status === "cancelling") {
-      runState.status = "cancelled";
-      throw new Error("运行已被取消");
-    }
-
-    // Get tool manifest
-    const tool = toolRegistry.get(toolName);
-    if (!tool) {
-      observations.push(`工具 ${toolName} 未注册`);
-      continue;
-    }
-
-    // Policy check
-    const policyResult = evaluatePolicy(tool.manifest);
-    if (policyResult.decision === "block") {
-      const event = createEvent("tool.blocked", runState.runId, runState.status, {
-        tool_name: toolName,
-        reason: policyResult.reason,
-      });
-      stream.emit("tool.blocked", event);
-      observations.push(`工具 ${toolName} 被策略阻止: ${policyResult.reason}`);
-      continue;
-    }
-
-    if (policyResult.decision === "deny") {
-      observations.push(`工具 ${toolName} 被策略拒绝: ${policyResult.reason}`);
-      continue;
-    }
-
-    // Execute tool
-    runState.status = "tool_running";
-    runState.currentStep++;
-    budget.useStep();
-    budget.useToolCall();
-
-    const toolCallId = `tc_${Date.now()}_${runState.currentStep}`;
-    const idempotencyKey = `${runState.runId}_${toolCallId}`;
-
-    runState.pendingToolCall = {
-      toolCallId,
-      toolName,
-      toolVersion: tool.manifest.version,
-      idempotencyKey,
-    };
-
-    // Emit tool.started event
-    const startEvent = createEvent("tool.started", runState.runId, runState.status, {
-      tool_name: toolName,
-      tool_call_id: toolCallId,
-    });
-    stream.emit("tool.started", startEvent);
-    callbacks.onEvent?.("tool.started", { tool_name: toolName, tool_call_id: toolCallId });
-
-    // Create trace
-    const toolTrace = createToolTrace(runState.runId, toolCallId, toolName, includeSensitiveData);
-    const traceSpan = toolTrace.startSpan("tool.execution");
-
-    try {
-      const context: ToolExecutionContext = {
-        runId: runState.runId,
-        toolCallId,
-        conversationId: runState.conversationId,
-        workspaceId: runState.workspaceId,
-        projectId: runState.projectId,
-        idempotencyKey,
-      };
-
-      const rawResult = await tool.execute({}, context);
-      toolTrace.endSpan(traceSpan, { status: "success" });
-
-      // Normalize result
-      const normalized = normalizeResult(rawResult, {}, {
-        maxBytes: tool.manifest.resultLimit.maxBytes,
-        redaction: tool.manifest.resultLimit.redaction,
-        recordInput: tool.manifest.privacy.traceIncludeInputs,
-        recordOutput: tool.manifest.privacy.traceIncludeOutputs,
-      });
-
-      // Persist via append API
-      runState.status = "persisting_tool_result";
-      await fastapiClient.appendEvents(runState.runId, {
-        idempotency_key: idempotencyKey,
-        tool_results: [{
-          tool_call_id: toolCallId,
-          tool_name: toolName,
-          tool_version: tool.manifest.version,
-          result: {
-            status: normalized.status,
-            data: normalized.data,
-            side_effect_status: normalized.sideEffectStatus,
-            observation: normalized.observation,
-            trace: normalized.trace,
-          },
-        }],
-      });
-
-      // Record side effect
-      runState.sideEffects.push({
-        toolCallId,
-        status: normalized.sideEffectStatus,
-      });
-
-      // Emit tool.completed
-      const completeEvent = createEvent("tool.completed", runState.runId, runState.status, {
-        tool_name: toolName,
-        tool_call_id: toolCallId,
-        status: normalized.status,
-      });
-      stream.emit("tool.completed", completeEvent);
-      callbacks.onEvent?.("tool.completed", { tool_name: toolName, status: normalized.status });
-
-      observations.push(normalized.observation);
-    } catch (err) {
-      toolTrace.endSpan(traceSpan, { status: "error", error: String(err) });
-
-      const failEvent = createEvent("tool.failed", runState.runId, runState.status, {
-        tool_name: toolName,
-        tool_call_id: toolCallId,
-        error: err instanceof Error ? err.message : String(err),
-      });
-      stream.emit("tool.failed", failEvent);
-      callbacks.onEvent?.("tool.failed", { tool_name: toolName, error: String(err) });
-
-      observations.push(`工具 ${toolName} 执行失败: ${err instanceof Error ? err.message : String(err)}`);
-    }
-
-    // Clear pending tool call
-    runState.pendingToolCall = undefined;
-
-    // Return to model_streaming for next iteration
-    runState.status = "model_streaming";
-    runState.updatedAt = new Date().toISOString();
-  }
-
-  // Return final observations as the agent's response
-  return observations.length > 0
-    ? `执行完成。结果:\n${observations.join("\n")}`
-    : "没有执行任何工具操作。";
+function createMockModel(name: string): Model<Api> {
+  return {
+    id: name,
+    providerId: "mock",
+    api: "openai-completions" as Api,
+    name,
+    reasoning: false,
+    provider: {} as any,
+    baseUrl: "",
+    input: "text" as any,
+    cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+    contextWindow: 128000,
+  } as unknown as Model<Api>;
 }

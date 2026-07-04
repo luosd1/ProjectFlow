@@ -117,15 +117,6 @@ export function canExecuteInParallel(manifests: ProjectFlowToolManifest[]): bool
 export function validateManifestSafety(manifest: ProjectFlowToolManifest): string[] {
   const errors: string[] = [];
 
-  if (manifest.modelCallable && manifest.effects.effectType === "runtime_metadata_write" && !manifest.sidecarOnly) {
-    // This is actually fine for internal runtime metadata
-  }
-
-  // Critical: LLM-callable tools must never have commit effects
-  if (manifest.modelCallable && manifest.effects.effectType === "runtime_metadata_write") {
-    // runtime_metadata_write is OK for AgentRun/AgentEvent
-  }
-
   // Draft-only must not commit
   if (manifest.riskCategory === "draft_only" && manifest.effects.effectType !== "proposal_create") {
     errors.push(`draft_only 工具 ${manifest.name} 的效果类型必须是 proposal_create，当前是 ${manifest.effects.effectType}`);

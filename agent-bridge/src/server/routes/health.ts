@@ -3,12 +3,14 @@
  */
 
 import type { IncomingMessage, ServerResponse } from "node:http";
+import type { RunContext } from "./utils.js";
 import { sendJson } from "./utils.js";
 
 export async function handleHealth(
   _req: IncomingMessage,
   res: ServerResponse,
   _params: Record<string, string>,
+  _ctx: RunContext,
 ): Promise<void> {
   sendJson(res, 200, {
     status: "ok",

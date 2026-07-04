@@ -3,8 +3,8 @@
  * Ensures every result has bounded payload and proper trace metadata.
  */
 
-import { createHash } from "node:crypto";
 import type { ProjectFlowToolResult, ToolTrace } from "@/types/tool-result.js";
+import { hashValue } from "@/utils/hash.js";
 
 export interface NormalizeOptions {
   maxBytes: number;
@@ -63,14 +63,10 @@ function buildTrace(input: unknown, output: unknown, opts: NormalizeOptions): To
   };
 }
 
-function hashValue(value: unknown): string {
-  const str = typeof value === "string" ? value : JSON.stringify(value ?? "");
-  return createHash("sha256").update(str).digest("hex").slice(0, 16);
-}
-
 /**
  * Truncate data to fit within maxBytes.
  * Uses JSON serialization to measure size.
+ * Falls back to safe string truncation if JSON.parse fails.
  */
 export function truncateData(data: unknown, maxBytes: number): unknown {
   if (data === undefined || data === null) return data;
@@ -80,9 +76,15 @@ export function truncateData(data: unknown, maxBytes: number): unknown {
 
   // For strings, truncate directly
   if (typeof data === "string") {
-    return data.slice(0, maxBytes) + "...[truncated]";
+    return data.slice(0, maxBytes) + "...[截断]";
   }
 
-  // For objects, truncate the JSON representation
-  return JSON.parse(json.slice(0, maxBytes - 20) + '"...[truncated]"}');
+  // For objects, try safe JSON truncation
+  const safeSlice = json.slice(0, maxBytes - 20);
+  try {
+    return JSON.parse(safeSlice + '"...[截断]"}');
+  } catch {
+    // If JSON is malformed after truncation, return a safe summary
+    return { _truncated: true, _original_size: json.length, _preview: safeSlice.slice(0, 200) };
+  }
 }

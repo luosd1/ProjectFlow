@@ -57,10 +57,11 @@ export class ToolRegistry {
 
 /**
  * Create a default tool execution function that calls FastAPI internal endpoints.
+ * @param toolName - The tool name to call on FastAPI
  */
-export function createFastapiToolExecutor(fastapiClient: FastapiClient) {
+export function createFastapiToolExecutor(fastapiClient: FastapiClient, toolName: string) {
   return async (args: Record<string, unknown>, context: ToolExecutionContext): Promise<unknown> => {
-    return fastapiClient.callTool(context.runId, {
+    return fastapiClient.callTool(toolName, {
       run_id: context.runId,
       tool_call_id: context.toolCallId,
       conversation_id: context.conversationId,

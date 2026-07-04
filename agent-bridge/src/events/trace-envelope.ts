@@ -3,7 +3,7 @@
  * Records trace metadata without secrets.
  */
 
-import { createHash } from "node:crypto";
+import { hashValue as sharedHashValue } from "@/utils/hash.js";
 
 export interface TraceEnvelopeData {
   runId: string;
@@ -49,10 +49,9 @@ export class TraceEnvelope {
     }
   }
 
-  /** Hash a value for trace (never include raw data in traces unless debug mode). */
+  /** Hash a value for trace (delegates to shared utility). */
   hashValue(value: unknown): string {
-    const str = typeof value === "string" ? value : JSON.stringify(value ?? "");
-    return createHash("sha256").update(str).digest("hex").slice(0, 16);
+    return sharedHashValue(value);
   }
 
   /** Build the trace output for inclusion in events/results. */

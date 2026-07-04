@@ -52,8 +52,6 @@ let globalStore: SessionStore | undefined;
 export function getSessionStore(): SessionStore {
   if (!globalStore) {
     globalStore = new SessionStore();
-    // Expose for route handlers (temporary until proper DI)
-    (globalThis as any).__runStore = globalStore;
   }
   return globalStore;
 }

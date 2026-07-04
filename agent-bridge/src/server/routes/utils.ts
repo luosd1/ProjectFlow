@@ -3,6 +3,20 @@
  */
 
 import type { ServerResponse } from "node:http";
+import type { SidecarConfig } from "../config.js";
+import type { SessionStore } from "@/runtime/session-store.js";
+import type { FastapiClient } from "@/tools/fastapi-client.js";
+import type { ToolRegistry } from "@/tools/registry.js";
+import type { EventStream } from "@/events/stream.js";
+
+/** Shared context passed to all route handlers — no secrets exposed on req. */
+export interface RunContext {
+  config: SidecarConfig;
+  sessionStore: SessionStore;
+  fastapiClient: FastapiClient;
+  toolRegistry: ToolRegistry;
+  stream: EventStream;
+}
 
 export function sendJson(res: ServerResponse, status: number, data: unknown): void {
   res.writeHead(status, { "Content-Type": "application/json" });
@@ -18,12 +32,12 @@ export function readJsonBody<T>(
     const data = JSON.parse(bodyText);
     const result = parser(data);
     if (result === null) {
-      sendJson(res, 400, { error: "validation_error", message: "Invalid request body" });
+      sendJson(res, 400, { error: "validation_error", message: "请求体格式无效" });
       return null;
     }
     return result;
   } catch {
-    sendJson(res, 400, { error: "parse_error", message: "Invalid JSON body" });
+    sendJson(res, 400, { error: "parse_error", message: "JSON 解析失败" });
     return null;
   }
 }

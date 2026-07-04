@@ -95,7 +95,7 @@ export class FastapiError extends Error {
     public readonly body: string,
     public readonly path: string,
   ) {
-    super(`FastAPI ${status} at ${path}: ${body.slice(0, 200)}`);
+    super(`FastAPI 请求失败 ${status} ${path}: ${body.slice(0, 200)}`);
     this.name = "FastapiError";
   }
 }

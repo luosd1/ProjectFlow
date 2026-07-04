@@ -13,8 +13,10 @@
     "lint": "eslint src/ tests/"
   },
   "dependencies": {
-    "zod": "^3.23.0",
-    "yaml": "^2.4.0"
+    "@earendil-works/pi-agent-core": "^0.80.3",
+    "@earendil-works/pi-ai": "^0.80.3",
+    "yaml": "^2.4.0",
+    "zod": "^3.23.0"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
