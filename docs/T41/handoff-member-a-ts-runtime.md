@@ -228,6 +228,47 @@ cd frontend
 ../scripts/npm run build
 ```
 
+## Pi 组件安装与参考
+
+S3/S5/S8/S14 需要使用 Pi 的两个核心包：
+
+### 安装
+
+```bash
+cd agent-bridge
+npm install @earendil-works/pi-ai @earendil-works/pi-agent-core
+```
+
+### 包说明
+
+| 包名 | 用途 | 主要 API |
+|------|------|----------|
+| `@earendil-works/pi-ai` | 模型/provider 层 | 注册 provider、model catalog、tool schema 转换 |
+| `@earendil-works/pi-agent-core` | Agent loop、tool call、hooks、runtime events | `runAgentLoop`、`beforeToolCall`/`afterToolCall` hooks、`StreamFn` |
+
+### 参考资源
+
+- **npm 包源码**：安装后查看 `node_modules/@earendil-works/pi-ai/` 和 `node_modules/@earendil-works/pi-agent-core/`
+- **类型定义**：包内包含完整的 TypeScript 类型定义（`.d.ts` 文件）
+- **官方文档**：https://pi.dev
+- **本地参考**：`vendor_imports/research/agent-runtime/repos/pi/` 有完整源码（仅本地参考，未推送到远程）
+
+### 使用示例
+
+```typescript
+// 引入 Pi 组件
+import { createProvider } from '@earendil-works/pi-ai';
+import { runAgentLoop, type ToolCallHook } from '@earendil-works/pi-agent-core';
+
+// 详见 Foundation Design §6 Model/Provider 和 §7 Tool Execution Hooks
+```
+
+### 注意事项
+
+1. **不要把 Pi types 暴露给 FastAPI** — sidecar 内部使用，FastAPI 只接收 ProjectFlow event
+2. **密钥解析在 sidecar 内部完成** — 不进入 AgentRunState 或 trace
+3. **参考现有实现**：`vendor_imports/research/agent-runtime/repos/pi/packages/agent/src/` 有 agent loop 和 hooks 的参考实现
+
 ## 安全约束
 
 - 不发布 npm 包
