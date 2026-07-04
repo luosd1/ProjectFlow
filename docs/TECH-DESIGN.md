@@ -42,6 +42,8 @@ Snapshot date: 2026-06-08.
 - Phase 37-40: Agent conversation workflow, chat-first sidebar, streaming, PRD 对照修复（方向卡字段补全、导出中文、卡片样式统一、内联确认、复盘 Agent 总结）。
 - Current verification baseline: backend pytest 244 passing, frontend lint passing, frontend build passing, frontend audit 0 vulnerabilities.
 
+T41 Agent Runtime update: on 2026-07-04, the target Agent runtime architecture was confirmed separately in `docs/T41/`. This TECH-DESIGN remains the MVP/current-implementation design. For new Agent runtime work, use the T41 docs, `CONTEXT.md`, and `docs/adr/` as the source of truth.
+
 ---
 
 ## 2. Technical Goal
@@ -85,9 +87,11 @@ ProjectFlow 的技术目标不是构建完整 SaaS，也不是做一个复杂企
 
 ## 4.1 Recommended Architecture
 
-ProjectFlow MVP 采用：
+ProjectFlow MVP/current implementation 采用：
 
 > **Next.js Frontend + FastAPI Backend + SQLite Local Database + Single Coordinator Agent + Lightweight Workflow / Optional LangGraph**
+
+This describes the shipped MVP implementation, not the T41 target Agent runtime. The T41 target is **TypeScript Agent Bridge Sidecar + Pi component runtime + ProjectFlow Tool Contract + durable AgentRunState + Proposal-Confirm Commit**. Do not use this MVP section as justification to keep expanding the legacy `CoordinatorAgent` as the final runtime.
 
 架构关键词：
 
@@ -160,7 +164,7 @@ flowchart TD
 
 | Principle                            | Meaning                                                        |
 | ------------------------------------ | -------------------------------------------------------------- |
-| Single Coordinator Agent             | MVP 不做多 Agent，避免调试复杂、成本上升和演示不稳定                                |
+| Single Coordinator Agent             | MVP/current implementation uses a single Coordinator; T41 migrates its assets into typed tools and a sidecar runtime |
 | Workspace-aware Agent                | Agent 读取 workspace、members、project、stage、tasks、check-ins 的统一状态 |
 | Workflow First                       | 主流程由确定性状态机控制，Agent 只在指定节点生成建议                                  |
 | Human-in-the-loop                    | 方向卡、阶段计划、分工、重排建议必须人工确认后生效                                      |
@@ -848,9 +852,11 @@ Agent 每次运行必须读取最新 WorkspaceState。clarify/plan/breakdown 还
 
 ## 10.1 Agent Pattern
 
-MVP 使用：
+MVP/current implementation 使用：
 
 > **Single Coordinator Agent + Workflow-controlled Modules**
+
+T41 target runtime does not keep the Coordinator as the main runtime. Existing modules, schemas, validation, fallback, AgentEvent logging, and proposal persistence are migration assets that should be wrapped as typed ProjectFlow tools behind FastAPI internal endpoints.
 
 不做：
 
@@ -2261,8 +2267,8 @@ Frontend:
 
 ```bash
 cd frontend
-npm install
-npm run dev
+../scripts/npm install
+../scripts/npm run dev
 ```
 
 Open:

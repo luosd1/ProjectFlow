@@ -104,13 +104,13 @@ curl http://localhost:8000/api/health
 
 ```bash
 cd frontend
-npm install
+../scripts/npm install
 ```
 
 ### 3.2 启动开发服务器
 
 ```bash
-npm run dev
+../scripts/npm run dev
 ```
 
 浏览器打开 http://localhost:3000 。
@@ -118,7 +118,7 @@ npm run dev
 如果 3000 端口被占用：
 
 ```bash
-npm run dev -- --port 3001
+../scripts/npm run dev -- --port 3001
 ```
 
 ## 第四步：跑测试
@@ -131,18 +131,18 @@ cd backend
 .venv\Scripts\python -m ruff check app
 ```
 
-预期：后端测试全部通过，ruff 无问题。当前测试基线为 `245 passed`。
+预期：后端测试全部通过，ruff 无问题。当前测试基线为 `244 passed`。
 
 ### 前端验证
 
 ```bash
 cd frontend
-npm run test
-npm run lint
-npm run build
+../scripts/npm run test
+../scripts/npm run lint
+../scripts/npm run build
 ```
 
-预期：24 个测试通过，lint 无错误，build 成功。`npm run test` / `npm run lint` / `npm run build` 会先或后归一 `next-env.d.ts`，避免 Next.js dev/build 类型路径切换污染 git diff。
+预期：26 个前端测试通过，lint 无错误，build 成功。`../scripts/npm run test` / `../scripts/npm run lint` / `../scripts/npm run build` 会先或后归一 `next-env.d.ts`，避免 Next.js dev/build 类型路径切换污染 git diff。
 
 ## 第五步：加载演示数据
 
@@ -359,14 +359,14 @@ python -m uvicorn app.main:app --reload --port 8001
 前端 3000 端口：
 
 ```bash
-npm run dev -- --port 3001
+../scripts/npm run dev -- --port 3001
 ```
 
 如果改了后端端口，前端需要设置环境变量：
 
 ```bash
 $env:NEXT_PUBLIC_API_BASE_URL="http://localhost:8001/api"
-npm run dev
+../scripts/npm run dev
 ```
 
 ### 数据库损坏 / 想要全新状态
@@ -398,7 +398,7 @@ pip install -e ".[dev]"
 ```bash
 cd frontend
 Remove-Item -Recurse -Force .next
-npm run build
+../scripts/npm run build
 ```
 
 ## 项目文档索引

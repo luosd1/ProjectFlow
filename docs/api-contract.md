@@ -170,11 +170,19 @@ POST /api/tasks/{task_id}/status-updates
 GET /api/workspaces/{workspace_id}/state
 ```
 
-Returns the full workspace state needed by the Coordinator Agent: members, active project, stages, tasks, assignment/check-in context, project resources, and `current_date` / `current_datetime` / `timezone` for time-aware planning.
+Returns the full workspace state needed by the current Coordinator Agent and future T41 read-only tools: members, active project, stages, tasks, assignment/check-in context, project resources, and `current_date` / `current_datetime` / `timezone` for time-aware planning.
 
-### Frontend Project State Composition
+### Project State
 
-The project dashboard currently composes its `ProjectState` from implemented endpoints instead of relying on a dedicated project-state route:
+```http
+GET /api/projects/{project_id}/state
+```
+
+Returns the aggregate project dashboard state. The frontend loads this aggregate endpoint first and falls back to split endpoints only if the aggregate route returns 404.
+
+T41 note: ProjectState and WorkspaceState read paths are read-only state views. They must not repair or advance Stage/Project state as a side effect. Stale stage/project repair belongs in an explicit maintenance command/job.
+
+Split fallback endpoints:
 
 - `GET /api/projects/{project_id}`
 - `GET /api/workspaces/{workspace_id}`

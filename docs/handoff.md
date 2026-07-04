@@ -1,6 +1,31 @@
 # ProjectFlow Handoff
 
-Status: current as of 2026-06-08.
+Status: current as of 2026-07-04.
+
+## Latest Architecture Handoff
+
+### T41 — Agent Runtime Architecture Docs (2026-07-04)
+
+T41 Agent Runtime architecture has been researched, reviewed, committed, and pushed in commit `aecbb6c`.
+
+Source documents:
+
+- `docs/T41/ProjectFlow_Agent_Runtime_Team_TDD.md`
+- `docs/T41/ProjectFlow_Agent_Runtime_Foundation_Design.md`
+- `docs/T41/ProjectFlow_Agent_Tools_Skills_Design.md`
+- `CONTEXT.md`
+- `docs/adr/`
+- `docs/T41/research/`
+
+Key decisions:
+
+- Target architecture is TypeScript Agent Bridge Sidecar + Pi component runtime + ProjectFlow Tool Contract + durable AgentRunState + Proposal-Confirm Commit.
+- Current `CoordinatorAgent` remains legacy implementation and migration asset, not the final runtime.
+- FastAPI/DB remain the source of truth; sidecar must not own DB credentials or bypass FastAPI.
+- LLM-callable tools cannot commit Primary Project State.
+- Risk of any severity is advisory; mitigation that changes task/stage/project/owner/date state requires replan proposal confirmation.
+- Read-only ProjectState/WorkspaceState/timeline paths must stay pure; stale state repair belongs in explicit State Repair Command / maintenance job.
+- Next step is to turn the T41 architecture docs into a PRD, then break that PRD into vertical-slice issues.
 
 ## Completed
 
@@ -444,7 +469,7 @@ Implemented scope:
 
 - Project dashboard now surfaces the planning and assignment flow: current stage, next action, clarification/direction card, stage plan, task breakdown, assignment proposal, member responses, negotiation, and final confirmation sections.
 - `frontend/src/app/projects/[projectId]/page.tsx` now delegates rendering to `ProjectDashboard` and keeps page logic focused on loading state and event handlers.
-- `frontend/src/lib/api.ts` composes `getProjectState` from implemented backend endpoints instead of assuming a dedicated project-state endpoint.
+- `frontend/src/lib/api.ts` loads `getProjectState` from `GET /api/projects/{project_id}/state` first and uses split endpoint composition only as a 404 fallback.
 - `frontend/src/lib/types.ts` now includes assignment responses and negotiations in `ProjectState`.
 - Focused frontend tests cover empty, populated, and API-failure dashboard states.
 
@@ -520,10 +545,10 @@ cd backend
 
 ```bash
 cd frontend
-npm run test
-npm run lint
-npm run build
-npm audit --omit=dev
+../scripts/npm run test
+../scripts/npm run lint
+../scripts/npm run build
+../scripts/npm audit --omit=dev
 ```
 
 Results:

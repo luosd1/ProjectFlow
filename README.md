@@ -2,9 +2,11 @@
 
 ProjectFlow is a local-first active project agent MVP for college project teams. The demo target is a full loop from workspace setup through planning, assignment, active push, check-in, risk analysis, replanning, and review export.
 
+The shipped MVP still uses a legacy single `CoordinatorAgent`. The confirmed T41 target architecture is a TypeScript Agent Bridge Sidecar with Pi component runtime, ProjectFlow Tool Contract, durable AgentRunState, and Proposal-Confirm Commit. For new Agent runtime work, start from the T41 docs rather than extending the legacy Coordinator as the target runtime.
+
 ## Current Status
 
-All MVP phases and MVP Usable tasks complete. Phase 24-29 (Agent Output Quality, T23 Fixes, Code Review, Frontend Redesign) complete through 2026-06-05. Phase 37-39 (Workspace UX, Landing Redesign, Agent UX Fixes, Task Ordering, Stage Auto-Advance) complete through 2026-06-07. Phase 40 (Agent Sidebar Polish) complete 2026-06-07. Phase 41 (Security Review & Performance Optimization) complete 2026-06-08.
+All MVP phases and MVP Usable tasks complete. Phase 24-29 (Agent Output Quality, T23 Fixes, Code Review, Frontend Redesign) complete through 2026-06-05. Phase 37-39 (Workspace UX, Landing Redesign, Agent UX Fixes, Task Ordering, Stage Auto-Advance) complete through 2026-06-07. Phase 40 (Agent Sidebar Polish) complete 2026-06-07. Phase 41 (Security Review & Performance Optimization) complete 2026-06-08. T41 Agent Runtime architecture docs were confirmed and pushed on 2026-07-04.
 
 - Phase 0 / GitHub #2 — Guardrails & Setup
 - Phase 1 / GitHub #3 — Account / Workspace / Member Profile
@@ -41,7 +43,8 @@ Implemented: FastAPI backend (70 endpoint method/path pairs, 19 persistence tabl
 - Frontend: Next.js, React, TypeScript, Tailwind CSS, shadcn/ui, Framer Motion
 - Backend: FastAPI, SQLModel, Pydantic
 - Database: SQLite for local demo data
-- Agent: single Coordinator Agent with structured output validation
+- Agent today: legacy single Coordinator Agent with structured output validation
+- Agent target: T41 TypeScript Agent Bridge Sidecar + Pi component runtime + typed ProjectFlow tools
 
 ## Backend
 
@@ -82,8 +85,8 @@ cd backend
 
 ```bash
 cd frontend
-npm install
-npm run dev
+../scripts/npm install
+../scripts/npm run dev
 ```
 
 Open:
@@ -96,10 +99,10 @@ Frontend verification:
 
 ```bash
 cd frontend
-npm run test
-npm run lint
-npm run build
-npm audit --omit=dev
+../scripts/npm run test
+../scripts/npm run lint
+../scripts/npm run build
+../scripts/npm audit --omit=dev
 ```
 
 ## Project Docs
@@ -112,6 +115,11 @@ npm audit --omit=dev
 - [Seed scenarios](docs/seed-scenarios.md)
 - [Code wiki](docs/code-wiki.md)
 - [Current handoff](docs/handoff.md)
+- [Agent Runtime T41 overview](docs/T41/ProjectFlow_Agent_Runtime_Team_TDD.md)
+- [Agent Runtime foundation design](docs/T41/ProjectFlow_Agent_Runtime_Foundation_Design.md)
+- [Agent Tools & Skills design](docs/T41/ProjectFlow_Agent_Tools_Skills_Design.md)
+- [Agent Runtime ADRs](docs/adr/)
+- [Domain glossary](CONTEXT.md)
 - [T23 test docs](docs/T23/)
 - [T23.A feedback](docs/T23/T23.A.feedback.md)
 - [T23.C feedback](docs/T23/T23.C.feedback.md)

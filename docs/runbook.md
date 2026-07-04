@@ -73,15 +73,15 @@ curl -X POST http://localhost:8000/api/llm/diagnostic ^
 
 ```bash
 cd frontend
-npm install
-npm run dev
+../scripts/npm install
+../scripts/npm run dev
 ```
 
 shadcn/ui components are pre-installed. To add more:
 
 ```bash
 cd frontend
-npx shadcn@latest add <component-name>
+../scripts/npx shadcn@latest add <component-name>
 ```
 
 Open:
@@ -93,7 +93,7 @@ http://localhost:3000
 If port 3000 is occupied:
 
 ```bash
-npm run dev -- --port 3001
+../scripts/npm run dev -- --port 3001
 ```
 
 ## Verification
@@ -109,10 +109,10 @@ Frontend:
 
 ```bash
 cd frontend
-npm run test
-npm run lint
-npm run build
-npm audit --omit=dev
+../scripts/npm run test
+../scripts/npm run lint
+../scripts/npm run build
+../scripts/npm audit --omit=dev
 ```
 
 Expected baseline as of 2026-06-08:
@@ -121,7 +121,7 @@ Expected baseline as of 2026-06-08:
 - Frontend tests pass: 26 tests across 9 files (API layer, project dashboard, home page, app shell, action cards, task status update, error boundaries, assignment flow panel, agent proposal panel with generation-status badge coverage).
 - Frontend lint passes.
 - Frontend production build passes.
-- `npm audit --omit=dev` reports 0 vulnerabilities.
+- `../scripts/npm audit --omit=dev` reports 0 vulnerabilities.
 
 Known non-blocking warnings:
 
