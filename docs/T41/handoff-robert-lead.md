@@ -12,17 +12,44 @@ ProjectFlow 要从固定 CoordinatorAgent 升级为工具化 Agent Runtime。架
 
 先读这些，按顺序：
 
-1. `docs/PRD-Agent-Runtime.md` — 完整 PRD
-2. `docs/T41/ProjectFlow_Agent_Runtime_Team_TDD.md` — 总方案
-3. `docs/T41/ProjectFlow_Agent_Runtime_Foundation_Design.md` — 底座设计
-4. `docs/T41/ProjectFlow_Agent_Tools_Skills_Design.md` — Tools & Skills 设计
-5. `CONTEXT.md` — 领域词汇表
-6. `docs/adr/0001-agent-runtime-confirmation-boundary.md`
-7. `docs/adr/0002-tiered-agent-write-boundary.md`
-8. `docs/adr/0003-use-replan-proposals-for-agent-inferred-task-state-changes.md`
-9. `docs/adr/0004-keep-project-state-read-paths-pure.md`
-10. `docs/T41/research/agent-write-boundary-research.md`
-11. `docs/T41/research/read-path-state-mutation-research.md`
+### 核心设计文档
+
+| # | 文档 | 说明 | 参考时机 |
+|---|------|------|----------|
+| 1 | `docs/PRD-Agent-Runtime.md` | 完整 PRD，38 条 User Stories | 了解需求全貌 |
+| 2 | `docs/T41/ProjectFlow_Agent_Runtime_Team_TDD.md` | 总方案：架构原则、系统边界、决策记录 | 架构决策、边界确认 |
+| 3 | `docs/T41/ProjectFlow_Agent_Runtime_Foundation_Design.md` | 底座设计：sidecar 模块、runtime loop、API、hooks | S1/S2/S9/S10 实现参考 |
+| 4 | `docs/T41/ProjectFlow_Agent_Tools_Skills_Design.md` | Tools & Skills 设计：manifest、工具清单、skill 系统 | S9/S10 工具定义参考 |
+
+### 领域知识
+
+| # | 文档 | 说明 | 参考时机 |
+|---|------|------|----------|
+| 5 | `CONTEXT.md` | 领域词汇表 | 遇到领域术语时查阅 |
+
+### 架构决策记录 (ADR)
+
+| # | 文档 | 决策 | 参考时机 |
+|---|------|------|----------|
+| 6 | `docs/adr/0001-agent-runtime-confirmation-boundary.md` | ToolExecutionApproval 是未来扩展，不进入当前 runtime | 边界确认 |
+| 7 | `docs/adr/0002-tiered-agent-write-boundary.md` | 四层写入边界：runtime_metadata/reviewable_draft/advisory_write/primary_commit | S1 schema 设计 |
+| 8 | `docs/adr/0003-use-replan-proposals-for-agent-inferred-task-state-changes.md` | Agent 推断的任务状态变化走 replan proposal | S9 replan migration |
+| 9 | `docs/adr/0004-keep-project-state-read-paths-pure.md` | Read path 无副作用，不隐式推进状态 | S10 event bridge |
+
+### 研究文档
+
+| # | 文档 | 说明 | 参考时机 |
+|---|------|------|----------|
+| 10 | `docs/T41/research/agent-write-boundary-research.md` | 写入边界研究：LangGraph、OpenAI Agents SDK 对比 | 深入理解边界设计 |
+| 11 | `docs/T41/research/read-path-state-mutation-research.md` | Read path 状态变更研究 | 深入理解 read purity |
+
+### 参考实现
+
+| 资源 | 说明 | 获取方式 |
+|------|------|----------|
+| `@earendil-works/pi-ai` | Pi 模型/provider 层 | `npm install @earendil-works/pi-ai` |
+| `@earendil-works/pi-agent-core` | Pi Agent loop、tool call、hooks | `npm install @earendil-works/pi-agent-core` |
+| `vendor_imports/research/agent-runtime/repos/pi/` | Pi 完整源码参考（仅本地） | 本地查看，未推送远程 |
 
 ## Issue Tracker
 

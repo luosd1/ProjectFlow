@@ -20,13 +20,35 @@ ProjectFlow 要从固定 CoordinatorAgent 升级为工具化 Agent Runtime。架
 
 先读这些：
 
-1. `docs/PRD-Agent-Runtime.md` — 完整 PRD
-2. `docs/T41/ProjectFlow_Agent_Runtime_Team_TDD.md` — 总方案（§2 推荐架构、§4 架构原则、§5 系统边界）
-3. `docs/T41/ProjectFlow_Agent_Runtime_Foundation_Design.md` — 底座设计（§2 进程边界、§3 Sidecar 模块、§4 Runtime Loop、§6 Model/Provider、§7 Tool Hooks、§10 Event Bridge）
-4. `docs/T41/ProjectFlow_Agent_Tools_Skills_Design.md` — Tools & Skills 设计（§3 Manifest、§4.1-4.3 read-only tools、§4.8 assignment、§9-11 Skills）
-5. `CONTEXT.md` — 领域词汇表
-6. `docs/adr/0001-agent-runtime-confirmation-boundary.md`
-7. `docs/adr/0002-tiered-agent-write-boundary.md`
+### 核心设计文档
+
+| # | 文档 | 重点章节 | 参考时机 |
+|---|------|----------|----------|
+| 1 | `docs/PRD-Agent-Runtime.md` | 完整 PRD | 了解需求全貌 |
+| 2 | `docs/T41/ProjectFlow_Agent_Runtime_Team_TDD.md` | §2 推荐架构、§4 架构原则、§5 系统边界 | 架构决策、边界确认 |
+| 3 | `docs/T41/ProjectFlow_Agent_Runtime_Foundation_Design.md` | §2 进程边界、§3 Sidecar 模块、§4 Runtime Loop、§6 Model/Provider、§7 Tool Hooks、§10 Event Bridge | S3/S5/S8 实现参考 |
+| 4 | `docs/T41/ProjectFlow_Agent_Tools_Skills_Design.md` | §3 Manifest、§4.1-4.3 read-only tools、§4.8 assignment、§9-11 Skills | S5/S8/S14 工具和 Skills 定义 |
+
+### 领域知识
+
+| # | 文档 | 说明 | 参考时机 |
+|---|------|------|----------|
+| 5 | `CONTEXT.md` | 领域词汇表 | 遇到领域术语时查阅 |
+
+### 架构决策记录 (ADR)
+
+| # | 文档 | 决策 | 参考时机 |
+|---|------|------|----------|
+| 6 | `docs/adr/0001-agent-runtime-confirmation-boundary.md` | ToolExecutionApproval 是未来扩展，不进入当前 runtime | 边界确认 |
+| 7 | `docs/adr/0002-tiered-agent-write-boundary.md` | 四层写入边界：runtime_metadata/reviewable_draft/advisory_write/primary_commit | S5/S8 工具分类 |
+
+### 参考实现
+
+| 资源 | 说明 | 获取方式 | 参考时机 |
+|------|------|----------|----------|
+| `@earendil-works/pi-ai` | Pi 模型/provider 层 | `npm install @earendil-works/pi-ai` | S3 Model Router |
+| `@earendil-works/pi-agent-core` | Pi Agent loop、tool call、hooks | `npm install @earendil-works/pi-agent-core` | S3 Runtime Adapter |
+| `vendor_imports/research/agent-runtime/repos/pi/` | Pi 完整源码参考（仅本地） | 本地查看，未推送远程 | S3 实现细节参考 |
 
 ## Issue Tracker
 
