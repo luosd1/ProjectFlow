@@ -6,12 +6,11 @@ Status: current as of 2026-07-04.
 
 ### T41 — Agent Runtime Sidecar Implementation (2026-07-04)
 
-T41 Agent Runtime TypeScript sidecar (`agent-bridge/`) implemented slices S3, S4, S14, S16 on branch `feature/handoff-member-a-ts-runtime`.
+T41 Agent Runtime TypeScript sidecar (`agent-bridge/`) implemented slices S3, S14, S16 on branch `feature/handoff-member-a-ts-runtime`.
 
 **What was built:**
 
 - **S3 (Sidecar Skeleton + Pi Runtime Adapter)**: HTTP server on port 4000, `executeRun()` wrapping Pi's `runAgentLoop`, `toPiTool()` conversion, `handlePiEvent()` mapping, FastAPI service-to-service client, model router (openai/openrouter/deepseek/anthropic/mock), context builder with stable prefix + dynamic suffix + XML tag isolation, wire format adapter (snake_case ↔ camelCase). 10/10 acceptance criteria pass.
-- **S4 (Policy Gate & Budget)**: `evaluatePolicy()` with 7 risk categories (read_only/analysis/draft_only/advisory_write/internal_write/destructive/open_world), `BudgetManager` (step/tool-call/timeout/token/byte limits), proposal boundary (create only, never confirm), advisory boundary (Risk/ActionCard direct, mitigation via replan). 13/13 acceptance criteria pass.
 - **S14 (Skills System)**: `SkillIndex` (directory scan + YAML frontmatter), `SkillLoader` (lazy SKILL.md + on-demand references), `selectSkill()` (keyword confidence scoring), 6 SKILL.md files with `allowed-tools` constraints. 7/7 acceptance criteria pass.
 - **S16 (Debug Raw Payload Mode)**: `traceIncludeSensitiveData` config (default false), `hashValue()` SHA-256 utility, trace envelope with `redacted` flag, result normalizer with truncation + hash. 5/5 acceptance criteria pass.
 
