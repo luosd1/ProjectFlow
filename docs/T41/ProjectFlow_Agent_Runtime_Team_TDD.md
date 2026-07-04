@@ -54,6 +54,8 @@ Pi component runtime
   - @earendil-works/pi-agent-core
 ```
 
+> **安装**：`npm install @earendil-works/pi-ai @earendil-works/pi-agent-core`（详见 Member A handoff 文档的"Pi 组件安装与参考"章节）
+
 关键点：
 
 - 使用 `@earendil-works/pi-ai` 做模型/provider 层。
