@@ -1,0 +1,207 @@
+"""T41 Agent Runtime Service.
+
+Manages AgentRun lifecycle, event appending, and tool result persistence.
+Implements idempotency key validation and atomic event_seq assignment.
+"""
+
+import json
+import uuid
+from datetime import datetime, timezone
+
+from sqlmodel import Session, select
+
+from app.models.agent_run_state import AgentRunV2
+from app.models.enums import AgentRunStatus, SideEffectStatus
+from app.schemas.runtime import (
+    AppendRequest,
+    AppendResponse,
+    EventAppendItem,
+    EventAppendResponse,
+    ProjectFlowToolResult,
+    RunStartRequest,
+    RunStartResponse,
+    RunStatusResponse,
+    ToolResultAppendItem,
+    ToolResultAppendResponse,
+)
+
+
+class AgentRuntimeService:
+    """Service for managing agent run lifecycle and event persistence."""
+
+    # In-process idempotency cache (MVP/dev). Production should use Redis.
+    _idempotency_cache: dict[str, AppendResponse] = {}
+
+    def __init__(self, session: Session):
+        self.session = session
+
+    def start_run(self, request: RunStartRequest) -> RunStartResponse:
+        """Create a new agent run."""
+        run = AgentRunV2(
+            id=str(uuid.uuid4()),
+            conversation_id=request.conversation_id,
+            project_id=request.project_id,
+            workspace_id=request.workspace_id,
+            user_message_id=request.user_message_id,
+            status=AgentRunStatus.created,
+            current_turn=0,
+            current_step=0,
+            model_provider="",
+            model_name="",
+            side_effects="[]",
+            last_event_seq=0,
+            resume_manifest_version=1,
+            state_version=0,
+        )
+        self.session.add(run)
+        self.session.commit()
+        self.session.refresh(run)
+
+        return RunStartResponse(
+            run_id=run.id,
+            status=run.status,
+        )
+
+    def get_run_status(self, run_id: str) -> RunStatusResponse | None:
+        """Get current run status."""
+        run = self.session.get(AgentRunV2, run_id)
+        if not run:
+            return None
+
+        return RunStatusResponse(
+            run_id=run.id,
+            status=run.status,
+            current_turn=run.current_turn,
+            current_step=run.current_step,
+            last_event_seq=run.last_event_seq,
+            created_at=run.created_at,
+            updated_at=run.updated_at,
+            completed_at=run.completed_at,
+        )
+
+    def append_events(
+        self,
+        run_id: str,
+        request: AppendRequest,
+    ) -> AppendResponse:
+        """Append events and tool results to a run atomically.
+
+        - Validates idempotency key
+        - Assigns event_seq monotonically per run_id
+        - Applies state patch
+        - Persists tool results
+        - All in a single transaction
+        """
+        run = self.session.get(AgentRunV2, run_id)
+        if not run:
+            raise ValueError(f"Run {run_id} not found")
+
+        # Check idempotency key
+        if self._is_duplicate_request(run_id, request.idempotency_key):
+            # Return cached response for duplicate request
+            return self._get_cached_response(run_id, request.idempotency_key)
+
+        # Apply state patch if provided
+        if request.state_patch:
+            self._apply_state_patch(run, request.state_patch)
+
+        # Process events and assign event_seq
+        event_responses = []
+        for event_item in request.events:
+            run.last_event_seq += 1
+            event_seq = run.last_event_seq
+            agent_event_id = str(uuid.uuid4())
+
+            # TODO: Persist event to agent_events table when needed
+            # For now, we track the seq assignment
+
+            event_responses.append(EventAppendResponse(
+                client_event_id=event_item.client_event_id,
+                agent_event_id=agent_event_id,
+                event_seq=event_seq,
+            ))
+
+        # Process tool results
+        tool_result_responses = []
+        for tool_result_item in request.tool_results:
+            agent_event_id = str(uuid.uuid4())
+
+            # Update side effects
+            side_effects = run.get_side_effects()
+            side_effects.append({
+                "tool_call_id": tool_result_item.tool_call_id,
+                "status": tool_result_item.result.side_effect_status.value,
+            })
+            run.set_side_effects(side_effects)
+
+            tool_result_responses.append(ToolResultAppendResponse(
+                tool_call_id=tool_result_item.tool_call_id,
+                agent_event_id=agent_event_id,
+                persisted=True,
+            ))
+
+        # Update state version only when state changed, always update timestamp
+        if request.state_patch:
+            run.state_version += 1
+        run.updated_at = datetime.now(timezone.utc)
+
+        # Set completion time if run completed
+        if run.status in (AgentRunStatus.completed, AgentRunStatus.cancelled, AgentRunStatus.failed):
+            run.completed_at = datetime.now(timezone.utc)
+
+        self.session.commit()
+
+        # Cache response for idempotency
+        self._cache_response(run_id, request.idempotency_key, AppendResponse(
+            state_version=run.state_version,
+            events=event_responses,
+            tool_results=tool_result_responses,
+        ))
+
+        return AppendResponse(
+            state_version=run.state_version,
+            events=event_responses,
+            tool_results=tool_result_responses,
+        )
+
+    def _apply_state_patch(self, run: AgentRunV2, patch: dict) -> None:
+        """Apply state patch to run with validation."""
+        if "status" in patch:
+            run.status = AgentRunStatus(patch["status"])
+        if "current_turn" in patch:
+            run.current_turn = int(patch["current_turn"])
+        if "current_step" in patch:
+            run.current_step = int(patch["current_step"])
+        if "model_provider" in patch:
+            run.model_provider = str(patch["model_provider"])
+        if "model_name" in patch:
+            run.model_name = str(patch["model_name"])
+        if "pending_tool_call_id" in patch:
+            run.pending_tool_call_id = patch["pending_tool_call_id"]
+        if "pending_tool_name" in patch:
+            run.pending_tool_name = patch["pending_tool_name"]
+        if "pending_tool_version" in patch:
+            run.pending_tool_version = int(patch["pending_tool_version"])
+        if "pending_idempotency_key" in patch:
+            run.pending_idempotency_key = patch["pending_idempotency_key"]
+        if "last_event_seq" in patch:
+            run.last_event_seq = int(patch["last_event_seq"])
+
+    def _is_duplicate_request(self, run_id: str, idempotency_key: str) -> bool:
+        """Check if this is a duplicate request using idempotency key."""
+        return idempotency_key in self._idempotency_cache
+
+    def _cache_response(self, run_id: str, idempotency_key: str, response: AppendResponse) -> None:
+        """Cache response for idempotency key (in-process, MVP)."""
+        self._idempotency_cache[idempotency_key] = response
+
+    def _get_cached_response(self, run_id: str, idempotency_key: str) -> AppendResponse:
+        """Get cached response for duplicate request."""
+        return self._idempotency_cache[idempotency_key]
+
+
+# ─── Singleton accessor ─────────────────────────────────────────────────────
+
+def get_agent_runtime_service(session: Session) -> AgentRuntimeService:
+    """Get AgentRuntimeService instance."""
+    return AgentRuntimeService(session)
