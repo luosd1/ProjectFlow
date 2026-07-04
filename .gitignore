@@ -13,6 +13,7 @@ node_modules/
 frontend/.next/
 frontend/out/
 frontend/dist/
+agent-bridge/dist/
 *.tsbuildinfo
 
 .venv/

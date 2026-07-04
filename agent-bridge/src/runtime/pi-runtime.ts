@@ -1,0 +1,540 @@
+/**
+ * Pi runtime adapter — wraps @earendil-works/pi-agent-core's runAgentLoop.
+ *
+ * This is the core orchestration module that:
+ * 1. Receives a run request from FastAPI
+ * 2. Builds model context via context-builder
+ * 3. Runs the agent loop using Pi's runAgentLoop
+ * 4. On each tool call: beforeToolCall → policy gate → execute → afterToolCall
+ * 5. Persists events/results via FastAPI append API
+ * 6. Loops until model produces final answer or budget exhausted
+ *
+ * Key invariants:
+ * - Every tool call produces exactly one result
+ * - Parameters validated before execution
+ * - Policy decision recorded before every side effect
+ * - Every result has a bounded payload
+ * - Tool success observation only returned to model after FastAPI confirms persistence
+ */
+
+import type { AgentRunState } from "@/types/run-state.js";
+import type { ContextBuildInput, SkillContext } from "./context-builder.js";
+import { buildContext, filterModelCallableManifests } from "./context-builder.js";
+import type { ModelRouter } from "./model-router.js";
+import type { FastapiClient } from "@/tools/fastapi-client.js";
+import type { ToolRegistry, ToolExecutionContext } from "@/tools/registry.js";
+import { normalizeResult } from "@/tools/result-normalizer.js";
+import { canExecuteInParallel, evaluatePolicy } from "@/policy/policy-engine.js";
+import { BudgetManager } from "@/policy/budget.js";
+import { createToolTrace } from "@/events/trace-envelope.js";
+import { getDebugPayloadStore, type DebugPayloadStore } from "@/events/debug-payload-store.js";
+import type { EventStream } from "@/events/stream.js";
+import { createEvent } from "@/types/runtime-event.js";
+import type { ToolTrace } from "@/types/tool-result.js";
+import type { WireProjectFlowToolResult } from "@/types/wire.js";
+
+// Pi imports
+import {
+  runAgentLoop,
+  type AgentContext,
+  type AgentEvent,
+  type AgentTool,
+  type AgentToolResult,
+  type AgentMessage,
+  type AgentLoopConfig,
+  type BeforeToolCallContext,
+  type AfterToolCallContext,
+  type StreamFn,
+} from "@earendil-works/pi-agent-core";
+import type { Model, Api, AssistantMessage, Message, ToolCall, Usage, TSchema } from "@earendil-works/pi-ai";
+import { createAssistantMessageEventStream, Type } from "@earendil-works/pi-ai";
+
+export interface RunInput {
+  conversationId: string;
+  workspaceId: string;
+  projectId: string;
+  userContent: string;
+  workspaceState?: unknown;
+  recentMessages?: unknown[];
+  pendingProposals?: unknown[];
+  skillContext?: SkillContext;
+}
+
+export interface RunCallbacks {
+  onEvent?: (type: string, payload: Record<string, unknown>) => void;
+  onComplete?: (state: AgentRunState) => void;
+  onError?: (error: Error, state: AgentRunState) => void;
+}
+
+/**
+ * Convert a ProjectFlow ToolRegistry tool to a Pi AgentTool.
+ * Throws on tool execution failure (Pi convention).
+ */
+function toPiTool(
+  toolName: string,
+  registry: ToolRegistry,
+  runState: AgentRunState,
+  fastapiClient: FastapiClient,
+  budget: BudgetManager,
+  traceIncludeSensitiveData: boolean,
+  debugPayloadStore: DebugPayloadStore,
+): AgentTool<any> | null {
+  const registered = registry.get(toolName);
+  if (!registered) return null;
+
+  const manifest = registered.manifest;
+
+  return {
+    name: manifest.name,
+    description: manifest.description,
+    label: manifest.name,
+    parameters: toToolParameters(manifest.inputSchema),
+    executionMode: manifest.execution.mode === "parallel" ? "parallel" : "sequential",
+    execute: async (
+      toolCallId: string,
+      params: unknown,
+      signal?: AbortSignal,
+    ): Promise<AgentToolResult<any>> => {
+      const idempotencyKey = `${runState.runId}_${toolCallId}`;
+      const context: ToolExecutionContext = {
+        runId: runState.runId,
+        toolCallId,
+        conversationId: runState.conversationId,
+        workspaceId: runState.workspaceId,
+        projectId: runState.projectId,
+        toolName,
+        toolVersion: manifest.version,
+        manifestVersion: manifest.resume.manifestVersion,
+        idempotencyKey,
+      };
+
+      const toolTrace = createToolTrace(runState.runId, toolCallId, toolName, traceIncludeSensitiveData);
+      const span = toolTrace.startSpan("tool.execution");
+
+      try {
+        if (signal?.aborted) {
+          throw new Error("运行已取消");
+        }
+
+        const budgetCheck = budget.checkAll();
+        if (!budgetCheck.allowed) {
+          const observation = budgetCheck.message ?? "运行预算已超限";
+          const trace = toolTrace.toResultTrace();
+          const appendResponse = await fastapiClient.appendEvents(runState.runId, {
+            idempotency_key: idempotencyKey,
+            tool_results: [{
+              tool_call_id: toolCallId,
+              tool_name: toolName,
+              tool_version: manifest.version,
+              result: {
+                status: "failed",
+                error: { code: "BUDGET_EXCEEDED", message: observation },
+                side_effect_status: "no_side_effect",
+                observation,
+                trace,
+              },
+            }],
+          });
+          updateLastEventSeq(runState, appendResponse.state_version, appendResponse.events.map((event) => event.event_seq));
+          throw new Error(`BUDGET_EXCEEDED: ${observation}`);
+        }
+
+        budget.useToolCall();
+        const rawResult = await registered.execute(params as Record<string, unknown>, context);
+        toolTrace.endSpan(span, { status: "success" });
+
+        const normalized = normalizeResult(rawResult, params, {
+          maxBytes: manifest.resultLimit.maxBytes,
+          redaction: manifest.resultLimit.redaction,
+          recordInput: manifest.privacy.traceIncludeInputs,
+          recordOutput: manifest.privacy.traceIncludeOutputs,
+          includeSensitiveData: traceIncludeSensitiveData,
+          debugPayloadStore,
+          debugPayloadContext: {
+            runId: runState.runId,
+            toolCallId,
+            toolName,
+          },
+        });
+
+        // Persist via append API
+        const appendResponse = await fastapiClient.appendEvents(runState.runId, {
+          idempotency_key: idempotencyKey,
+          tool_results: [{
+            tool_call_id: toolCallId,
+            tool_name: toolName,
+            tool_version: manifest.version,
+            result: {
+              status: normalized.status,
+              data: normalized.data,
+              side_effect_status: normalized.sideEffectStatus,
+              observation: normalized.observation,
+              trace: toWireTrace(normalized.trace),
+            },
+          }],
+        });
+        updateLastEventSeq(runState, appendResponse.state_version, appendResponse.events.map((event) => event.event_seq));
+
+        runState.sideEffects.push({ toolCallId, status: normalized.sideEffectStatus });
+
+        if (normalized.status !== "success") {
+          throw new Error(normalized.observation);
+        }
+
+        return {
+          content: [{ type: "text" as const, text: normalized.observation }],
+          details: normalized.data,
+        };
+      } catch (err) {
+        toolTrace.endSpan(span, { status: "error", error: String(err) });
+        throw err; // Pi convention: throw on failure
+      }
+    },
+  };
+}
+
+/**
+ * Map a Pi AgentEvent to a ProjectFlow event type and emit to stream.
+ */
+function handlePiEvent(
+  event: AgentEvent,
+  runState: AgentRunState,
+  stream: EventStream,
+  callbacks: RunCallbacks,
+): void {
+  switch (event.type) {
+    case "agent_start": {
+      runState.status = "context_building";
+      const pfEvent = createEvent("agent.started", runState.runId, runState.status);
+      stream.emit("run.status", pfEvent);
+      callbacks.onEvent?.("agent.started", { run_id: runState.runId });
+      break;
+    }
+    case "turn_start": {
+      runState.currentTurn++;
+      runState.status = "model_streaming";
+      runState.updatedAt = new Date().toISOString();
+      callbacks.onEvent?.("agent.status", { run_id: runState.runId, phase: "turn_start" });
+      break;
+    }
+    case "message_update": {
+      const messageEvent = "assistantMessageEvent" in event
+        ? (event as Record<string, unknown>).assistantMessageEvent
+        : undefined;
+      const pfEvent = createEvent("agent.delta", runState.runId, runState.status, {
+        content: messageEvent,
+      });
+      stream.emit("agent.delta", pfEvent);
+      break;
+    }
+    case "tool_execution_start": {
+      runState.status = "tool_running";
+      runState.currentStep++;
+      runState.pendingToolCall = {
+        toolCallId: event.toolCallId,
+        toolName: event.toolName,
+        toolVersion: 1,
+        idempotencyKey: `${runState.runId}_${event.toolCallId}`,
+      };
+      const pfEvent = createEvent("tool.started", runState.runId, runState.status, {
+        tool_name: event.toolName,
+        tool_call_id: event.toolCallId,
+      });
+      stream.emit("tool.started", pfEvent);
+      callbacks.onEvent?.("tool.started", { tool_name: event.toolName, tool_call_id: event.toolCallId });
+      break;
+    }
+    case "tool_execution_end": {
+      runState.status = "persisting_tool_result";
+      runState.pendingToolCall = undefined;
+      const pfEventType = event.isError ? "tool.failed" : "tool.completed";
+      const pfEvent = createEvent(pfEventType, runState.runId, runState.status, {
+        tool_name: event.toolName,
+        tool_call_id: event.toolCallId,
+        is_error: event.isError,
+      });
+      stream.emit(event.isError ? "tool.failed" : "tool.completed", pfEvent);
+      callbacks.onEvent?.(pfEventType, { tool_name: event.toolName });
+      break;
+    }
+    case "turn_end": {
+      runState.status = "model_streaming";
+      runState.updatedAt = new Date().toISOString();
+      callbacks.onEvent?.("agent.status", { run_id: runState.runId, phase: "turn_end" });
+      break;
+    }
+    case "agent_end": {
+      runState.status = "completed";
+      runState.completedAt = new Date().toISOString();
+      runState.updatedAt = new Date().toISOString();
+      const pfEvent = createEvent("agent.completed", runState.runId, runState.status);
+      stream.emit("run.status", pfEvent);
+      callbacks.onEvent?.("agent.completed", { run_id: runState.runId });
+      break;
+    }
+  }
+}
+
+/**
+ * Execute a complete agent run using Pi's runAgentLoop.
+ */
+export async function executeRun(
+  runState: AgentRunState,
+  input: RunInput,
+  toolRegistry: ToolRegistry,
+  modelRouter: ModelRouter,
+  fastapiClient: FastapiClient,
+  stream: EventStream,
+  options: {
+    traceIncludeSensitiveData?: boolean;
+    signal?: AbortSignal;
+    debugPayloadStore?: DebugPayloadStore;
+    model?: Model<Api>;
+    streamFn?: StreamFn;
+  } = {},
+  callbacks: RunCallbacks = {},
+): Promise<AgentRunState> {
+  const budget = new BudgetManager({
+    maxSteps: runState.budgetLimits.maxSteps,
+    maxToolCalls: runState.budgetLimits.maxToolCalls,
+    timeoutMs: runState.budgetLimits.timeoutMs,
+    maxOutputTokens: 4096,
+    maxToolResultBytes: 32768,
+  });
+
+  const traceIncludeSensitiveData = options.traceIncludeSensitiveData ?? false;
+  const debugPayloadStore = options.debugPayloadStore ?? getDebugPayloadStore();
+
+  try {
+    // Step 1: Context building
+    runState.status = "context_building";
+    runState.updatedAt = new Date().toISOString();
+    callbacks.onEvent?.("state.changed", { run_id: runState.runId, status: runState.status });
+
+    const contextInput: ContextBuildInput = {
+      userContent: input.userContent,
+      workspaceState: input.workspaceState,
+      recentMessages: input.recentMessages,
+      pendingProposals: input.pendingProposals,
+      toolManifests: toolRegistry.getManifests(),
+      skillContext: input.skillContext,
+      currentTime: new Date().toISOString(),
+    };
+    const builtContext = buildContext(contextInput);
+
+    // Step 2: Build Pi tools from registry
+    const exposedManifests = filterModelCallableManifests(toolRegistry.getManifests(), input.skillContext);
+    const toolNames = exposedManifests.map((m) => m.name);
+    const piTools: AgentTool<any>[] = [];
+    for (const name of toolNames) {
+      const piTool = toPiTool(
+        name, toolRegistry, runState, fastapiClient, budget, traceIncludeSensitiveData, debugPayloadStore,
+      );
+      if (piTool) piTools.push(piTool);
+    }
+
+    // Step 3: Build Pi AgentContext
+    const agentContext: AgentContext = {
+      systemPrompt: builtContext.systemPrompt,
+      messages: [{ role: "user" as const, content: builtContext.userMessage, timestamp: Date.now() } as AgentMessage],
+      tools: piTools,
+    };
+
+    // Step 4: Resolve model
+    const resolvedModel = modelRouter.resolve(runState.model.provider, runState.model.name);
+
+    // Step 5: Create model instance (mock for now, real provider when configured)
+    const model = options.model ?? createMockModel(resolvedModel.name);
+    const streamFn = options.streamFn ?? (resolvedModel.provider === "mock" ? createMockStreamFn() : undefined);
+
+    // Step 6: Build AgentLoopConfig with hooks
+    const config: AgentLoopConfig = {
+      model,
+      convertToLlm: (messages: AgentMessage[]): Message[] => messages as Message[],
+      toolExecution: canExecuteInParallel(exposedManifests) ? "parallel" : "sequential",
+      beforeToolCall: async (_ctx: BeforeToolCallContext) => {
+        if (options.signal?.aborted) {
+          return { block: true, reason: "运行已取消" };
+        }
+        // Policy gate — check if tool is allowed
+        const toolName = _ctx.toolCall.name;
+        const tool = toolRegistry.get(toolName);
+        if (tool) {
+          const policy = evaluatePolicy(tool.manifest);
+          if (policy.decision === "block" || policy.decision === "deny") {
+            return { block: true, reason: policy.reason };
+          }
+        }
+        return undefined;
+      },
+      afterToolCall: async (_ctx: AfterToolCallContext) => {
+        // Result normalization is handled in the tool's execute function
+        return undefined;
+      },
+    };
+
+    // Step 7: Run the agent loop
+    runState.status = "model_streaming";
+    runState.updatedAt = new Date().toISOString();
+
+    const piEventSink = async (event: AgentEvent) => {
+      handlePiEvent(event, runState, stream, callbacks);
+    };
+
+    const promptMessage = {
+      role: "user" as const,
+      content: builtContext.userMessage,
+      timestamp: Date.now(),
+    } as AgentMessage;
+
+    await runAgentLoop(
+      [promptMessage],
+      agentContext,
+      config,
+      piEventSink,
+      options.signal,
+      streamFn,
+    );
+
+    // Step 8: Complete (if not already completed by agent_end event)
+    // Status may have been mutated by handlePiEvent callback during runAgentLoop
+    const statusAfterRun = runState.status as string;
+    if (options.signal?.aborted || statusAfterRun === "cancelling" || statusAfterRun === "cancelled") {
+      runState.status = "cancelled";
+      runState.completedAt = new Date().toISOString();
+      runState.updatedAt = new Date().toISOString();
+    } else if ((runState.status as string) !== "completed") {
+      runState.status = "completed";
+      runState.completedAt = new Date().toISOString();
+      runState.updatedAt = new Date().toISOString();
+    }
+    callbacks.onComplete?.(runState);
+
+    return runState;
+  } catch (err) {
+    const wasCancelled = options.signal?.aborted || runState.status === "cancelling" || runState.status === "cancelled";
+    runState.status = wasCancelled ? "cancelled" : "failed";
+    runState.completedAt = new Date().toISOString();
+    runState.updatedAt = new Date().toISOString();
+    const error = err instanceof Error ? err : new Error(String(err));
+
+    if (wasCancelled) {
+      const pfEvent = createEvent("run.cancelled", runState.runId, runState.status, {
+        reason: "运行已取消",
+      });
+      stream.emit("run.status", pfEvent);
+      callbacks.onComplete?.(runState);
+    } else {
+      const pfEvent = createEvent("run.failed", runState.runId, runState.status, {
+        error: error.message,
+        ...(error.message.startsWith("BUDGET_EXCEEDED") ? { code: "BUDGET_EXCEEDED" } : {}),
+      });
+      stream.emit("runtime.error", pfEvent);
+      callbacks.onError?.(error, runState);
+    }
+
+    return runState;
+  }
+}
+
+function toToolParameters(inputSchema: unknown): TSchema {
+  if (inputSchema && typeof inputSchema === "object") {
+    return inputSchema as TSchema;
+  }
+  return Type.Object({});
+}
+
+function updateLastEventSeq(runState: AgentRunState, stateVersion: number, eventSeqs: number[]): void {
+  runState.lastEventSeq = Math.max(runState.lastEventSeq, stateVersion, ...eventSeqs);
+}
+
+function toWireTrace(trace: ToolTrace): NonNullable<WireProjectFlowToolResult["trace"]> {
+  return {
+    ...(trace.inputHash ? { input_hash: trace.inputHash } : {}),
+    ...(trace.outputHash ? { output_hash: trace.outputHash } : {}),
+    ...(trace.debugPayloadId ? { debug_payload_id: trace.debugPayloadId } : {}),
+    redacted: trace.redacted,
+  };
+}
+
+const EMPTY_USAGE: Usage = {
+  input: 0,
+  output: 0,
+  cacheRead: 0,
+  cacheWrite: 0,
+  totalTokens: 0,
+  cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
+};
+
+function createMockStreamFn(): StreamFn {
+  return (model, context, options) => {
+    const stream = createAssistantMessageEventStream();
+
+    queueMicrotask(() => {
+      if (options?.signal?.aborted) {
+        const aborted = createAssistantMessage(model, [{ type: "text", text: "运行已取消" }], "aborted");
+        stream.push({ type: "error", reason: "aborted", error: aborted });
+        return;
+      }
+
+      const hasToolResult = context.messages.some((message) => message.role === "toolResult");
+      const firstTool = context.tools?.[0];
+      if (firstTool && !hasToolResult) {
+        const toolCall: ToolCall = {
+          type: "toolCall",
+          id: "mock_tool_call_1",
+          name: firstTool.name,
+          arguments: {},
+        };
+        const message = createAssistantMessage(model, [toolCall], "toolUse");
+        stream.push({ type: "done", reason: "toolUse", message });
+        return;
+      }
+
+      const message = createAssistantMessage(
+        model,
+        [{ type: "text", text: "已完成 ProjectFlow mock tool loop。" }],
+        "stop",
+      );
+      stream.push({ type: "done", reason: "stop", message });
+    });
+
+    return stream;
+  };
+}
+
+function createAssistantMessage(
+  model: Model<Api>,
+  content: AssistantMessage["content"],
+  stopReason: AssistantMessage["stopReason"],
+): AssistantMessage {
+  return {
+    role: "assistant",
+    content,
+    api: model.api,
+    provider: model.provider,
+    model: model.name,
+    usage: EMPTY_USAGE,
+    stopReason,
+    timestamp: Date.now(),
+  };
+}
+
+/**
+ * Create a mock model for testing when no real provider is configured.
+ */
+function createMockModel(name: string): Model<Api> {
+  return {
+    id: name,
+    providerId: "mock" as any,
+    api: "openai-completions" as Api,
+    name,
+    reasoning: false,
+    provider: "mock" as any,
+    baseUrl: "",
+    input: ["text"],
+    cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+    contextWindow: 128000,
+    maxTokens: 4096,
+  } as Model<Api>;
+}

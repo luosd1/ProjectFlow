@@ -1,0 +1,123 @@
+/**
+ * AgentRunState — sidecar-internal representation (camelCase).
+ * Wire format is snake_case; see wire.ts for conversion.
+ */
+
+export type RunStatus =
+  | "created"
+  | "context_building"
+  | "model_streaming"
+  | "tool_preparing"
+  | "tool_running"
+  | "persisting_tool_result"
+  | "completed"
+  | "cancelling"
+  | "cancelled"
+  | "failed";
+
+export type SideEffectStatus =
+  | "no_side_effect"
+  | "event_persisted"
+  | "proposal_persisted"
+  | "advisory_record_persisted"
+  | "commit_persisted"
+  | "unknown";
+
+export interface PendingToolCall {
+  toolCallId: string;
+  toolName: string;
+  toolVersion: number;
+  idempotencyKey: string;
+}
+
+export interface SideEffect {
+  toolCallId: string;
+  status: SideEffectStatus;
+}
+
+export interface ResumePolicy {
+  manifestVersion: number;
+  requiresRegenerationOnMismatch: boolean;
+}
+
+export interface RunBudgetLimits {
+  maxSteps: number;
+  maxToolCalls: number;
+  timeoutMs: number;
+}
+
+export interface AgentRunState {
+  runId: string;
+  conversationId: string;
+  workspaceId: string;
+  projectId: string;
+  status: RunStatus;
+  currentTurn: number;
+  currentStep: number;
+  model: { provider: string; name: string };
+  pendingToolCall?: PendingToolCall;
+  sideEffects: SideEffect[];
+  lastEventSeq: number;
+  budgetLimits: RunBudgetLimits;
+  resumePolicy: ResumePolicy;
+  createdAt: string;
+  updatedAt: string;
+  completedAt?: string;
+}
+
+export interface CreateRunStateInput {
+  conversationId: string;
+  workspaceId: string;
+  projectId: string;
+  model: { provider: string; name: string };
+  maxSteps: number;
+  maxToolCalls: number;
+  timeoutMs: number;
+}
+
+let runCounter = 0;
+
+export function createRunState(input: CreateRunStateInput): AgentRunState {
+  runCounter++;
+  const now = new Date().toISOString();
+  return {
+    runId: `run_${Date.now()}_${runCounter}`,
+    conversationId: input.conversationId,
+    workspaceId: input.workspaceId,
+    projectId: input.projectId,
+    status: "created",
+    currentTurn: 0,
+    currentStep: 0,
+    model: input.model,
+    sideEffects: [],
+    lastEventSeq: 0,
+    budgetLimits: {
+      maxSteps: input.maxSteps,
+      maxToolCalls: input.maxToolCalls,
+      timeoutMs: input.timeoutMs,
+    },
+    resumePolicy: {
+      manifestVersion: 1,
+      requiresRegenerationOnMismatch: true,
+    },
+    createdAt: now,
+    updatedAt: now,
+  };
+}
+
+/** Valid state transitions. Returns true if transition is allowed. */
+export function isValidTransition(from: RunStatus, to: RunStatus): boolean {
+  const validTransitions: Record<RunStatus, RunStatus[]> = {
+    created: ["context_building", "cancelling", "failed"],
+    context_building: ["model_streaming", "cancelling", "failed"],
+    model_streaming: ["tool_preparing", "completed", "cancelling", "failed"],
+    tool_preparing: ["tool_running", "cancelling", "failed"],
+    tool_running: ["persisting_tool_result", "cancelling", "failed"],
+    persisting_tool_result: ["model_streaming", "cancelling", "failed"],
+    completed: [],
+    cancelling: ["cancelled", "failed"],
+    cancelled: [],
+    failed: [],
+  };
+  return validTransitions[from]?.includes(to) ?? false;
+}
