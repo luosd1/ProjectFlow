@@ -22,16 +22,44 @@ ProjectFlow 要从固定 CoordinatorAgent 升级为工具化 Agent Runtime。架
 
 先读这些：
 
-1. `docs/PRD-Agent-Runtime.md` — 完整 PRD
-2. `docs/T41/ProjectFlow_Agent_Runtime_Team_TDD.md` — 总方案（特别是 §4 架构原则、§7 事务边界、§8 Tool Contract）
-3. `docs/T41/ProjectFlow_Agent_Runtime_Foundation_Design.md` — 底座设计（特别是 §4 Runtime Loop、§7 Tool Hooks、§8 Policy Engine、§11 State Ownership）
-4. `docs/T41/ProjectFlow_Agent_Tools_Skills_Design.md` — Tools 设计（特别是 §2 Write Effect Boundary、§4.5-4.10 tool specs、§7 Internal Endpoints、§8 旧 Coordinator 迁移）
-5. `CONTEXT.md` — 领域词汇表
-6. `docs/adr/0002-tiered-agent-write-boundary.md`
-7. `docs/adr/0003-use-replan-proposals-for-agent-inferred-task-state-changes.md`
-8. `docs/adr/0004-keep-project-state-read-paths-pure.md`
-9. `docs/T41/research/agent-write-boundary-research.md`
-10. `docs/T41/research/read-path-state-mutation-research.md`
+### 核心设计文档
+
+| # | 文档 | 重点章节 | 参考时机 |
+|---|------|----------|----------|
+| 1 | `docs/PRD-Agent-Runtime.md` | 完整 PRD | 了解需求全貌 |
+| 2 | `docs/T41/ProjectFlow_Agent_Runtime_Team_TDD.md` | §4 架构原则、§7 事务边界、§8 Tool Contract | 架构决策、边界确认 |
+| 3 | `docs/T41/ProjectFlow_Agent_Runtime_Foundation_Design.md` | §4 Runtime Loop、§7 Tool Hooks、§8 Policy Engine、§11 State Ownership | S6/S7/S13 实现参考 |
+| 4 | `docs/T41/ProjectFlow_Agent_Tools_Skills_Design.md` | §2 Write Effect Boundary、§4.5-4.10 tool specs、§7 Internal Endpoints、§8 旧 Coordinator 迁移 | S6/S7/S13 工具定义 |
+
+### 领域知识
+
+| # | 文档 | 说明 | 参考时机 |
+|---|------|------|----------|
+| 5 | `CONTEXT.md` | 领域词汇表 | 遇到领域术语时查阅 |
+
+### 架构决策记录 (ADR)
+
+| # | 文档 | 决策 | 参考时机 |
+|---|------|------|----------|
+| 6 | `docs/adr/0002-tiered-agent-write-boundary.md` | 四层写入边界：runtime_metadata/reviewable_draft/advisory_write/primary_commit | S6/S7/S13 工具分类 |
+| 7 | `docs/adr/0003-use-replan-proposals-for-agent-inferred-task-state-changes.md` | Agent 推断的任务状态变化走 replan proposal | S13 replan 相关工具 |
+| 8 | `docs/adr/0004-keep-project-state-read-paths-pure.md` | Read path 无副作用，不隐式推进状态 | S4 read purity 实现 |
+
+### 研究文档
+
+| # | 文档 | 说明 | 参考时机 |
+|---|------|------|----------|
+| 9 | `docs/T41/research/agent-write-boundary-research.md` | 写入边界研究：LangGraph、OpenAI Agents SDK 对比 | 深入理解边界设计 |
+| 10 | `docs/T41/research/read-path-state-mutation-research.md` | Read path 状态变更研究 | S4 read purity 深入参考 |
+
+### 现有代码参考
+
+| 文件 | 重点 | 参考时机 |
+|------|------|----------|
+| `backend/app/services/project_state_service.py` | `_catch_up_stage_progress()` | S4 移除隐式状态推进 |
+| `backend/app/services/agent_flow_service.py` | `_persist_agent_output()` 和 `_create_agent_proposal()` | S6/S7/S13 迁移参考 |
+| `backend/app/services/task_service.py` | `create_status_update()` | S4/S13 task status 处理 |
+| `backend/app/services/risk_service.py` | Risk 创建逻辑 | S7 advisory write 参考 |
 
 **额外需要读的现有代码：**
 - `backend/app/services/project_state_service.py` — 特别是 `_catch_up_stage_progress()`

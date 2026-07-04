@@ -20,13 +20,35 @@ ProjectFlow 要从固定 CoordinatorAgent 升级为工具化 Agent Runtime。架
 
 先读这些：
 
-1. `docs/PRD-Agent-Runtime.md` — 完整 PRD
-2. `docs/T41/ProjectFlow_Agent_Runtime_Team_TDD.md` — 总方案（§2 推荐架构、§4 架构原则、§5 系统边界）
-3. `docs/T41/ProjectFlow_Agent_Runtime_Foundation_Design.md` — 底座设计（§2 进程边界、§3 Sidecar 模块、§4 Runtime Loop、§6 Model/Provider、§7 Tool Hooks、§10 Event Bridge）
-4. `docs/T41/ProjectFlow_Agent_Tools_Skills_Design.md` — Tools & Skills 设计（§3 Manifest、§4.1-4.3 read-only tools、§4.8 assignment、§9-11 Skills）
-5. `CONTEXT.md` — 领域词汇表
-6. `docs/adr/0001-agent-runtime-confirmation-boundary.md`
-7. `docs/adr/0002-tiered-agent-write-boundary.md`
+### 核心设计文档
+
+| # | 文档 | 重点章节 | 参考时机 |
+|---|------|----------|----------|
+| 1 | `docs/PRD-Agent-Runtime.md` | 完整 PRD | 了解需求全貌 |
+| 2 | `docs/T41/ProjectFlow_Agent_Runtime_Team_TDD.md` | §2 推荐架构、§4 架构原则、§5 系统边界 | 架构决策、边界确认 |
+| 3 | `docs/T41/ProjectFlow_Agent_Runtime_Foundation_Design.md` | §2 进程边界、§3 Sidecar 模块、§4 Runtime Loop、§6 Model/Provider、§7 Tool Hooks、§10 Event Bridge | S3/S5/S8 实现参考 |
+| 4 | `docs/T41/ProjectFlow_Agent_Tools_Skills_Design.md` | §3 Manifest、§4.1-4.3 read-only tools、§4.8 assignment、§9-11 Skills | S5/S8/S14 工具和 Skills 定义 |
+
+### 领域知识
+
+| # | 文档 | 说明 | 参考时机 |
+|---|------|------|----------|
+| 5 | `CONTEXT.md` | 领域词汇表 | 遇到领域术语时查阅 |
+
+### 架构决策记录 (ADR)
+
+| # | 文档 | 决策 | 参考时机 |
+|---|------|------|----------|
+| 6 | `docs/adr/0001-agent-runtime-confirmation-boundary.md` | ToolExecutionApproval 是未来扩展，不进入当前 runtime | 边界确认 |
+| 7 | `docs/adr/0002-tiered-agent-write-boundary.md` | 四层写入边界：runtime_metadata/reviewable_draft/advisory_write/primary_commit | S5/S8 工具分类 |
+
+### 参考实现
+
+| 资源 | 说明 | 获取方式 | 参考时机 |
+|------|------|----------|----------|
+| `@earendil-works/pi-ai` | Pi 模型/provider 层 | `npm install @earendil-works/pi-ai` | S3 Model Router |
+| `@earendil-works/pi-agent-core` | Pi Agent loop、tool call、hooks | `npm install @earendil-works/pi-agent-core` | S3 Runtime Adapter |
+| `vendor_imports/research/agent-runtime/repos/pi/` | Pi 完整源码参考（仅本地） | 本地查看，未推送远程 | S3 实现细节参考 |
 
 ## Issue Tracker
 
@@ -227,6 +249,47 @@ cd frontend
 ../scripts/npm run lint
 ../scripts/npm run build
 ```
+
+## Pi 组件安装与参考
+
+S3/S5/S8/S14 需要使用 Pi 的两个核心包：
+
+### 安装
+
+```bash
+cd agent-bridge
+npm install @earendil-works/pi-ai @earendil-works/pi-agent-core
+```
+
+### 包说明
+
+| 包名 | 用途 | 主要 API |
+|------|------|----------|
+| `@earendil-works/pi-ai` | 模型/provider 层 | 注册 provider、model catalog、tool schema 转换 |
+| `@earendil-works/pi-agent-core` | Agent loop、tool call、hooks、runtime events | `runAgentLoop`、`beforeToolCall`/`afterToolCall` hooks、`StreamFn` |
+
+### 参考资源
+
+- **npm 包源码**：安装后查看 `node_modules/@earendil-works/pi-ai/` 和 `node_modules/@earendil-works/pi-agent-core/`
+- **类型定义**：包内包含完整的 TypeScript 类型定义（`.d.ts` 文件）
+- **官方文档**：https://pi.dev
+- **本地参考**：`vendor_imports/research/agent-runtime/repos/pi/` 有完整源码（仅本地参考，未推送到远程）
+
+### 使用示例
+
+```typescript
+// 引入 Pi 组件
+import { createProvider } from '@earendil-works/pi-ai';
+import { runAgentLoop, type ToolCallHook } from '@earendil-works/pi-agent-core';
+
+// 详见 Foundation Design §6 Model/Provider 和 §7 Tool Execution Hooks
+```
+
+### 注意事项
+
+1. **不要把 Pi types 暴露给 FastAPI** — sidecar 内部使用，FastAPI 只接收 ProjectFlow event
+2. **密钥解析在 sidecar 内部完成** — 不进入 AgentRunState 或 trace
+3. **参考现有实现**：`vendor_imports/research/agent-runtime/repos/pi/packages/agent/src/` 有 agent loop 和 hooks 的参考实现
 
 ## 安全约束
 

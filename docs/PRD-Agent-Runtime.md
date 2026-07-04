@@ -105,7 +105,7 @@ any active state -> cancelling -> cancelled
 any active state -> failed
 ```
 
-最低字段：schema_version, run_id, conversation_id, project_id, status, current_turn, current_step, model, pending_tool_call, side_effects, last_event_seq, resume_policy。
+最低字段：schema_version, run_id, conversation_id, workspace_id, project_id, status, current_turn, current_step, model, pending_tool_call, side_effects, last_event_seq, resume_policy。
 
 ### 5. Runtime API
 
@@ -157,7 +157,7 @@ LLM-callable tool 不应返回 `commit_persisted`。
 
 ### 9. Event Bridge
 
-Pi event 统一映射为 ProjectFlow event：agent.started, agent.status, agent.delta, agent.completed, agent.failed, tool.started, tool.completed, tool.blocked, tool.failed, proposal.created, advisory_record.created, proposal_confirmation.confirmed/rejected/committed, run.state_changed, runtime.error。
+Pi event 统一映射为 ProjectFlow event：agent.started, agent.status, agent.delta, agent.completed, agent.failed, tool.started, tool.progress, tool.completed, tool.blocked, tool.failed, proposal.created, advisory_record.created, proposal_confirmation.confirmed/rejected/committed, run.state_changed, runtime.error。
 
 event_seq 由 FastAPI append API 按 run_id 单调分配。
 

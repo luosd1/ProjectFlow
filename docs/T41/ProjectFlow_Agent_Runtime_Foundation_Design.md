@@ -342,6 +342,8 @@ Append response：
 
 ## 6. Model / Provider
 
+> **安装**：`npm install @earendil-works/pi-ai`（详见 Member A handoff 文档的"Pi 组件安装与参考"章节）
+
 使用 `@earendil-works/pi-ai`：
 
 - 注册内置 provider collection。
@@ -362,6 +364,8 @@ Append response：
 ---
 
 ## 7. Tool Execution Hooks
+
+> **安装**：`npm install @earendil-works/pi-agent-core`（详见 Member A handoff 文档的"Pi 组件安装与参考"章节）
 
 使用 `pi-agent-core` 的 hooks：
 
