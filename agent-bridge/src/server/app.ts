@@ -9,6 +9,7 @@ import { sendJson } from "./routes/utils.js";
 import { handleStartRun } from "./routes/start-run.js";
 import { handleGetRun } from "./routes/get-run.js";
 import { handleCancelRun } from "./routes/cancel-run.js";
+import { handleListTools } from "./routes/list-tools.js";
 import { handleHealth } from "./routes/health.js";
 import { getSessionStore } from "@/runtime/session-store.js";
 import { FastapiClient } from "@/tools/fastapi-client.js";
@@ -65,6 +66,7 @@ export function createServer(config: SidecarConfig): Server {
     compileRoute("POST", "/runs", handleStartRun),
     compileRoute("GET", "/runs/:runId", handleGetRun),
     compileRoute("POST", "/runs/:runId/cancel", handleCancelRun),
+    compileRoute("GET", "/tools/list", handleListTools),
     compileRoute("GET", "/health", handleHealth),
   ];
 
