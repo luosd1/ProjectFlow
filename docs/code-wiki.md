@@ -52,6 +52,17 @@ ProjectFlow/
 ├── AGENTS.md                  # AI Coding Agent 规范
 ├── CLAUDE.md                  # 与 AGENTS.md 同步
 ├── docs/                      # PRD、技术设计、API 契约、演示脚本
+├── agent-bridge/              # T41 TypeScript Agent Runtime Sidecar
+│   ├── src/
+│   │   ├── runtime/           # pi-runtime.ts, context-builder.ts, model-router.ts
+│   │   ├── server/            # HTTP server + routes
+│   │   ├── tools/             # registry.ts, fastapi-client.ts, result-normalizer.ts
+│   │   ├── policy/            # policy-engine.ts, budget.ts, boundaries
+│   │   ├── events/            # event-mapper.ts, stream.ts, trace-envelope.ts
+│   │   ├── skills/            # skill-index.ts, skill-loader.ts, skill-selector.ts
+│   │   └── types/             # run-state.ts, tool-manifest.ts, wire.ts
+│   ├── skills/                # 6 SKILL.md files
+│   └── tests/unit/            # 7 test files, 68 tests
 ├── frontend/
 │   ├── src/
 │   │   ├── app/               # Next.js 页面路由（不写业务逻辑）

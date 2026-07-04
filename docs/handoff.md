@@ -4,6 +4,29 @@ Status: current as of 2026-07-04.
 
 ## Latest Architecture Handoff
 
+### T41 — Agent Runtime Sidecar Implementation (2026-07-04)
+
+T41 Agent Runtime TypeScript sidecar (`agent-bridge/`) implemented slices S3, S4, S14, S16 on branch `feature/handoff-member-a-ts-runtime`.
+
+**What was built:**
+
+- **S3 (Sidecar Skeleton + Pi Runtime Adapter)**: HTTP server on port 4000, `executeRun()` wrapping Pi's `runAgentLoop`, `toPiTool()` conversion, `handlePiEvent()` mapping, FastAPI service-to-service client, model router (openai/openrouter/deepseek/anthropic/mock), context builder with stable prefix + dynamic suffix + XML tag isolation, wire format adapter (snake_case ↔ camelCase). 10/10 acceptance criteria pass.
+- **S4 (Policy Gate & Budget)**: `evaluatePolicy()` with 7 risk categories (read_only/analysis/draft_only/advisory_write/internal_write/destructive/open_world), `BudgetManager` (step/tool-call/timeout/token/byte limits), proposal boundary (create only, never confirm), advisory boundary (Risk/ActionCard direct, mitigation via replan). 13/13 acceptance criteria pass.
+- **S14 (Skills System)**: `SkillIndex` (directory scan + YAML frontmatter), `SkillLoader` (lazy SKILL.md + on-demand references), `selectSkill()` (keyword confidence scoring), 6 SKILL.md files with `allowed-tools` constraints. 7/7 acceptance criteria pass.
+- **S16 (Debug Raw Payload Mode)**: `traceIncludeSensitiveData` config (default false), `hashValue()` SHA-256 utility, trace envelope with `redacted` flag, result normalizer with truncation + hash. 5/5 acceptance criteria pass.
+
+**Code review:** Two-axis review (Standards + Spec) completed. 2 hard violations fixed (`as any` removal, typed WorkspaceState), 5 judgement calls deferred.
+
+**Test results:** 68 sidecar unit tests pass, 12 backend S2 API tests pass, typecheck 0 errors.
+
+**What remains (deferred):**
+- S5: Read-only tool registration (4 tools) — not in current acceptance criteria
+- S8: Assignment proposal tool registration — not in current acceptance criteria
+- S11: Frontend integration — blocked by S10 (event bridge)
+- S16: Debug mode wiring — trace envelope always emits hashes regardless of flag
+
+**Key files:** `agent-bridge/src/runtime/pi-runtime.ts`, `agent-bridge/src/server/app.ts`, `agent-bridge/src/policy/policy-engine.ts`, `agent-bridge/src/skills/skill-selector.ts`
+
 ### T41 — Agent Runtime Architecture Docs (2026-07-04)
 
 T41 Agent Runtime architecture has been researched, reviewed, committed, and pushed in commit `aecbb6c`.
