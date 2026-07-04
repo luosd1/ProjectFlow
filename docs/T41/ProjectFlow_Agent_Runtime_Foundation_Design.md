@@ -80,7 +80,8 @@ agent-bridge/
     policy/
       policy-engine.ts
       budget.ts
-      approvals.ts
+      proposal-boundary.ts
+      advisory-boundary.ts
     events/
       event-mapper.ts
       trace-envelope.ts
@@ -102,8 +103,9 @@ agent-bridge/
 | `context-builder` | 将 FastAPI 输入转成模型上下文 | 不读 DB，不制造隐藏事实 |
 | `registry` | 注册 ProjectFlow tools | 不执行业务逻辑 |
 | `fastapi-client` | 调 internal tool endpoints | 不绕过 FastAPI |
-| `policy-engine` | allow/deny/block/require_approval | 不让模型自审批 |
-| `approvals` | 维护 tool approval / rejection 与 tool_call_id 的绑定 | 不执行 proposal confirm/commit |
+| `policy-engine` | allow/deny/block | 不让模型自审批 |
+| `proposal-boundary` | 维护 proposal creation 与 confirmation 边界 | 不执行 proposal confirm/commit |
+| `advisory-boundary` | 校验 advisory writes 不改主事实 | 不创建 commit effect |
 | `event-mapper` | Pi event -> ProjectFlow event | 不改变业务结果 |
 | `trace-envelope` | run/tool/proposal 关联 | 不记录 secret |
 | `skill-loader` | 渐进加载 skills | 不一次塞入全部 references |
@@ -158,13 +160,10 @@ created
   -> tool_running
   -> persisting_tool_result
   -> model_streaming
-  -> waiting_for_tool_approval
   -> completed
 
 any active state -> cancelling -> cancelled
 any active state -> failed
-waiting_for_tool_approval -> resumed -> model_streaming
-waiting_for_tool_approval -> rejected -> completed
 ```
 
 最低字段：
@@ -185,13 +184,10 @@ export interface AgentRunState {
     | "tool_preparing"
     | "tool_running"
     | "persisting_tool_result"
-    | "waiting_for_tool_approval"
-    | "resumed"
     | "completed"
     | "cancelling"
     | "cancelled"
-    | "failed"
-    | "rejected";
+    | "failed";
   currentTurn: number;
   currentStep: number;
   model: {
@@ -204,14 +200,15 @@ export interface AgentRunState {
     toolVersion: number;
     idempotencyKey: string;
   };
-  pendingToolApproval?: {
-    approvalId: string;
-    toolCallId: string;
-    manifestVersion: number;
-  };
   sideEffects: Array<{
     toolCallId: string;
-    status: "no_side_effect" | "event_persisted" | "proposal_persisted" | "commit_persisted" | "unknown";
+    status:
+      | "no_side_effect"
+      | "event_persisted"
+      | "proposal_persisted"
+      | "advisory_record_persisted"
+      | "commit_persisted"
+      | "unknown";
   }>;
   lastEventSeq: number;
   resumePolicy: {
@@ -228,7 +225,7 @@ export interface AgentRunState {
 - `event_seq` 由 FastAPI 按 `run_id` 单调分配。sidecar 不能决定最终 `event_seq`，只能提交 `client_event_id`、`idempotency_key` 和 `ordering_hint`。
 - `state_patch`、event append、tool result persistence 优先通过 `POST /internal/agent-runs/{run_id}/events:append` 在 FastAPI 内完成同一事务；响应返回已分配的 `event_seq` 和持久化后的 `state_version`。
 - 如果实现拆成多个 endpoint，FastAPI 仍必须用同一 `idempotency_key` 做原子、幂等落库；sidecar 不能把分步成功当成最终事实。
-- proposal tool 的成功定义是 pending `AgentProposal` 已持久化，且 tool result 带 `proposal_id`。
+- proposal/advisory tool 的成功定义是 FastAPI 已经持久化对应 draft/advisory record，且 tool result 带 `proposal_id` 或 `created_ids`。
 - 同一个 `(run_id, tool_call_id, tool_name, tool_version)` 必须幂等。
 - `unknown` side effect status 禁止自动 fallback，必须进入 reconciliation 或人工处理。
 - resume 前必须校验 manifest version、tool schema version、proposal payload schema version。
@@ -240,8 +237,7 @@ Sidecar 可以丢失内存 session，但不能丢失事实：
 
 - FastAPI 仍能查询最后 `AgentRunState`、`AgentEvent`、`AgentProposal`。
 - active run 在 sidecar 重启后默认进入 `failed` 或 `cancelled`，不能假装继续。
-- `waiting_for_tool_approval` 可以保留，因为 tool approval 状态在 FastAPI DB。
-- 若要 resume，必须由 FastAPI 重新发起 run，并携带 durable state、pending tool approval、manifest version。
+- 若要 resume，必须由 FastAPI 重新发起 run，并携带 durable state、manifest version 和 pending proposal/advisory links。
 
 ---
 
@@ -381,7 +377,7 @@ Append response：
 - 检查 budget；
 - 检查 timeout/cancel signal；
 - 生成 `tool.started` 或 `tool.blocked` event；
-- 允许、拒绝或返回需要 `tool_approval` 的 structured result。
+- 允许或拒绝 tool call，并返回 structured policy decision。
 - 生成或校验 idempotency key。
 - 写入 `AgentRunState.pendingToolCall`。
 
@@ -411,7 +407,7 @@ Append response：
 - 生成 `tool.completed` 或 `tool.failed` event；
 - 将 result 转为模型可用 observation。
 - 写入 side effect status。
-- 对 `tool_not_found`、validation error、tool approval rejection、policy denied、timeout、aborted 使用统一 model-visible error formatter。
+- 对 `tool_not_found`、validation error、policy denied、timeout、aborted 使用统一 model-visible error formatter。
 
 ---
 
@@ -424,6 +420,7 @@ Append response：
 | read_only | 是 | allow |
 | analysis | 是 | allow + trace |
 | draft_only | 是 | allow proposal only |
+| advisory_write | 是 | allow advisory record only |
 | internal_write | 否，除非 sidecar-only | block |
 | destructive | 否 | block |
 | open_world | 否 | block |
@@ -436,16 +433,22 @@ policy 失败模式：
 - policy engine 超时：deny。
 - FastAPI internal API 失败：return tool_error observation。
 - budget 超限：return budget_exceeded observation。
-- tool approval rejection：return rejection observation，不执行工具。
 - manifest version mismatch：return regenerate_required observation。
 
-tool approval / proposal confirmation 规则：
+proposal confirmation / tool execution approval 规则：
 
-- `tool_approval` 是工具执行前审批，只绑定 `approval_id` 和 `tool_call_id`。它可以让 run 进入 `waiting_for_tool_approval`，用户批准后 resume model loop。
-- `proposal_confirmation` 是 `AgentProposal` 生命周期，由用户通过 public API confirm、reject、commit。它不默认 resume 当前 model loop。
-- 模型只能创建 proposal 或请求 tool approval，不能 confirm/reject/commit proposal。
-- tool approval rejection 必须产生模型可见 observation。
+- `proposal_confirmation` 是当前唯一的人类确认业务边界，由用户通过 public API confirm、reject、commit。它不默认 resume 当前 model loop。
+- 模型只能创建 proposal、typed domain proposal 或 advisory records，不能 confirm/reject/commit proposal。
+- `ToolExecutionApproval` 是未来扩展点；当前目标架构不实现 `waiting_for_tool_approval` 状态机。
+- 当前 policy gate 只能 allow、block/deny 或返回 terminal observation，不能暂停等待人工批准。
 - proposal reject/commit 必须记录产品事件；如果需要模型继续分析，由 FastAPI 以 rejection feedback 发起新 run。
+
+read-only 规则：
+
+- public GET route 和 internal read-only tool 的语义一致：只能读取或计算派生视图。
+- read-only 路径不得 `session.add()` / `session.delete()`，不得修改 ORM attribute，不得 `flush()` / `commit()`，不得调用可能写入的服务。
+- `get_project_state`、`get_workspace_state`、`get_timeline_slice` 不能执行 Primary Project State catch-up。
+- Stage/Project catch-up 只能存在于 human-origin command、proposal confirmation commit、migration/admin maintenance 或 scheduled/internal State Repair Command。
 
 ---
 
@@ -492,8 +495,7 @@ Pi event 不能直接泄漏到前端。sidecar 统一映射为 ProjectFlow event
 | `turn_end` | `agent.status` |
 | `agent_end` | `agent.completed` |
 | policy block | `tool.blocked` |
-| tool approval required | `tool_approval.required` |
-| tool approval rejected | `tool_approval.rejected` |
+| advisory record created | `advisory_record.created` |
 | proposal created | `proposal.created` |
 | proposal confirmation | `proposal_confirmation.confirmed` / `proposal_confirmation.rejected` / `proposal_confirmation.committed` |
 | state patch | `run.state_changed` |
@@ -526,18 +528,27 @@ event invariants：
 
 | 状态 | Owner | 说明 |
 |---|---|---|
-| Project/Stage/Task/Member/Risk | FastAPI/DB | 唯一事实源 |
+| Primary Project State: Project/Stage/Task/finalized owner/status/date | FastAPI/DB | 唯一主事实源 |
+| Advisory Project Record: Risk/ActionCard | FastAPI/DB | 可处理运营记录，不直接改主事实 |
+| Reviewable Draft Record: AgentProposal/AssignmentProposal | FastAPI/DB | pending/confirmed/rejected 或领域确认流 |
 | WorkspaceState | FastAPI | 每次 run 组装 |
 | AgentConversation/Message | FastAPI/DB | 产品会话记录 |
 | AgentRun | FastAPI/DB | run 持久化 |
 | AgentRunState | FastAPI/DB | durable run state |
 | AgentEvent | FastAPI/DB | timeline |
 | event_seq | FastAPI/DB | run 内单调序号 |
-| AgentProposal | FastAPI/DB | pending/confirmed/rejected |
 | Side effect status | FastAPI/DB | replay/fallback 决策依据 |
 | Runtime session metadata | Sidecar | 可重建，不是业务事实 |
 | Tool observations | Sidecar + FastAPI trace | 用于模型上下文和 timeline |
 | Skills | Sidecar filesystem/package | 程序性知识 |
+
+读写边界：
+
+- WorkspaceState、ProjectState、timeline slice 是 Read-Only State View，不是 repair path。
+- Primary Project State 的 stale repair 是显式 State Repair Command，不是 GET side effect。
+- Agent 只能通过 replan proposal 请求 inferred Task/Stage/Project 变化，不能通过 read-only tool 或 advisory write 间接触发。
+- AssignmentProposal 是 typed Reviewable Draft Record：Agent 可以创建建议，但 owner 写入只能由 owner response/finalize 等人类或领域确认路径完成。
+- Risk severity 不改变 Risk row 的 advisory 属性；high-severity mitigation 如果触碰 Primary Project State，必须生成 replan proposal。
 
 ---
 
@@ -557,7 +568,6 @@ event invariants：
 | `BUDGET_EXCEEDED` | budget 超限 |
 | `RESULT_TOO_LARGE` | 工具结果过大 |
 | `CANCELLED` | 用户取消 |
-| `APPROVAL_REJECTED` | 人类拒绝 tool approval |
 | `PROPOSAL_REJECTED` | 人类拒绝 proposal confirmation |
 | `MANIFEST_VERSION_MISMATCH` | resume 时 manifest 不兼容 |
 | `SIDE_EFFECT_UNKNOWN` | 工具中断后副作用状态未知 |
@@ -611,10 +621,12 @@ event invariants：
 - event_seq owner is FastAPI and append response assigns the run-scoped order；
 - runtime append API persists state patch, event, and tool result atomically or idempotently；
 - internal tool endpoints use POST-only JSON body；
-- tool approval and proposal confirmation stay separate；
+- ToolExecutionApproval stays a future extension and does not enter current run state；
 - LLM ToolManifest has no commit effect type；
 - snake_case API payload converts to internal TS shape through generated/adapter layer；
 - trace envelope excludes raw sensitive payload by default。
+- read-only public GET / internal tool does not mutate `Project.status`, `Project.current_stage_id`, `Stage.status`, `Task.status`, owner, or dates；
+- explicit State Repair Command catches up stale Stage/Project state when invoked, and only when invoked。
 
 ### Integration
 
@@ -625,15 +637,16 @@ event invariants：
 - provider error；
 - stream event order；
 - cancel from active states；
-- waiting_for_tool_approval serialize/resume；
 - sidecar restart leaves FastAPI state queryable。
 
 ### Transaction / Idempotency
 
 - same idempotency key does not duplicate proposal；
+- same idempotency key does not duplicate typed `AssignmentProposal` or advisory Risk/ActionCard records；
 - tool success observation only after FastAPI persistence；
-- tool approval rejection does not execute tool；
 - proposal confirmation rejection does not execute commit；
+- Agent-generated check-in task changes do not call `create_status_update()` directly；
+- high-severity Risk creation is advisory, while Primary Project State mitigation is proposal-confirmed；
 - `unknown` side effect blocks automatic fallback；
 - manifest version mismatch triggers regeneration/manual handling。
 
@@ -656,10 +669,12 @@ event invariants：
 2. 新建 sidecar workspace 和基础 server。
 3. 实现 run state bridge、event_seq、state transition validator。
 4. 引入 `pi-ai` 和 `pi-agent-core`，跑通 mock provider/tool。
-5. 实现 manifest registry、policy engine、tool approval handling、proposal confirmation event handling。
+5. 实现 manifest registry、policy engine、advisory write guard、proposal confirmation event handling。
 6. 实现 FastAPI internal client 和 service-to-service auth。
 7. 接入 read-only tools。
-8. 接入第一个 proposal tool，并验证幂等和 side effect status。
-9. 接入 stream/timeline/proposal confirmation。
-10. 增加 parity、idempotency、reconciliation tests。
-11. 逐步迁移旧 Coordinator flow。
+8. 移除 read path 中的 stage/project catch-up，并补 State Repair Command 或 maintenance job。
+9. 重分层旧 Agent 副作用：check-in task updates 改 replan proposal，high Risk confirmation 改 mitigation confirmation，Assignment 保持 typed proposal。
+10. 接入第一个 proposal tool，并验证幂等和 side effect status。
+11. 接入 stream/timeline/proposal confirmation。
+12. 增加 parity、idempotency、reconciliation tests。
+13. 逐步迁移旧 Coordinator flow。
