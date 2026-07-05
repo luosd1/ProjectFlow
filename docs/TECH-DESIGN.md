@@ -40,9 +40,9 @@ Snapshot date: 2026-07-05.
 - MVP Usable #19 (Frontend Agent Status and Review UX) is complete.
 - MVP Usable #21 (Real-Provider Verification and MVP Usable Runbook) is complete.
 - Phase 37-40: Agent conversation workflow, chat-first sidebar, streaming, PRD 对照修复（方向卡字段补全、导出中文、卡片样式统一、内联确认、复盘 Agent 总结）。
-- Current verification baseline: backend pytest 302 passing; agent-bridge 200 tests passing with typecheck/build passing; frontend lint/build/audit baseline remains from the Phase 41 verification pass.
+- Current verification baseline: backend pytest 321 passing; agent-bridge 237 tests passing with typecheck/build passing; changed backend files pass ruff; frontend lint/build/audit baseline remains from the Phase 41 verification pass.
 
-T41 Agent Runtime update: on 2026-07-04, the target Agent runtime architecture was confirmed separately in `docs/T41/`. Through 2026-07-05, sidecar slices S3/S5/S14/S16 and lead slice S9 are implemented: `generate_replan_proposal` is registered as a draft-only internal tool, and Agent-inferred check-in task status changes now create pending replan proposals instead of directly writing `Task.status`. This TECH-DESIGN remains the MVP/current-implementation design. For new Agent runtime work, use the T41 docs, `CONTEXT.md`, and `docs/adr/` as the source of truth.
+T41 Agent Runtime update: on 2026-07-04, the target Agent runtime architecture was confirmed separately in `docs/T41/`. Through 2026-07-05, runtime/tool slices S3/S5/S6/S7/S8/S9/S14/S16 are implemented: `generate_stage_plan_proposal`, `analyze_checkins_and_risks`, `recommend_assignment`, and `generate_replan_proposal` are registered as typed internal tools. Agent-inferred check-in task status changes now create pending replan proposals instead of directly writing `Task.status`; Risk and ActionCard records are advisory writes; AssignmentProposal creation does not write `Task.owner_user_id`. This TECH-DESIGN remains the MVP/current-implementation design. For new Agent runtime work, use the T41 docs, `CONTEXT.md`, and `docs/adr/` as the source of truth.
 
 ---
 

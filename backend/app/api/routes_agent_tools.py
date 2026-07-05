@@ -31,6 +31,7 @@ AGENT_TOOLS = {
     "stage-plan-proposal",
     "checkins-and-risks-analysis",
     "replan-proposal",
+    "assignment-recommendation",
 }
 
 

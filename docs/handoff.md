@@ -6,26 +6,28 @@ Status: current as of 2026-07-05.
 
 ### T41 — Agent Runtime Sidecar Implementation (2026-07-04~05)
 
-T41 Agent Runtime TypeScript sidecar (`agent-bridge/`) implemented slices S3, S5, S14, S16 on branch `feature/handoff-member-a-ts-runtime`. Lead slice S9 landed on `main` on 2026-07-05.
+T41 Agent Runtime work now has S3, S5, S6, S7, S8, S9, S14, and S16 on the integrated mainline. The sidecar owns runtime/tool registration, while FastAPI owns persistence through `/internal/agent-tools/*`.
 
 **What was built:**
 
 - **S3 (Sidecar Skeleton + Pi Runtime Adapter)**: HTTP server on port 4000, `executeRun()` wrapping Pi's `runAgentLoop`, `toPiTool()` conversion, `handlePiEvent()` mapping, FastAPI service-to-service client, model router (openai/openrouter/deepseek/anthropic/mock), context builder with stable prefix + dynamic suffix + escaped XML data, mock provider/tool loop, cancel signal handling, wire format adapter (snake_case ↔ camelCase). 10/10 acceptance criteria pass.
-- **S5 (Read-only Tool Registration)**: 4 read-only tools (`get_workspace_state`, `get_agent_conversation`, `list_pending_proposals`, `get_timeline_slice`) with full `ProjectFlowToolManifest` (read_only, parallel, effectType=none). `registerDefaultTools()` at server startup. `GET /tools/list` endpoint. `FastapiClient.getPublic()` with shared `fetchJson`. Backend timeline `since`/`event_types`/`limit` filters. 114 new tests; sidecar total is now 200 tests across 11 files after S9 tool registration. 3/3 acceptance criteria pass.
+- **S5 (Read-only Tool Registration)**: 4 read-only tools (`get_workspace_state`, `get_agent_conversation`, `list_pending_proposals`, `get_timeline_slice`) with full `ProjectFlowToolManifest` (read_only, parallel, effectType=none). `registerDefaultTools()` at server startup. `GET /tools/list` endpoint. `FastapiClient.getPublic()` with shared `fetchJson`. Backend timeline `since`/`event_types`/`limit` filters. 3/3 acceptance criteria pass.
+- **S6 (Stage Plan Proposal Tool)**: `generate_stage_plan_proposal` is a draft-only, sequential proposal tool backed by `POST /internal/agent-tools/stage-plan-proposal`. It creates pending `AgentProposal` rows, returns `proposal_persisted`, links the proposal/event IDs, and does not commit Stage/Project state.
+- **S7 (Advisory Risk/ActionCard Tool)**: `analyze_checkins_and_risks` is an advisory-write tool backed by `POST /internal/agent-tools/checkins-and-risks-analysis`. It creates Risk and optional ActionCard advisory records with `created_ids`, keeps Task/Stage/Project unchanged, returns replan signals for primary-state changes, and treats Risk severity itself as advisory.
+- **S8 (AssignmentProposalTool)**: `recommend_assignment` is a draft-only proposal tool backed by `POST /internal/agent-tools/assignment-recommendation`. It creates `AssignmentProposal` without writing `Task.owner_user_id`, reuses the same proposal for repeated idempotency keys, and keeps final ownership on the existing human confirmation/finalize path.
 - **S9 (Check-in/replan Migration)**: default tool registry now includes `generate_replan_proposal` as a draft-only sequential proposal tool backed by `POST /internal/agent-tools/replan-proposal`. Legacy check-in analysis no longer persists `CheckInAnalysisOutput.task_updates` through `create_status_update()`; inferred task status changes become pending `replan` `AgentProposal` payloads and are applied only after proposal confirmation. The tool reuses the same proposal for repeated idempotency keys and returns `blocked + no_side_effect` when another pending replan already exists, linking the existing `proposal_id`. Commits: `7e49836`, `800f578`.
 - **S14 (Skills System)**: `SkillIndex` (directory scan + YAML frontmatter), `SkillLoader` (lazy SKILL.md + bounded on-demand references), `selectSkill()` (keyword confidence scoring), 6 SKILL.md files with `allowed-tools` constraints and reference files. 7/7 acceptance criteria pass.
 - **S16 (Debug Raw Payload Mode)**: `traceIncludeSensitiveData` config (default false), `DebugPayloadStore` separate raw payload storage with retention, `hashValue()` SHA-256 utility, trace envelope with redacted/default-hash behavior, result normalizer with truncation + hash. 5/5 acceptance criteria pass.
 
 **Code review:** Two-axis review (Standards + Spec) completed. Hard violations fixed around XML escaping, skill tool filtering, provider parallel gating, manifest input schema forwarding, FastAPI tool envelope, cancel terminal state, references, and S16 debug storage. Judgement calls remain for future refactors around `skill-selector.ts` matching strategy and `pi-runtime.ts` module size.
 
-**Test results:** 302 backend tests pass, 200 sidecar unit tests pass (11 files), sidecar typecheck/build pass. Changed backend files pass ruff; full-repo ruff still has pre-existing unused-import/import-order issues in unrelated runtime test/service files.
+**Test results:** 321 backend tests pass, 237 sidecar unit tests pass (11 files), sidecar typecheck/build pass, changed backend files ruff pass.
 
 **What remains (deferred):**
-- S8: Assignment proposal tool registration — blocked by S5 (now unblocked)
 - S10: Event bridge + trace envelope — waits for S6+S7+S8 now that S9 is complete
 - S11: Frontend integration — blocked by S10 (event bridge)
 
-**Key files:** `agent-bridge/src/runtime/pi-runtime.ts`, `agent-bridge/src/runtime/context-builder.ts`, `agent-bridge/src/events/debug-payload-store.ts`, `agent-bridge/src/server/app.ts`, `agent-bridge/src/policy/policy-engine.ts`, `agent-bridge/src/skills/skill-selector.ts`
+**Key files:** `agent-bridge/src/runtime/pi-runtime.ts`, `agent-bridge/src/runtime/context-builder.ts`, `agent-bridge/src/events/debug-payload-store.ts`, `agent-bridge/src/server/app.ts`, `agent-bridge/src/policy/policy-engine.ts`, `agent-bridge/src/skills/skill-selector.ts`, `agent-bridge/src/tools/projectflow-tools.ts`, `backend/app/services/agent_tools_service.py`
 
 ### T41 — Agent Runtime Architecture Docs (2026-07-04)
 

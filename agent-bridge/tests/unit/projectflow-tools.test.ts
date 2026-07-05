@@ -6,7 +6,7 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { createReadOnlyTools } from "../../src/tools/projectflow-tools.js";
+import { createReadOnlyTools, createProposalTools } from "../../src/tools/projectflow-tools.js";
 import { registerDefaultTools } from "../../src/tools/register-defaults.js";
 import { ToolRegistry } from "../../src/tools/registry.js";
 import type { FastapiClient } from "../../src/tools/fastapi-client.js";
@@ -46,6 +46,7 @@ const DEFAULT_TOOL_NAMES = [
   "generate_stage_plan_proposal",
   "analyze_checkins_and_risks",
   "generate_replan_proposal",
+  "recommend_assignment",
 ];
 
 // Map manifest tool name → internal endpoint tool name (POST /internal/agent-tools/{name})
@@ -57,6 +58,7 @@ const INTERNAL_TOOL_NAME: Record<string, string> = {
   generate_stage_plan_proposal: "stage-plan-proposal",
   analyze_checkins_and_risks: "checkins-and-risks-analysis",
   generate_replan_proposal: "replan-proposal",
+  recommend_assignment: "assignment-recommendation",
 };
 
 const INTERNAL_ENDPOINT: Record<string, string> = {
@@ -67,6 +69,7 @@ const INTERNAL_ENDPOINT: Record<string, string> = {
   generate_stage_plan_proposal: "POST /internal/agent-tools/stage-plan-proposal",
   analyze_checkins_and_risks: "POST /internal/agent-tools/checkins-and-risks-analysis",
   generate_replan_proposal: "POST /internal/agent-tools/replan-proposal",
+  recommend_assignment: "POST /internal/agent-tools/assignment-recommendation",
 };
 
 function makeContext(overrides: Partial<ToolExecutionContext> = {}): ToolExecutionContext {
@@ -251,6 +254,190 @@ describe("projectflow-tools", () => {
     }
   });
 
+  // ─── recommend_assignment (proposal tool) ──────────────────────────────
+
+  describe("createProposalTools", () => {
+    it("returns all proposal tools", () => {
+      const tools = createProposalTools(createStubFastapiClient());
+      const names = tools.map((tool) => tool.manifest.name).sort();
+      expect(names).toEqual([
+        "generate_replan_proposal",
+        "generate_stage_plan_proposal",
+        "recommend_assignment",
+      ]);
+    });
+
+    it("each tool has an execute function", () => {
+      const tools = createProposalTools(createStubFastapiClient());
+      for (const tool of tools) {
+        expect(typeof tool.execute).toBe("function");
+      }
+    });
+  });
+
+  describe("recommend_assignment manifest completeness", () => {
+    const tools = createProposalTools(createStubFastapiClient());
+    const m = tools.find((tool) => tool.manifest.name === "recommend_assignment")!.manifest;
+
+    it("has schemaVersion 1", () => {
+      expect(m.schemaVersion).toBe(1);
+    });
+
+    it("has version 1", () => {
+      expect(m.version).toBe(1);
+    });
+
+    it("has non-empty description", () => {
+      expect(m.description.length).toBeGreaterThan(0);
+    });
+
+    it("has inputSchema with required fields", () => {
+      expect(m.inputSchema).toBeDefined();
+      const schema = m.inputSchema as { required: string[] };
+      expect(schema.required).toContain("stage_id");
+      expect(schema.required).toContain("task_id");
+      expect(schema.required).toContain("recommended_owner_user_id");
+      expect(schema.required).toContain("reason");
+    });
+
+    it("has outputSchema", () => {
+      expect(m.outputSchema).toBeDefined();
+    });
+
+    it("has backend config with POST method and internal endpoint", () => {
+      expect(m.backend.owner).toBe("fastapi");
+      expect(m.backend.method).toBe("POST");
+      expect(m.backend.endpoint).toContain("/internal/agent-tools/assignment-recommendation");
+    });
+
+    it("has execution config", () => {
+      expect(m.execution).toBeDefined();
+      expect(m.execution.mode).toBe("sequential");
+    });
+
+    it("has timeoutMs > 0", () => {
+      expect(m.timeoutMs).toBeGreaterThan(0);
+    });
+
+    it("has retry config", () => {
+      expect(m.retry).toBeDefined();
+      expect(typeof m.retry.maxAttempts).toBe("number");
+    });
+
+    it("has resultLimit config", () => {
+      expect(m.resultLimit).toBeDefined();
+      expect(typeof m.resultLimit.maxBytes).toBe("number");
+      expect(m.resultLimit.maxBytes).toBeGreaterThan(0);
+    });
+
+    it("has effects config with proposal_create", () => {
+      expect(m.effects).toBeDefined();
+      expect(m.effects.effectType).toBe("proposal_create");
+      expect(m.effects.idempotencyKeyRequired).toBe(true);
+      expect(m.effects.replaySafe).toBe(true);
+    });
+
+    it("has proposalConfirmation config", () => {
+      expect(m.proposalConfirmation).toBeDefined();
+      expect(m.proposalConfirmation!.createsProposal).toBe(true);
+      expect(m.proposalConfirmation!.requiredBeforeCommit).toBe(true);
+    });
+
+    it("has privacy config", () => {
+      expect(m.privacy).toBeDefined();
+      expect(m.privacy.dataClassification).toBe("project_sensitive");
+    });
+
+    it("has errors config", () => {
+      expect(m.errors).toBeDefined();
+      expect(m.errors.modelVisibleErrorPolicy).toBe("normalized_summary");
+    });
+
+    it("has resume config", () => {
+      expect(m.resume).toBeDefined();
+      expect(m.resume.manifestVersion).toBe(1);
+    });
+
+    it("has trace config", () => {
+      expect(m.trace).toBeDefined();
+      expect(Array.isArray(m.trace.emits)).toBe(true);
+    });
+  });
+
+  describe("recommend_assignment proposal semantics", () => {
+    const tools = createProposalTools(createStubFastapiClient());
+    const m = tools.find((tool) => tool.manifest.name === "recommend_assignment")!.manifest;
+
+    it("riskCategory is draft_only", () => {
+      expect(m.riskCategory).toBe("draft_only");
+    });
+
+    it("annotations.readOnly is false", () => {
+      expect(m.annotations.readOnly).toBe(false);
+    });
+
+    it("annotations.destructive is false", () => {
+      expect(m.annotations.destructive).toBe(false);
+    });
+
+    it("annotations.openWorld is false", () => {
+      expect(m.annotations.openWorld).toBe(false);
+    });
+
+    it("modelCallable is true", () => {
+      expect(m.modelCallable).toBe(true);
+    });
+
+    it("sidecarOnly is false", () => {
+      expect(m.sidecarOnly).toBe(false);
+    });
+
+    it("humanTriggeredOnly is false", () => {
+      expect(m.humanTriggeredOnly).toBe(false);
+    });
+
+    it("does not have commit_persisted effect", () => {
+      expect(m.effects.effectType).not.toBe("commit_persisted");
+    });
+
+    it("execution mode is sequential", () => {
+      expect(m.execution.mode).toBe("sequential");
+    });
+
+    it("concurrencyGroup is project_proposal_write", () => {
+      expect(m.execution.concurrencyGroup).toBe("project_proposal_write");
+    });
+
+    it("idempotencyKeyRequired is true", () => {
+      expect(m.effects.idempotencyKeyRequired).toBe(true);
+    });
+
+    it("replaySafe is true", () => {
+      expect(m.effects.replaySafe).toBe(true);
+    });
+  });
+
+  describe("recommend_assignment executor routes correctly", () => {
+    it("calls POST /internal/agent-tools/assignment-recommendation with args in arguments", async () => {
+      const client = createStubFastapiClient();
+      const tools = createProposalTools(client);
+      const tool = tools.find((t) => t.manifest.name === "recommend_assignment")!;
+      const args = {
+        stage_id: "s1",
+        task_id: "t1",
+        recommended_owner_user_id: "u1",
+        reason: "技能匹配",
+      };
+      await tool.execute(args, makeContext({ toolName: "recommend_assignment" }));
+      expect(client.calls.length).toBe(1);
+      expect(client.calls[0]!.toolName).toBe("assignment-recommendation");
+      expect(client.calls[0]!.payload.arguments).toEqual(args);
+      expect(client.calls[0]!.payload.run_id).toBe("run_test");
+      expect(client.calls[0]!.payload.tool_call_id).toBe("call_test");
+      expect(client.calls[0]!.payload.idempotency_key).toBe("run_test:call_test:v1");
+    });
+  });
+
   describe("executor routes through unified internal contract", () => {
     it("get_workspace_state calls POST /internal/agent-tools/workspace-state with args in arguments", async () => {
       const client = createStubFastapiClient();
@@ -314,7 +501,7 @@ describe("projectflow-tools", () => {
       const registry = new ToolRegistry();
       const client = createStubFastapiClient();
       registerDefaultTools(registry, client);
-      expect(registry.size).toBe(7);
+      expect(registry.size).toBe(8);
       for (const name of DEFAULT_TOOL_NAMES) {
         expect(registry.has(name)).toBe(true);
       }
@@ -324,14 +511,14 @@ describe("projectflow-tools", () => {
       const registry = new ToolRegistry();
       registerDefaultTools(registry, createStubFastapiClient());
       const manifests = registry.getModelCallableManifests();
-      expect(manifests.length).toBe(7);
+      expect(manifests.length).toBe(8);
     });
 
     it("getManifests returns all default manifests", () => {
       const registry = new ToolRegistry();
       registerDefaultTools(registry, createStubFastapiClient());
       const manifests = registry.getManifests();
-      expect(manifests.length).toBe(7);
+      expect(manifests.length).toBe(8);
       const names = manifests.map((m: ProjectFlowToolManifest) => m.name).sort();
       expect(names).toEqual([...DEFAULT_TOOL_NAMES].sort());
     });
@@ -457,6 +644,54 @@ describe("projectflow-tools", () => {
       expect(client.calls[0]!.payload.arguments).toEqual({
         project_id: "p1",
         user_instruction: "根据签到阻塞生成计划调整草案。",
+      });
+    });
+
+    it("registers recommend_assignment as a draft-only proposal tool", () => {
+      const registry = new ToolRegistry();
+      registerDefaultTools(registry, createStubFastapiClient());
+      const tool = registry.get("recommend_assignment");
+      expect(tool).toBeDefined();
+
+      const manifest = tool!.manifest;
+      expect(manifest.riskCategory).toBe("draft_only");
+      expect(manifest.annotations.readOnly).toBe(false);
+      expect(manifest.annotations.destructive).toBe(false);
+      expect(manifest.annotations.idempotent).toBe(true);
+      expect(manifest.execution.mode).toBe("sequential");
+      expect(manifest.execution.concurrencyGroup).toBe("project_proposal_write");
+      expect(manifest.execution.providerParallelToolCallsAllowed).toBe(false);
+      expect(manifest.effects.effectType).toBe("proposal_create");
+      expect(manifest.effects.idempotencyKeyRequired).toBe(true);
+      expect(manifest.backend.endpoint).toBe("POST /internal/agent-tools/assignment-recommendation");
+      expect(manifest.proposalConfirmation?.createsProposal).toBe(true);
+      expect(manifest.proposalConfirmation?.requiredBeforeCommit).toBe(true);
+    });
+
+    it("recommend_assignment executor calls POST /internal/agent-tools/assignment-recommendation", async () => {
+      const client = createStubFastapiClient();
+      const registry = new ToolRegistry();
+      registerDefaultTools(registry, client);
+      const tool = registry.get("recommend_assignment")!;
+
+      await tool.execute(
+        {
+          stage_id: "s1",
+          task_id: "t1",
+          recommended_owner_user_id: "u1",
+          reason: "技能匹配",
+        },
+        makeContext({ toolName: "recommend_assignment" }),
+      );
+
+      expect(client.calls.length).toBe(1);
+      expect(client.calls[0]!.toolName).toBe("assignment-recommendation");
+      expect(client.calls[0]!.payload.tool_name).toBe("recommend_assignment");
+      expect(client.calls[0]!.payload.arguments).toEqual({
+        stage_id: "s1",
+        task_id: "t1",
+        recommended_owner_user_id: "u1",
+        reason: "技能匹配",
       });
     });
   });

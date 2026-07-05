@@ -63,7 +63,7 @@ ProjectFlow/
 │   │   ├── types/             # run-state.ts, tool-manifest.ts, tool-result.ts, wire.ts, runtime-event.ts
 │   │   └── utils/             # 工具函数
 │   ├── skills/                # 6 SKILL.md files
-│   └── tests/unit/            # 11 test files, 200 tests
+│   └── tests/unit/            # 11 test files, 237 tests
 ├── frontend/
 │   ├── src/
 │   │   ├── app/               # Next.js 页面路由（不写业务逻辑）
@@ -819,7 +819,7 @@ npm audit --omit=dev                # 安全审计
 | 39 | Agent UX Integration & Stage Auto-Advance | ✅ 2026-06-07 |
 | 40 | Agent Sidebar UI Polish & Planner Reliability | ✅ 2026-06-07 |
 | 41 | Security Review & Performance Optimization | ✅ 2026-06-08 |
-| T41 | Agent Runtime Architecture Docs + Sidecar (S3/S5/S14/S16) + S9 check-in/replan migration | ✅ 2026-07-05 |
+| T41 | Agent Runtime Architecture Docs + Sidecar/runtime tools (S3/S5/S6/S7/S8/S9/S14/S16) | ✅ 2026-07-05 |
 
 ---
 

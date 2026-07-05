@@ -11,11 +11,12 @@ the AgentProposal.
 
 from typing import Any
 
+from pydantic import ValidationError
 from sqlmodel import Session, select
 
 from app.agent.coordinator import CoordinatorAgent
 from app.agent.output_schemas import ActionCardProposal, CheckInAnalysisOutput, RiskAnalysisOutput
-from app.models import ActionCard, AgentEvent, AgentProposal
+from app.models import ActionCard, AgentEvent, AgentProposal, AssignmentProposal, User
 from app.models.enums import (
     ActionCardStatus,
     AgentEventType,
@@ -26,6 +27,7 @@ from app.models.enums import (
 from app.schemas.action_card import ActionCardCreate
 from app.schemas.agent_proposal import AgentProposalRead
 from app.schemas.agent_conversation import AgentConversationRead
+from app.schemas.assignment import AssignmentProposalCreate, AssignmentProposalRead
 from app.schemas.risk import RiskCreate
 from app.schemas.runtime import ProjectFlowToolResult, ToolError, ToolExecutionRequest, ToolLinks
 from app.schemas.workspace_state import WorkspaceStateResponse
@@ -33,6 +35,7 @@ from app.services.action_card_service import create_action_card
 from app.services.agent_conversation_service import read_project_conversation
 from app.services.agent_flow_service import run_agent_flow
 from app.services.agent_proposal_service import list_proposals_by_project, to_proposal_read
+from app.services.assignment_service import create_assignment_proposal
 from app.services.risk_service import create_risk
 from app.services.timeline_service import event_to_read, list_timeline_by_project
 from app.services.workspace_state_service import get_workspace_state
@@ -40,6 +43,15 @@ from app.services.workspace_state_service import get_workspace_state
 
 class ToolNotFoundError(ValueError):
     """Raised when the requested tool_name is not registered."""
+
+
+# Read-only tools currently exposed through this dispatcher.
+READ_ONLY_TOOLS = {
+    "workspace-state",
+    "conversation",
+    "pending-proposals",
+    "timeline-slice",
+}
 
 
 def _success(data: Any, observation: str) -> ProjectFlowToolResult:
@@ -271,6 +283,18 @@ def execute_agent_tool(
             ),
         )
 
+    if tool_name == "assignment-recommendation":
+        cached_event = _find_cached_assignment_event(
+            session,
+            workspace_id=workspace_id,
+            project_id=project_id,
+            dispatch_tool_name=tool_name,
+            idempotency_key=request.idempotency_key,
+        )
+        if cached_event is not None:
+            return _cached_assignment_tool_result(cached_event)
+        return execute_assignment_recommendation(session, request)
+
     raise ToolNotFoundError(f"Unknown agent tool: {tool_name}")
 
 
@@ -368,6 +392,10 @@ def _execute_checkins_and_risks_analysis(
             f"Project {project_id} not found in workspace {workspace_id}",
             side_effect_status=SideEffectStatus.no_side_effect,
         )
+    action_cards_result = _parse_action_cards_argument(request.arguments or {})
+    if isinstance(action_cards_result, ProjectFlowToolResult):
+        return action_cards_result
+    action_cards = action_cards_result
 
     coordinator = CoordinatorAgent(session=session)
     checkin_result = coordinator.analyze_checkin(
@@ -398,7 +426,7 @@ def _execute_checkins_and_risks_analysis(
         [
             *_persist_advisory_risks(session, project_id, checkin_output.risks),
             *_persist_advisory_risks(session, project_id, risk_output.risks),
-            *_persist_advisory_action_cards(session, project_id, []),
+            *_persist_advisory_action_cards(session, project_id, action_cards),
         ]
     )
     related_event_ids = [event_id for event_id in [checkin_event_id, risk_event_id] if event_id]
@@ -585,6 +613,44 @@ def _cached_advisory_tool_result(event: AgentEvent) -> ProjectFlowToolResult:
     raise ValueError("Cached advisory tool result is missing from agent event output")
 
 
+def _find_cached_assignment_event(
+    session: Session,
+    *,
+    workspace_id: str,
+    project_id: str,
+    dispatch_tool_name: str,
+    idempotency_key: str,
+) -> AgentEvent | None:
+    events = session.exec(
+        select(AgentEvent)
+        .where(
+            AgentEvent.workspace_id == workspace_id,
+            AgentEvent.project_id == project_id,
+            AgentEvent.event_type == AgentEventType.assign,
+        )
+        .order_by(AgentEvent.created_at.desc())
+    ).all()
+    for event in events:
+        input_snapshot = event.get_input_snapshot()
+        if not isinstance(input_snapshot, dict):
+            continue
+        if input_snapshot.get("tool_idempotency_key") != idempotency_key:
+            continue
+        if input_snapshot.get("tool_dispatch_name") != dispatch_tool_name:
+            continue
+        output_snapshot = event.get_output_snapshot()
+        if isinstance(output_snapshot, dict) and isinstance(output_snapshot.get("tool_result"), dict):
+            return event
+    return None
+
+
+def _cached_assignment_tool_result(event: AgentEvent) -> ProjectFlowToolResult:
+    output_snapshot = event.get_output_snapshot()
+    if isinstance(output_snapshot, dict) and isinstance(output_snapshot.get("tool_result"), dict):
+        return ProjectFlowToolResult.model_validate(output_snapshot["tool_result"])
+    raise ValueError("Cached assignment tool result is missing from agent event output")
+
+
 def _latest_agent_event_id(
     session: Session,
     *,
@@ -629,6 +695,33 @@ def _persist_advisory_risks(
         )
         created_ids.append(created.id)
     return created_ids
+
+
+def _parse_action_cards_argument(args: dict[str, Any]) -> list[ActionCardProposal] | ProjectFlowToolResult:
+    raw_cards = args.get("action_cards", [])
+    if raw_cards is None:
+        return []
+    if not isinstance(raw_cards, list):
+        return ProjectFlowToolResult(
+            status=ToolResultStatus.validation_error,
+            error=ToolError(
+                code="INVALID_ACTION_CARDS",
+                reason="action_cards 必须是数组。",
+                message="action_cards 必须是数组。",
+            ),
+            side_effect_status=SideEffectStatus.no_side_effect,
+            observation="action_cards 必须是数组。",
+        )
+    try:
+        return [ActionCardProposal.model_validate(card) for card in raw_cards]
+    except ValidationError as exc:
+        message = f"action_cards 格式不合法：{exc}"
+        return ProjectFlowToolResult(
+            status=ToolResultStatus.validation_error,
+            error=ToolError(code="INVALID_ACTION_CARDS", reason=message, message=message),
+            side_effect_status=SideEffectStatus.no_side_effect,
+            observation=message,
+        )
 
 
 def _persist_advisory_action_cards(
@@ -692,13 +785,13 @@ def _build_replan_signal(
     requires_replan = bool(task_changes) or risk_output.requires_confirmation
     reasons: list[str] = []
     if task_changes:
-        reasons.append("checkin analysis produced inferred task status changes that must go through replan proposal")
+        reasons.append("签到分析产生了任务状态变化信号，必须进入待确认的重规划草案。")
     if risk_output.requires_confirmation:
-        reasons.append("risk analysis requires mitigation confirmation before any primary state change")
+        reasons.append("风险缓解建议涉及主事实变更，必须先进入待确认的重规划草案。")
     return {
         "requires_replan_proposal": requires_replan,
         "task_changes": task_changes,
-        "reason": "; ".join(reasons),
+        "reason": "；".join(reasons),
     }
 
 
@@ -707,14 +800,14 @@ def _build_checkin_risk_observation(created_ids: list[str], replan_signal: dict[
     replan_needed = bool(replan_signal.get("requires_replan_proposal"))
     if created_count and replan_needed:
         return (
-            f"已创建 {created_count} 条 advisory 记录；"
-            "检测到需要后续 replan proposal 确认的主事实变更信号。"
+            f"已创建 {created_count} 条建议记录；"
+            "检测到需要后续重规划草案确认的主事实变更信号。"
         )
     if created_count:
-        return f"已创建 {created_count} 条 advisory 记录，未直接修改主事实。"
+        return f"已创建 {created_count} 条建议记录，未直接修改主事实。"
     if replan_needed:
-        return "未创建 advisory 记录，但检测到需要后续 replan proposal 确认的主事实变更信号。"
-    return "分析完成，未创建新的 advisory 记录。"
+        return "未创建建议记录，但检测到需要后续重规划草案确认的主事实变更信号。"
+    return "分析完成，未创建新的建议记录。"
 
 
 def _tag_agent_event_with_tool_request(
@@ -765,9 +858,145 @@ def _dedupe_ids(ids: list[str]) -> list[str]:
     return unique_ids
 
 
+# ─── Proposal tools (S8+) ─────────────────────────────────────────────────
+
+
+def execute_assignment_recommendation(session: Session, request: ToolExecutionRequest) -> ProjectFlowToolResult:
+    """Create an AssignmentProposal from agent recommendation.
+
+    risk_category=draft_only, effects.effect_type=proposal_create.
+    Creates an AssignmentProposal without writing Task.owner_user_id.
+    Final owner is only written by finalize_assignment_proposal (human-triggered).
+    """
+    args = request.arguments or {}
+    project_id = args.get("project_id") or request.project_id
+    workspace_id = args.get("workspace_id") or request.workspace_id
+
+    # Validate required fields
+    required = ["stage_id", "task_id", "recommended_owner_user_id", "reason"]
+    missing = [f for f in required if not args.get(f)]
+    if missing:
+        return ProjectFlowToolResult(
+            status=ToolResultStatus.validation_error,
+            side_effect_status=SideEffectStatus.no_side_effect,
+            observation=f"缺少必填字段：{', '.join(missing)}",
+        )
+
+    try:
+        create_data = AssignmentProposalCreate(
+            project_id=project_id,
+            stage_id=args["stage_id"],
+            task_id=args["task_id"],
+            recommended_owner_user_id=args["recommended_owner_user_id"],
+            backup_owner_user_id=args.get("backup_owner_user_id"),
+            reason=args["reason"],
+            skill_match=args.get("skill_match"),
+            availability_match=args.get("availability_match"),
+            preference_match=args.get("preference_match"),
+            constraint_respected=args.get("constraint_respected"),
+            risk_note=args.get("risk_note"),
+            created_by_agent=True,
+        )
+        proposal = create_assignment_proposal(session, create_data, auto_commit=False)
+        owner_user = session.get(User, args["recommended_owner_user_id"])
+        owner_name = owner_user.display_name if owner_user else args["recommended_owner_user_id"]
+        event = AgentEvent(
+            project_id=project_id,
+            workspace_id=workspace_id,
+            event_type=AgentEventType.assign,
+            reasoning_summary="分工建议工具创建待确认分工草案。",
+        )
+        event.set_input_snapshot(
+            {
+                "tool_idempotency_key": request.idempotency_key,
+                "tool_call_id": request.tool_call_id,
+                "tool_name": request.tool_name,
+                "tool_dispatch_name": "assignment-recommendation",
+            }
+        )
+        result = _assignment_tool_result(
+            proposal,
+            request=request,
+            agent_event_id=event.id,
+            observation=f"分工建议已创建：推荐 {owner_name} 负责任务。",
+        )
+        event.set_output_snapshot({"tool_result": result.model_dump(mode="json")})
+        session.add(event)
+        session.commit()
+        session.refresh(proposal)
+
+        return result
+    except (ValueError, ValidationError) as exc:
+        return _assignment_validation_error_result(exc)
+
+
+def _assignment_tool_result(
+    proposal: AssignmentProposal,
+    *,
+    request: ToolExecutionRequest,
+    agent_event_id: str | None,
+    observation: str,
+) -> ProjectFlowToolResult:
+    read_schema = AssignmentProposalRead.model_validate(proposal, from_attributes=True)
+    return ProjectFlowToolResult(
+        status=ToolResultStatus.success,
+        data=read_schema.model_dump(mode="json"),
+        side_effect_status=SideEffectStatus.proposal_persisted,
+        idempotency_key=request.idempotency_key,
+        links=ToolLinks(
+            agent_event_id=agent_event_id,
+            proposal_id=proposal.id,
+            created_ids=[proposal.id],
+        ),
+        observation=observation,
+    )
+
+
+def _assignment_validation_error_result(exc: ValueError | ValidationError) -> ProjectFlowToolResult:
+    raw_message = str(exc)
+    lower_message = raw_message.lower()
+    if "already has owner" in lower_message:
+        message = "该任务已有负责人，不能通过分工建议工具重复分配。"
+    elif "already has a proposal" in lower_message or "already has proposal" in lower_message:
+        message = "该任务已有待处理的分工建议，请先处理现有建议后再生成新的建议。"
+    elif "previously rejected" in lower_message:
+        message = "该任务和负责人组合曾被拒绝，请推荐其他负责人。"
+    elif "backup owner must differ" in lower_message:
+        message = "备选负责人必须不同于推荐负责人。"
+    elif "not a workspace member" in lower_message:
+        message = "推荐负责人或备选负责人不是当前工作区成员。"
+    elif "stage does not belong" in lower_message:
+        message = "所选阶段不属于当前项目。"
+    elif "task does not belong to the specified stage" in lower_message:
+        message = "所选任务不属于当前阶段。"
+    elif "task does not belong" in lower_message:
+        message = "所选任务不属于当前项目。"
+    elif isinstance(exc, ValidationError):
+        message = "分工建议参数格式不合法，请补齐必填字段并检查字段类型。"
+    else:
+        message = "分工建议未通过业务校验，请检查任务、阶段和成员是否匹配。"
+
+    return ProjectFlowToolResult(
+        status=ToolResultStatus.validation_error,
+        error=ToolError(code="ASSIGNMENT_RECOMMENDATION_INVALID", reason=message, message=message),
+        side_effect_status=SideEffectStatus.no_side_effect,
+        observation=message,
+    )
+
+
+# ─── Tool dispatch ─────────────────────────────────────────────────────────
+
+
+def execute_tool(session: Session, request: ToolExecutionRequest) -> ProjectFlowToolResult:
+    """Backward-compatible wrapper for unified tool dispatch."""
+    return execute_agent_tool(session, request)
+
+
 __all__ = [
     "execute_agent_tool",
     "execute_read_only_tool",
+    "execute_assignment_recommendation",
+    "execute_tool",
     "ToolNotFoundError",
     "WorkspaceStateResponse",
     "AgentConversationRead",

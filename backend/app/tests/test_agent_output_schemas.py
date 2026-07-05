@@ -286,25 +286,28 @@ def test_validate_agent_output_rejects_fabricated_task_or_member_references():
     assert "missing-user" in str(exc_info.value)
 
 
-def test_high_severity_risk_requires_confirmation():
-    with pytest.raises(AgentOutputValidationError):
-        validate_agent_output(
-            AgentEventType.risk,
-            {
-                "risks": [
-                    {
-                        "type": "deadline",
-                        "severity": "high",
-                        "title": "Demo likely misses deadline",
-                        "description": "Critical path task is blocked.",
-                        "evidence": [{"task_id": "task-1", "status": "blocked"}],
-                        "recommendation": "Replan scope now.",
-                    }
-                ],
-                "requires_confirmation": False,
-                "reason": "High severity needs human confirmation.",
-            },
-        )
+def test_high_severity_risk_row_is_advisory_without_confirmation():
+    output = validate_agent_output(
+        AgentEventType.risk,
+        {
+            "risks": [
+                {
+                    "type": "deadline",
+                    "severity": "high",
+                    "title": "Demo likely misses deadline",
+                    "description": "Critical path task is blocked.",
+                    "evidence": [{"task_id": "task-1", "status": "blocked"}],
+                    "recommendation": "Replan scope now.",
+                }
+            ],
+            "requires_confirmation": False,
+            "reason": "High severity risk row itself is advisory.",
+        },
+    )
+
+    assert isinstance(output, RiskAnalysisOutput)
+    assert output.risks[0].severity.value == "high"
+    assert output.requires_confirmation is False
 
 
 def test_replan_requires_confirmation():

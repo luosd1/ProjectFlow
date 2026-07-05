@@ -227,7 +227,7 @@ S6+S7 (你) → S12 (你，等 S10)
    - 复用 `CoordinatorAgent.analyze_checkin` 和 `analyze_risks`
    - 将 advisory 持久化与旧 `_persist_agent_output()` 剥离，避免沿用会触发主事实写入的旧副作用链
    - Risk（任意 severity）可直接创建为 Advisory Project Record
-   - 当前实现未直接创建 `ActionCard`，但保留了 advisory 持久化入口，后续可继续扩展
+   - `action_cards` tool arguments 可直接创建 `ActionCard` Advisory Project Record
    - tool result 返回 `created_ids`、`related_event_ids`、`replan_signal`
    - 不改 Primary Project State
 
@@ -247,12 +247,12 @@ S6+S7 (你) → S12 (你，等 S10)
    - Agent 推断出的 task status changes 通过 `replan_signal.task_changes` 返回，交给后续 replan tool 处理
 
 5. **Idempotency**
-   - 同 key 重试复用同一次 advisory 结果，不重复创建 Risk
-   - Risk dedup 继续沿用 open/accepted task+type 规则
+   - 同 key 重试复用同一次 advisory 结果，不重复创建 Risk/ActionCard
+   - Risk dedup 继续沿用 open/accepted task+type 规则；ActionCard dedup 按 active project+task+type+title
 
 6. **Tests**
    - 覆盖 advisory write 不改主事实
-   - 覆盖 `created_ids` 返回
+   - 覆盖 Risk/ActionCard `created_ids` 返回
    - 覆盖 idempotency 复用
    - 覆盖 mitigation / replan 边界
 
@@ -271,6 +271,11 @@ S6+S7 (你) → S12 (你，等 S10)
 - `npm test -- --run tests/unit/projectflow-tools.test.ts`
 - `npm run typecheck`
 - 结果：backend `18 + 1 + 33 passed`，sidecar unit `125 passed`，typecheck 通过
+
+**合并修正：**
+- 补齐 ActionCard advisory 创建路径，不再只保留空入口。
+- 移除 high-severity Risk 自动要求 `requires_confirmation=true` 的旧 schema 校验；该字段只表示 mitigation/replan 主事实变更需要确认。
+- `replan_signal.reason` 改为中文模型可见文本。
 
 **关键约束：**
 - 任意 severity 的 Risk 都是 advisory，不需要 proposal confirmation

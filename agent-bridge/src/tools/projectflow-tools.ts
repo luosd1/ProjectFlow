@@ -1,5 +1,6 @@
 /**
  * ProjectFlow tool definitions.
+ *
  * Read-only tools allow the Agent to query workspace state, conversation
  * history, pending proposals, and timeline events without modifying state.
  * Proposal tools create reviewable draft records but never commit primary
@@ -8,8 +9,7 @@
  * All tools go through the unified internal contract:
  *   POST /internal/agent-tools/{tool-name}
  * with a single envelope (run_id, tool_call_id, arguments, trace, ...) built by
- * createFastapiToolExecutor. Read-only semantics are expressed via the manifest
- * (risk_category=read_only, effects.effect_type=none), NOT via HTTP GET.
+ * createFastapiToolExecutor.
  */
 
 import type { ProjectFlowToolManifest } from "@/types/tool-manifest.js";
@@ -278,7 +278,7 @@ const getTimelineSliceManifest: ProjectFlowToolManifest = {
   },
 };
 
-// ─── Tool: generate_replan_proposal ──────────────────────────────────────────
+// ─── Tool: generate_stage_plan_proposal ──────────────────────────────────────
 
 const generateStagePlanProposalManifest: ProjectFlowToolManifest = {
   ...PROPOSAL_DEFAULTS,
@@ -337,6 +337,27 @@ const analyzeCheckinsAndRisksManifest: ProjectFlowToolManifest = {
       project_id: { type: "string", description: "项目 ID" },
       workspace_id: { type: "string", description: "工作区 ID（可选，默认取当前 run 的 workspace）" },
       user_instruction: { type: "string", description: "本次分析的补充意图或约束（可选）" },
+      action_cards: {
+        type: "array",
+        description: "可选的 ActionCard advisory records；仅创建行动卡，不修改主事实。",
+        items: {
+          type: "object",
+          properties: {
+            type: { type: "string", description: "行动卡类型" },
+            title: { type: "string", description: "标题" },
+            content: { type: "string", description: "内容（可选）" },
+            reason: { type: "string", description: "创建原因" },
+            goal: { type: "string", description: "目标（可选）" },
+            start_suggestion: { type: "string", description: "启动建议（可选）" },
+            completion_standard: { type: "string", description: "完成标准（可选）" },
+            user_id: { type: "string", description: "关联成员 ID（可选）" },
+            task_id: { type: "string", description: "关联任务 ID（可选）" },
+            stage_id: { type: "string", description: "关联阶段 ID（可选）" },
+            due_date: { type: "string", description: "截止日期 YYYY-MM-DD（可选）" },
+          },
+          required: ["type", "title", "reason"],
+        },
+      },
     },
     required: ["project_id"],
   },
@@ -351,10 +372,45 @@ const analyzeCheckinsAndRisksManifest: ProjectFlowToolManifest = {
   },
 };
 
-// ─── Export: all read-only tools ──────────────────────────────────────────────
+// ─── Tool: recommend_assignment ───────────────────────────────────────────────
+
+const recommendAssignmentManifest: ProjectFlowToolManifest = {
+  ...PROPOSAL_DEFAULTS,
+  name: "recommend_assignment",
+  description:
+    "生成分工建议：为指定任务推荐负责人和备选负责人，创建 AssignmentProposal 待确认记录。不直接写入 Task.owner_user_id，需人工确认后才生效。",
+  inputSchema: {
+    type: "object",
+    properties: {
+      stage_id: { type: "string", description: "阶段 ID" },
+      task_id: { type: "string", description: "任务 ID" },
+      recommended_owner_user_id: { type: "string", description: "推荐负责人用户 ID" },
+      backup_owner_user_id: { type: "string", description: "备选负责人用户 ID（可选）" },
+      reason: { type: "string", description: "推荐理由" },
+      skill_match: { type: "string", description: "技能匹配说明（可选）" },
+      availability_match: { type: "string", description: "时间匹配说明（可选）" },
+      preference_match: { type: "string", description: "意向匹配说明（可选）" },
+      constraint_respected: { type: "string", description: "限制条件遵守说明（可选）" },
+      risk_note: { type: "string", description: "风险提示（可选）" },
+    },
+    required: ["stage_id", "task_id", "recommended_owner_user_id", "reason"],
+  },
+  outputSchema: {
+    type: "object",
+    description:
+      "ProjectFlowToolResult — status=success, data=AssignmentProposalRead (id, project_id, stage_id, task_id, recommended_owner_user_id, backup_owner_user_id, reason, status, created_at), side_effect_status=proposal_persisted, links.proposal_id, links.created_ids",
+  },
+  backend: {
+    owner: "fastapi",
+    endpoint: "POST /internal/agent-tools/assignment-recommendation",
+    method: "POST",
+  },
+};
+
+// ─── Export: all tools ───────────────────────────────────────────────────────
 
 /**
- * Build the 4 read-only tools. Each executor is produced by
+ * Build all ProjectFlow tools. Each executor is produced by
  * createFastapiToolExecutor, which wraps the args in the unified
  * POST /internal/agent-tools/{name} envelope (run_id, tool_call_id,
  * arguments, trace, idempotency_key, ...).
@@ -400,6 +456,23 @@ export function createReplanProposalTool(fastapiClient: FastapiClient): Register
   };
 }
 
+/** Build the draft-only assignment proposal tool. */
+export function createAssignmentProposalTool(fastapiClient: FastapiClient): RegisteredTool {
+  return {
+    manifest: recommendAssignmentManifest,
+    execute: createFastapiToolExecutor(fastapiClient, "assignment-recommendation"),
+  };
+}
+
+/** Build all draft-only proposal tools. */
+export function createProposalTools(fastapiClient: FastapiClient): RegisteredTool[] {
+  return [
+    createStagePlanProposalTool(fastapiClient),
+    createReplanProposalTool(fastapiClient),
+    createAssignmentProposalTool(fastapiClient),
+  ];
+}
+
 /** Build the advisory-write checkin/risk analysis tool. */
 export function createCheckinsAndRisksAnalysisTool(fastapiClient: FastapiClient): RegisteredTool {
   return {
@@ -412,8 +485,7 @@ export function createCheckinsAndRisksAnalysisTool(fastapiClient: FastapiClient)
 export function createDefaultProjectFlowTools(fastapiClient: FastapiClient): RegisteredTool[] {
   return [
     ...createReadOnlyTools(fastapiClient),
-    createStagePlanProposalTool(fastapiClient),
+    ...createProposalTools(fastapiClient),
     createCheckinsAndRisksAnalysisTool(fastapiClient),
-    createReplanProposalTool(fastapiClient),
   ];
 }
