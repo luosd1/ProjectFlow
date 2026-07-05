@@ -17,16 +17,17 @@ from sqlmodel import Session
 
 from app.core.database import get_session
 from app.schemas.runtime import ProjectFlowToolResult, ToolExecutionRequest
-from app.services.agent_tools_service import ToolNotFoundError, execute_read_only_tool
+from app.services.agent_tools_service import ToolNotFoundError, execute_tool as dispatch_tool
 
 router = APIRouter(prefix="/internal/agent-tools", tags=["agent-tools"])
 
-# Read-only tools currently exposed through this dispatcher.
-READ_ONLY_TOOLS = {
+# All tools currently exposed through this dispatcher.
+REGISTERED_TOOLS = {
     "workspace-state",
     "conversation",
     "pending-proposals",
     "timeline-slice",
+    "assignment-recommendation",
 }
 
 
@@ -45,10 +46,10 @@ def execute_tool(
     effective_name = request.tool_name or tool_name
     request = request.model_copy(update={"tool_name": effective_name})
 
-    if effective_name not in READ_ONLY_TOOLS:
+    if effective_name not in REGISTERED_TOOLS:
         raise HTTPException(status_code=404, detail=f"Tool not found: {tool_name}")
 
     try:
-        return execute_read_only_tool(session, request)
+        return dispatch_tool(session, request)
     except ToolNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc))
