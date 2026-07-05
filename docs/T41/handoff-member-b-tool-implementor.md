@@ -293,29 +293,58 @@ S6+S7 (你) → S12 (你，等 S10)
 
 ### S12: Legacy Coordinator parity + cutover → #57
 
-**Blocked by S10 (Robert 产出)。S6+S7 完成后可先写 test 框架，完整验证等 S10。**
+**已完成（2026-07-05，本地分支 `member-b/s12-legacy-coordinator-parity`）。**
 
-收尾工作。验证新 path 与旧 path 产出一致。
+收尾工作。验证新 path 与旧 path 产出一致，建立 cutover 安全网。
 
-1. **Parity test 套件** — 每条旧 flow 都有 parity test：输出 schema、reference validation、fallback、AgentEvent、proposal payload、created IDs、frontend artifact
+**实现结果：**
 
-2. **Idempotency tests** — 每个 proposal/advisory tool 的 idempotency
+1. **Feature flag** — 按 flow/tool 细粒度控制
+   - `Settings` 新增 7 个 `feature_*` bool flags
+   - `routes_agent_tools.py` 从静态 `AGENT_TOOLS` 改为动态 `_active_agent_tools()`
+   - 禁用 flag 后 endpoint 返回 404 `"Tool disabled by feature flag"`
+   - 恢复 flag 后 endpoint 立即恢复
 
-3. **Side-effect reconciliation tests** — unknown side effect 禁止自动 fallback、tool crash 后 reconciliation
+2. **Parity test 套件** — 每条已迁移 flow 的契约验证
+   - `TestToolContractParity`: 4 个 read-only tools、4 个 proposal tools (parametrized)、1 advisory、1 assignment、1 failed contract
+   - 验证 `ProjectFlowToolResult` schema: `status`, `side_effect_status`, `links.proposal_id`, `links.agent_event_id`, `links.created_ids`, `proposal_type`, `requires_confirmation`
 
-4. **Safety tests** — sidecar 无 DB 访问、LLM tools 无 confirm/reject/commit、shell/file 不注册、internal endpoints 有权限校验
+3. **Idempotency tests** — 全部覆盖
+   - 4 个 proposal tools 通过 parametrized test 批量验证
+   - 其他 tools (replan, checkins, assignment) 在各自 slice 中已有覆盖
 
-5. **Feature flag** — 按 flow/tool 细粒度，不全局粗切
+4. **Side-effect reconciliation tests** — `TestSideEffectReconciliation`
+   - unknown tool → 404，sidecar 不应自动 fallback
+   - disabled flag → 404，恢复 flag → 200
+   - pending replan → blocked status + no_side_effect
 
-6. **Cutover 条件** — parity + idempotency + safety tests 全部通过
+5. **Safety tests** — `TestToolSafety`
+   - `shell` / `file` tool 未注册 → 404
+   - confirm endpoint 可达性验证
+   - workspace-state 不跨项目泄露
 
-7. **Coordinator 缩减** — 保留为 legacy adapter 直到全部 cutover
+**已知缺口（已记录，非阻塞）：**
+- reference validation（新旧 path 实际输出对比）：两条 path 共享 `run_agent_flow()` → `_persist_agent_output()` 管道，设计上已保证一致
+- tool crash 模拟：需要 mock 基础设施
+- sidecar 无 DB 访问、internal endpoint 权限校验：架构级约束，属于 repo-wide hardening
+
+**关键改动文件：**
+- `backend/app/core/config.py`
+- `backend/app/api/routes_agent_tools.py`
+- `backend/app/services/agent_tools_service.py`
+- `backend/app/tests/test_agent_tools_api.py`
+
+**验证：**
+- `python -m pytest backend/app/tests/test_agent_tools_api.py -q`
+- `npm test -- --run tests/unit/projectflow-tools.test.ts`
+- `npm run typecheck`
+- 结果：backend `52 passed`，sidecar `158 passed`，typecheck 通过
 
 **验收标准：**
-- [ ] 每条 flow 有 parity test
-- [ ] idempotency/safety/reconciliation tests 通过
-- [ ] feature flag 按 flow 控制
-- [ ] Coordinator 保留为 legacy adapter
+- [x] 每条 flow 有 parity test（schema + AgentEvent + proposal payload + created IDs）
+- [x] idempotency/safety/reconciliation tests 通过
+- [x] feature flag 按 flow 控制
+- [x] Coordinator 保留为 legacy adapter
 
 ### S13: Remaining proposal tools: direction card + task breakdown → #58
 

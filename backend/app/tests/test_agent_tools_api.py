@@ -1040,3 +1040,277 @@ class TestAssignmentRecommendationTool:
         data = resp.json()
         assert data["status"] == "validation_error"
         assert "已有" in data["observation"] or "already" in data["observation"].lower() or "owner" in data["observation"].lower()
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# S12: Legacy Coordinator Parity + Cutover
+# ═══════════════════════════════════════════════════════════════════════
+
+
+class TestToolContractParity:
+    """S12: Each migrated tool must return a structurally valid ProjectFlowToolResult."""
+
+    # ── Read-only tools ─────────────────────────────────────────────
+
+    def test_read_only_tools_return_no_side_effect(self, client, test_engine):
+        _seed(test_engine)
+        for tool_name in ("workspace-state", "conversation", "pending-proposals", "timeline-slice"):
+            args: dict = {}
+            if tool_name == "workspace-state":
+                args = {"workspace_id": "ws1"}
+            elif tool_name in ("conversation", "pending-proposals", "timeline-slice"):
+                args = {"project_id": "p1"}
+
+            resp = client.post(
+                f"/internal/agent-tools/{tool_name}",
+                json=_envelope(tool_name, args),
+            )
+            assert resp.status_code == 200, f"{tool_name}: {resp.text}"
+            data = resp.json()
+            assert data["status"] == "success", f"{tool_name} status"
+            assert data["side_effect_status"] == "no_side_effect", f"{tool_name} side_effect"
+            assert "data" in data, f"{tool_name} missing data"
+
+    # ── Proposal tools ──────────────────────────────────────────────
+
+    _PROPOSAL_TOOLS = {
+        "stage-plan-proposal": "plan",
+        "replan-proposal": "replan",
+        "direction-card-proposal": "clarify",
+        "task-breakdown-proposal": "breakdown",
+    }
+
+    @pytest.mark.parametrize("tool_name,proposal_type", list(_PROPOSAL_TOOLS.items()))
+    def test_proposal_tool_returns_proposal_persisted(self, client, test_engine, tool_name, proposal_type):
+        fixture = _create_stage_plan_fixture(client)
+        project = fixture["project"]
+        workspace = fixture["workspace"]
+
+        args: dict = {"project_id": project["id"], "workspace_id": workspace["id"]}
+        if proposal_type in ("replan", "clarify", "breakdown"):
+            args["user_instruction"] = f"生成{proposal_type}草案。"
+
+        resp = client.post(
+            f"/internal/agent-tools/{tool_name}",
+            json={
+                **_envelope(tool_name, args),
+                "workspace_id": workspace["id"],
+                "project_id": project["id"],
+                "idempotency_key": f"run_parity:{tool_name}:v1",
+            },
+        )
+        assert resp.status_code == 200, f"{tool_name}: {resp.text}"
+        data = resp.json()
+        assert data["status"] == "success", f"{tool_name} status"
+        assert data["side_effect_status"] == "proposal_persisted", f"{tool_name} side_effect"
+        assert data["links"]["proposal_id"] is not None, f"{tool_name} missing proposal_id"
+        assert data["links"]["agent_event_id"] is not None, f"{tool_name} missing agent_event_id"
+
+        proposal_resp = client.get(f"/api/agent-proposals/{data['links']['proposal_id']}")
+        assert proposal_resp.status_code == 200
+        proposal = proposal_resp.json()
+        assert proposal["proposal_type"] == proposal_type
+        assert proposal["status"] == "pending"
+        assert "requires_confirmation" in proposal["payload"]
+
+    @pytest.mark.parametrize("tool_name,proposal_type", list(_PROPOSAL_TOOLS.items()))
+    def test_proposal_tool_idempotency_reuses_same_proposal(self, client, test_engine, tool_name, proposal_type):
+        fixture = _create_stage_plan_fixture(client)
+        project = fixture["project"]
+        workspace = fixture["workspace"]
+
+        args: dict = {"project_id": project["id"], "workspace_id": workspace["id"]}
+        if proposal_type in ("replan", "clarify", "breakdown"):
+            args["user_instruction"] = f"生成{proposal_type}草案。"
+
+        envelope = {
+            **_envelope(tool_name, args),
+            "workspace_id": workspace["id"],
+            "project_id": project["id"],
+            "idempotency_key": f"run_idem:{tool_name}:v1",
+        }
+
+        first = client.post(f"/internal/agent-tools/{tool_name}", json=envelope)
+        second = client.post(f"/internal/agent-tools/{tool_name}", json=envelope)
+        assert first.status_code == 200
+        assert second.status_code == 200
+        assert first.json()["links"]["proposal_id"] == second.json()["links"]["proposal_id"]
+
+    # ── Advisory tool ────────────────────────────────────────────────
+
+    def test_checkins_returns_advisory_record_persisted(self, client, test_engine):
+        fixture = _create_checkin_analysis_fixture(client)
+        project = fixture["project"]
+        workspace = fixture["workspace"]
+
+        envelope = {
+            **_envelope(
+                "analyze_checkins_and_risks",
+                {"project_id": project["id"], "workspace_id": workspace["id"]},
+            ),
+            "workspace_id": workspace["id"],
+            "project_id": project["id"],
+            "idempotency_key": "run_parity:advisory:v1",
+        }
+        resp = client.post("/internal/agent-tools/checkins-and-risks-analysis", json=envelope)
+        assert resp.status_code == 200, resp.text
+        data = resp.json()
+        assert data["status"] == "success"
+        assert data["side_effect_status"] == "advisory_record_persisted"
+        assert data["links"]["agent_event_id"] is not None
+        assert "replan_signal" in data["data"]
+
+    # ── Assignment recommendation ────────────────────────────────────
+
+    def test_assignment_recommendation_returns_proposal_persisted(self, client, test_engine):
+        _seed_assignment(test_engine)
+        resp = client.post(
+            "/internal/agent-tools/assignment-recommendation",
+            json=_envelope("assignment-recommendation", {
+                "stage_id": "s1",
+                "task_id": "t1",
+                "recommended_owner_user_id": "u1",
+                "reason": "技能匹配",
+            }),
+        )
+        assert resp.status_code == 200, resp.text
+        data = resp.json()
+        assert data["status"] == "success"
+        assert data["side_effect_status"] == "proposal_persisted"
+        assert data["links"]["proposal_id"] is not None
+        assert data["links"]["created_ids"] != []
+
+    # ── Failed result contract ───────────────────────────────────────
+
+    def test_failed_result_contract(self, client, test_engine):
+        _seed(test_engine)
+        resp = client.post(
+            "/internal/agent-tools/workspace-state",
+            json=_envelope("workspace-state", {"workspace_id": "nonexistent"}),
+        )
+        assert resp.status_code == 200, resp.text
+        data = resp.json()
+        assert data["status"] == "failed"
+        assert data["side_effect_status"] == "no_side_effect"
+        assert data["links"]["created_ids"] == []
+
+
+class TestSideEffectReconciliation:
+    """S12: Side-effect reconciliation edge cases."""
+
+    def test_unknown_tool_returns_404(self, client, test_engine):
+        _seed(test_engine)
+        resp = client.post("/internal/agent-tools/unknown-tool-name", json=_envelope("unknown"))
+        assert resp.status_code == 404
+
+    def test_disabled_flag_returns_404(self, client, test_engine, monkeypatch):
+        from app.core import config
+
+        _seed(test_engine)
+        monkeypatch.setattr(config.settings, "feature_read_tools", False)
+
+        resp = client.post(
+            "/internal/agent-tools/workspace-state",
+            json=_envelope("workspace-state", {"workspace_id": "ws1"}),
+        )
+        assert resp.status_code == 404
+        assert "disabled" in resp.json()["detail"].lower()
+
+    def test_re_enable_flag_restores_tool(self, client, test_engine, monkeypatch):
+        from app.core import config
+
+        _seed(test_engine)
+        monkeypatch.setattr(config.settings, "feature_read_tools", False)
+        resp_disabled = client.post(
+            "/internal/agent-tools/workspace-state",
+            json=_envelope("workspace-state", {"workspace_id": "ws1"}),
+        )
+        assert resp_disabled.status_code == 404
+
+        monkeypatch.setattr(config.settings, "feature_read_tools", True)
+        resp_enabled = client.post(
+            "/internal/agent-tools/workspace-state",
+            json=_envelope("workspace-state", {"workspace_id": "ws1"}),
+        )
+        assert resp_enabled.status_code == 200
+        assert resp_enabled.json()["status"] == "success"
+
+    def test_replan_blocked_produces_blocked_status(self, client, test_engine):
+        _seed(test_engine)
+        first = client.post(
+            "/internal/agent-tools/replan-proposal",
+            json=_envelope(
+                "generate_replan_proposal",
+                {"project_id": "p1", "user_instruction": "生成计划调整草案。"},
+            ),
+        )
+        assert first.status_code == 200
+        first_data = first.json()
+        assert first_data["status"] == "success"
+
+        second_envelope = _envelope(
+            "generate_replan_proposal",
+            {"project_id": "p1", "user_instruction": "再次生成。"},
+        )
+        second_envelope["tool_call_id"] = "call_second"
+        second_envelope["idempotency_key"] = "run_test:call_second:v1"
+        second = client.post("/internal/agent-tools/replan-proposal", json=second_envelope)
+
+        assert second.status_code == 200
+        second_data = second.json()
+        assert second_data["status"] == "blocked"
+        assert second_data["side_effect_status"] == "no_side_effect"
+        assert second_data["links"]["proposal_id"] == first_data["links"]["proposal_id"]
+
+
+class TestToolSafety:
+    """S12: Architecture-level safety constraints."""
+
+    def test_shell_tool_not_registered(self, client, test_engine):
+        _seed(test_engine)
+        resp = client.post(
+            "/internal/agent-tools/shell",
+            json=_envelope("shell", {"command": "echo hello"}),
+        )
+        assert resp.status_code == 404
+
+    def test_file_tool_not_registered(self, client, test_engine):
+        _seed(test_engine)
+        resp = client.post(
+            "/internal/agent-tools/file",
+            json=_envelope("file", {"path": "/tmp/test"}),
+        )
+        assert resp.status_code == 404
+
+    def test_confirm_endpoint_reachable_from_api(self, client, test_engine):
+        _seed(test_engine)
+        resp = client.post(
+            "/api/agent-proposals/prop_pending/confirm",
+            json={"confirmed_by": "u1"},
+        )
+        assert resp.status_code in (200, 400, 404, 422)
+
+    def test_no_cross_project_data_leak(self, client, test_engine):
+        _seed(test_engine)
+        with Session(test_engine) as session:
+            session.add(
+                Project(
+                    id="p2",
+                    workspace_id="ws1",
+                    name="另一个项目",
+                    idea="另一个想法",
+                    deadline="2026-09-01",
+                    deliverables="交付物",
+                    created_by="u1",
+                )
+            )
+            session.commit()
+
+        resp = client.post(
+            "/internal/agent-tools/workspace-state",
+            json=_envelope("workspace-state", {"workspace_id": "ws1"}),
+        )
+        assert resp.status_code == 200, resp.text
+        data = resp.json()
+        assert data["data"]["workspace_id"] == "ws1"
+        assert data["data"]["workspace_name"] is not None

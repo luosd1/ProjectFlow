@@ -122,7 +122,9 @@ Coordination status:
 
 - S6 and S7 are complete on Member B branch.
 - S10 event bridge is complete; S11 can consume runtime stream/query events.
-- S13 is unblocked for Member B and can start next.
+- All Member B proposal tools (S6, S7, S13) are complete.
+- S12 (Legacy Coordinator parity + cutover) is complete on Member B branch.
+- Remaining Member B work: none — all assigned T41 slices complete.
 
 ## Completed
 
