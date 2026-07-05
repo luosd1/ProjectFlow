@@ -9,7 +9,7 @@
  * - tool_execution_update → tool.progress
  * - tool_execution_end → tool.completed or tool.failed
  * - turn_end → agent.status
- * - agent_end → agent.completed
+ * - agent_end → agent.completed or agent.failed
  * - policy block → tool.blocked
  * - advisory record created → advisory_record.created
  * - proposal created → proposal.created
@@ -169,12 +169,19 @@ export function mapPiEvent(piEvent: PiEvent, runId: string): MappedEvent {
         payload: { run_id: runId, phase: "turn_end", ...piEvent.data },
       };
 
-    case "agent_end":
+    case "agent_end": {
+      const failed = !!(piEvent.error || piEvent.isError);
       return {
-        type: "agent.completed",
-        payload: { run_id: runId, ...piEvent.data },
-        newStatus: "completed",
+        type: failed ? "agent.failed" : "agent.completed",
+        payload: {
+          run_id: runId,
+          ...(piEvent.error ? { error: piEvent.error } : {}),
+          ...(piEvent.isError !== undefined ? { is_error: piEvent.isError } : {}),
+          ...piEvent.data,
+        },
+        newStatus: failed ? "failed" : "completed",
       };
+    }
 
     case "policy_block":
       return {

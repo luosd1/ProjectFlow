@@ -292,11 +292,11 @@ class TestAppendEvents:
         })
         run_id = create_response.json()["run_id"]
 
-        # Combined append
+        # Combined append (created → context_building 是合法转换)
         response = client.post(f"/internal/agent-runs/{run_id}/events:append", json={
             "idempotency_key": f"{run_id}:combined:v1",
             "state_patch": {
-                "status": "tool_running",
+                "status": "context_building",
                 "current_step": 1,
             },
             "events": [
@@ -328,9 +328,10 @@ class TestAppendEvents:
         # Verify state
         status_response = client.get(f"/internal/agent-runs/{run_id}")
         status_data = status_response.json()
-        assert status_data["status"] == "tool_running"
+        assert status_data["status"] == "context_building"
         assert status_data["current_step"] == 1
-        assert status_data["last_event_seq"] == 1
+        # auto state_changed(seq=1) + 1 user event(seq=2) = last_event_seq 2
+        assert status_data["last_event_seq"] == 2
 
     def test_append_nonexistent_run(self, client):
         """Test appending to a non-existent run."""
@@ -338,6 +339,122 @@ class TestAppendEvents:
             "idempotency_key": "test:v1",
         })
         assert response.status_code == 404
+
+    def test_state_patch_auto_generates_run_state_changed_event(self, client):
+        """state_patch 非空时自动生成 run.state_changed 事件。"""
+        create_response = client.post("/internal/agent-runs", json={
+            "conversation_id": "conv_123",
+            "workspace_id": "ws_456",
+            "project_id": "proj_789",
+            "user_content": "test",
+        })
+        run_id = create_response.json()["run_id"]
+
+        # 带 state_patch 的 append（不提交额外 events）
+        response = client.post(f"/internal/agent-runs/{run_id}/events:append", json={
+            "idempotency_key": f"{run_id}:state_patch:v1",
+            "state_patch": {
+                "status": "context_building",
+                "current_turn": 1,
+            },
+        })
+        assert response.status_code == 200
+        data = response.json()
+        assert data["state_version"] == 1
+
+        # 查询事件列表，应包含自动生成的 run.state_changed 事件
+        events_response = client.get(f"/internal/agent-runs/{run_id}/events")
+        assert events_response.status_code == 200
+        events = events_response.json()
+        assert len(events) == 1
+        assert events[0]["type"] == "run.state_changed"
+        assert events[0]["payload"]["status"] == "context_building"
+        assert events[0]["payload"]["current_turn"] == 1
+
+    def test_state_changed_event_before_user_events(self, client):
+        """run.state_changed 事件在用户提交的 events 之前。"""
+        create_response = client.post("/internal/agent-runs", json={
+            "conversation_id": "conv_123",
+            "workspace_id": "ws_456",
+            "project_id": "proj_789",
+            "user_content": "test",
+        })
+        run_id = create_response.json()["run_id"]
+
+        response = client.post(f"/internal/agent-runs/{run_id}/events:append", json={
+            "idempotency_key": f"{run_id}:combined:v1",
+            "state_patch": {
+                "status": "context_building",
+            },
+            "events": [
+                {
+                    "client_event_id": "client_evt_001",
+                    "type": "agent.started",
+                    "ordering_hint": 1,
+                },
+            ],
+        })
+        assert response.status_code == 200
+        data = response.json()
+        # state_changed 自动生成 + 1 个用户事件 = 2 个事件
+        assert len(data["events"]) == 1  # 只有用户事件返回 EventAppendResponse
+        assert data["events"][0]["event_seq"] == 2  # 用户事件在 state_changed(seq=1) 之后
+
+        events_response = client.get(f"/internal/agent-runs/{run_id}/events")
+        events = events_response.json()
+        assert len(events) == 2
+        assert events[0]["type"] == "run.state_changed"
+        assert events[0]["event_seq"] == 1
+        assert events[1]["type"] == "agent.started"
+        assert events[1]["event_seq"] == 2
+
+    def test_invalid_state_transition_rejected(self, client):
+        """非法状态转换应返回 400 错误。"""
+        create_response = client.post("/internal/agent-runs", json={
+            "conversation_id": "conv_123",
+            "workspace_id": "ws_456",
+            "project_id": "proj_789",
+            "user_content": "test",
+        })
+        run_id = create_response.json()["run_id"]
+
+        # created → completed 是非法转换
+        response = client.post(f"/internal/agent-runs/{run_id}/events:append", json={
+            "idempotency_key": f"{run_id}:invalid:v1",
+            "state_patch": {
+                "status": "completed",
+            },
+        })
+        assert response.status_code == 400
+        assert "非法状态转换" in response.json()["detail"]
+
+    def test_valid_state_transition_accepted(self, client):
+        """合法状态转换应成功。"""
+        create_response = client.post("/internal/agent-runs", json={
+            "conversation_id": "conv_123",
+            "workspace_id": "ws_456",
+            "project_id": "proj_789",
+            "user_content": "test",
+        })
+        run_id = create_response.json()["run_id"]
+
+        # created → context_building 是合法转换
+        response = client.post(f"/internal/agent-runs/{run_id}/events:append", json={
+            "idempotency_key": f"{run_id}:valid:v1",
+            "state_patch": {
+                "status": "context_building",
+            },
+        })
+        assert response.status_code == 200
+
+        # context_building → model_streaming 是合法转换
+        response2 = client.post(f"/internal/agent-runs/{run_id}/events:append", json={
+            "idempotency_key": f"{run_id}:valid:v2",
+            "state_patch": {
+                "status": "model_streaming",
+            },
+        })
+        assert response2.status_code == 200
 
 
 class TestCancelRun:

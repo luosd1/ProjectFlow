@@ -166,6 +166,8 @@ any active state -> cancelling -> cancelled
 any active state -> failed
 ```
 
+FastAPI `_apply_state_patch` 校验状态转换合法性：非法转换（如 `completed → tool_running`）抛 ValueError 并返回 400，不静默接受。合法转换表与 TS 侧 `isValidTransition` 保持一致。
+
 最低字段：
 
 Canonical wire format：所有 JSON/YAML payload 字段一律使用 `snake_case`。下面的 TypeScript interface 是 sidecar 内部 shape，允许 camelCase，但必须由生成代码或 adapter 与 API payload 互转。
@@ -224,6 +226,7 @@ export interface AgentRunState {
 - Sidecar 不直接创建 proposal、AgentEvent 或业务对象，只调用 FastAPI internal endpoint。
 - `event_seq` 由 FastAPI 按 `run_id` 单调分配。sidecar 不能决定最终 `event_seq`，只能提交 `client_event_id`、`idempotency_key` 和 `ordering_hint`。
 - `state_patch`、event append、tool result persistence 优先通过 `POST /internal/agent-runs/{run_id}/events:append` 在 FastAPI 内完成同一事务；响应返回已分配的 `event_seq` 和持久化后的 `state_version`。
+- 当 `state_patch` 非空时，FastAPI `append_events` 自动插入一个 `run.state_changed` 事件（在用户提交的 events 之前），payload 包含 patch 的关键字段（status、current_turn、current_step）。这确保每次状态变更都有可追踪的 timeline 事件。
 - 如果实现拆成多个 endpoint，FastAPI 仍必须用同一 `idempotency_key` 做原子、幂等落库；sidecar 不能把分步成功当成最终事实。
 - proposal/advisory tool 的成功定义是 FastAPI 已经持久化对应 draft/advisory record，且 tool result 带 `proposal_id` 或 `created_ids`。
 - 同一个 `(run_id, tool_call_id, tool_name, tool_version)` 必须幂等。
@@ -497,7 +500,8 @@ Pi event 不能直接泄漏到前端。sidecar 统一映射为 ProjectFlow event
 | `tool_execution_update` | `tool.progress` |
 | `tool_execution_end` | `tool.completed` / `tool.failed` |
 | `turn_end` | `agent.status` |
-| `agent_end` | `agent.completed` |
+| `agent_end` (success) | `agent.completed` |
+| `agent_end` (error) | `agent.failed` |
 | policy block | `tool.blocked` |
 | advisory record created | `advisory_record.created` |
 | proposal created | `proposal.created` |

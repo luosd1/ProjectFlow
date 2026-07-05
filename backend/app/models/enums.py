@@ -164,10 +164,11 @@ class AgentRunStatus(str, Enum):
 
 class ToolEffectType(str, Enum):
     """Write boundary classification for tools."""
-    runtime_metadata = "runtime_metadata"
-    reviewable_draft = "reviewable_draft"
-    advisory_write = "advisory_write"
-    primary_commit = "primary_commit"
+    none = "none"
+    event_write = "event_write"
+    proposal_create = "proposal_create"
+    advisory_record_create = "advisory_record_create"
+    runtime_metadata_write = "runtime_metadata_write"
 
 
 class ToolRiskCategory(str, Enum):
@@ -221,6 +222,7 @@ class RuntimeEventType(str, Enum):
     agent_status = "agent.status"
     agent_delta = "agent.delta"
     agent_completed = "agent.completed"
+    agent_failed = "agent.failed"
     tool_progress = "tool.progress"
     advisory_record_created = "advisory_record.created"
     proposal_confirmation_confirmed = "proposal_confirmation.confirmed"

@@ -10,7 +10,7 @@ from datetime import datetime, timezone
 from sqlmodel import Session, select
 
 from app.models.agent_run_state import AgentRunEvent, AgentRunV2
-from app.models.enums import AgentRunStatus
+from app.models.enums import AgentRunStatus, RuntimeEventType
 from app.schemas.runtime import (
     AppendRequest,
     AppendResponse,
@@ -28,6 +28,20 @@ class AgentRuntimeService:
 
     # In-process idempotency cache (MVP/dev). Production should use Redis.
     _idempotency_cache: dict[str, AppendResponse] = {}
+
+    # 合法状态转换表（移植自 TS 侧 run-state.ts isValidTransition）
+    _VALID_TRANSITIONS: dict[AgentRunStatus, set[AgentRunStatus]] = {
+        AgentRunStatus.created: {AgentRunStatus.context_building, AgentRunStatus.cancelling, AgentRunStatus.failed},
+        AgentRunStatus.context_building: {AgentRunStatus.model_streaming, AgentRunStatus.cancelling, AgentRunStatus.failed},
+        AgentRunStatus.model_streaming: {AgentRunStatus.tool_preparing, AgentRunStatus.completed, AgentRunStatus.cancelling, AgentRunStatus.failed},
+        AgentRunStatus.tool_preparing: {AgentRunStatus.tool_running, AgentRunStatus.cancelling, AgentRunStatus.failed},
+        AgentRunStatus.tool_running: {AgentRunStatus.persisting_tool_result, AgentRunStatus.cancelling, AgentRunStatus.failed},
+        AgentRunStatus.persisting_tool_result: {AgentRunStatus.model_streaming, AgentRunStatus.cancelling, AgentRunStatus.failed},
+        AgentRunStatus.completed: set(),
+        AgentRunStatus.cancelling: {AgentRunStatus.cancelled, AgentRunStatus.failed},
+        AgentRunStatus.cancelled: set(),
+        AgentRunStatus.failed: set(),
+    }
 
     def __init__(self, session: Session):
         self.session = session
@@ -116,6 +130,33 @@ class AgentRuntimeService:
             self._apply_state_patch(run, request.state_patch)
 
         # Process events and assign event_seq
+        # 当 state_patch 非空时，自动插入 run.state_changed 事件（在用户提交的 events 之前）
+        if request.state_patch:
+            run.last_event_seq += 1
+            state_changed_event = AgentRunEvent(
+                run_id=run.id,
+                conversation_id=run.conversation_id,
+                workspace_id=run.workspace_id,
+                project_id=run.project_id,
+                type=RuntimeEventType.run_state_changed,
+                event_seq=run.last_event_seq,
+                client_event_id=f"auto:state_changed:{run.last_event_seq}",
+                ordering_hint=0,
+            )
+            # payload 包含 patch 的关键字段
+            state_changed_payload: dict = {}
+            if "status" in request.state_patch:
+                state_changed_payload["status"] = request.state_patch["status"]
+            if "current_turn" in request.state_patch:
+                state_changed_payload["current_turn"] = request.state_patch["current_turn"]
+            if "current_step" in request.state_patch:
+                state_changed_payload["current_step"] = request.state_patch["current_step"]
+            state_changed_event.set_payload(state_changed_payload)
+            state_changed_event.set_trace({})
+            self.session.add(state_changed_event)
+            # state_changed 事件不返回 EventAppendResponse（它是自动生成的）
+
+        # Process user-submitted events and assign event_seq
         event_responses = []
         for event_item in request.events:
             run.last_event_seq += 1
@@ -183,7 +224,14 @@ class AgentRuntimeService:
     def _apply_state_patch(self, run: AgentRunV2, patch: dict) -> None:
         """Apply state patch to run with validation."""
         if "status" in patch:
-            run.status = AgentRunStatus(patch["status"])
+            new_status = AgentRunStatus(patch["status"])
+            allowed = self._VALID_TRANSITIONS.get(run.status, set())
+            if new_status not in allowed:
+                raise ValueError(
+                    f"非法状态转换: {run.status.value} → {new_status.value}，"
+                    f"允许的目标状态: {[s.value for s in allowed]}"
+                )
+            run.status = new_status
         if "current_turn" in patch:
             run.current_turn = int(patch["current_turn"])
         if "current_step" in patch:

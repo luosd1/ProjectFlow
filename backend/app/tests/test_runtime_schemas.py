@@ -23,12 +23,15 @@ from app.schemas.runtime import (
     RuntimeEvent,
     RuntimeEventState,
     SideEffect,
+    ToolAnnotations,
     ToolBackendConfig,
     ToolEffectConfig,
     ToolError,
+    ToolExecutionApprovalExtension,
     ToolLinks,
     ToolManifest,
     ToolProposalConfig,
+    ToolResultLimit,
     TraceEnvelope,
     TraceSpan,
 )
@@ -107,12 +110,13 @@ class TestToolManifest:
             name="get_workspace_state",
             description="Read workspace state",
             risk_category=ToolRiskCategory.read_only,
-            read_only=True,
+            annotations=ToolAnnotations(read_only=True),
             backend=ToolBackendConfig(endpoint="/internal/agent-tools/workspace-state"),
         )
-        assert manifest.read_only is True
+        assert manifest.annotations.read_only is True
         assert manifest.risk_category == ToolRiskCategory.read_only
         assert manifest.model_callable is True
+        assert manifest.sidecar_only is False
 
     def test_draft_only_tool(self):
         manifest = ToolManifest(
@@ -121,13 +125,13 @@ class TestToolManifest:
             risk_category=ToolRiskCategory.draft_only,
             backend=ToolBackendConfig(endpoint="/internal/agent-tools/stage-plan-proposal"),
             effects=ToolEffectConfig(
-                effect_type=ToolEffectType.reviewable_draft,
+                effect_type=ToolEffectType.proposal_create,
                 idempotency_key_required=True,
             ),
-            proposal_confirmation=ToolProposalConfig(requires_confirmation=True),
+            proposal_confirmation=ToolProposalConfig(creates_proposal=True, required_before_commit=True),
         )
         assert manifest.risk_category == ToolRiskCategory.draft_only
-        assert manifest.effects.effect_type == ToolEffectType.reviewable_draft
+        assert manifest.effects.effect_type == ToolEffectType.proposal_create
 
     def test_advisory_write_tool(self):
         manifest = ToolManifest(
@@ -136,12 +140,12 @@ class TestToolManifest:
             risk_category=ToolRiskCategory.advisory_write,
             backend=ToolBackendConfig(endpoint="/internal/agent-tools/risks"),
             effects=ToolEffectConfig(
-                effect_type=ToolEffectType.advisory_write,
+                effect_type=ToolEffectType.advisory_record_create,
                 idempotency_key_required=True,
             ),
         )
         assert manifest.risk_category == ToolRiskCategory.advisory_write
-        assert manifest.effects.effect_type == ToolEffectType.advisory_write
+        assert manifest.effects.effect_type == ToolEffectType.advisory_record_create
 
     def test_destructive_tool_disabled(self):
         """Destructive tools should not be model-callable in production."""
@@ -150,11 +154,127 @@ class TestToolManifest:
             description="Delete a project",
             risk_category=ToolRiskCategory.destructive,
             model_callable=False,
-            destructive=True,
+            annotations=ToolAnnotations(destructive=True),
             backend=ToolBackendConfig(endpoint="/internal/agent-tools/delete-project"),
         )
         assert manifest.model_callable is False
-        assert manifest.destructive is True
+        assert manifest.annotations.destructive is True
+
+    def test_sidecar_only_flag(self):
+        """sidecar_only defaults to False."""
+        manifest = ToolManifest(
+            name="get_project_state",
+            description="Read project state",
+            risk_category=ToolRiskCategory.read_only,
+            backend=ToolBackendConfig(endpoint="/internal/agent-tools/project-state"),
+        )
+        assert manifest.sidecar_only is False
+
+    def test_result_limit_object(self):
+        """result_limit is a ToolResultLimit object."""
+        manifest = ToolManifest(
+            name="get_workspace_state",
+            description="Read workspace state",
+            risk_category=ToolRiskCategory.read_only,
+            backend=ToolBackendConfig(endpoint="/internal/agent-tools/workspace-state"),
+        )
+        assert isinstance(manifest.result_limit, ToolResultLimit)
+        assert manifest.result_limit.max_bytes == 65536
+        assert manifest.result_limit.redaction == "none"
+
+    def test_tool_execution_approval_extension(self):
+        """tool_execution_approval_extension is optional."""
+        manifest = ToolManifest(
+            name="get_workspace_state",
+            description="Read workspace state",
+            risk_category=ToolRiskCategory.read_only,
+            backend=ToolBackendConfig(endpoint="/internal/agent-tools/workspace-state"),
+            tool_execution_approval_extension=ToolExecutionApprovalExtension(),
+        )
+        assert manifest.tool_execution_approval_extension is not None
+        assert manifest.tool_execution_approval_extension.current_runtime_supported is False
+        assert manifest.tool_execution_approval_extension.future_approval_scope is None
+
+    def test_execution_mode_values(self):
+        """execution.mode 只接受 parallel / sequential。"""
+        manifest = ToolManifest(
+            name="get_workspace_state",
+            description="Read workspace state",
+            risk_category=ToolRiskCategory.read_only,
+            backend=ToolBackendConfig(endpoint="/internal/agent-tools/workspace-state"),
+        )
+        assert manifest.execution.mode == "sequential"
+
+    def test_privacy_config(self):
+        """privacy 使用 data_classification / trace_include_inputs / trace_include_outputs。"""
+        manifest = ToolManifest(
+            name="get_workspace_state",
+            description="Read workspace state",
+            risk_category=ToolRiskCategory.read_only,
+            backend=ToolBackendConfig(endpoint="/internal/agent-tools/workspace-state"),
+        )
+        assert manifest.privacy.data_classification == "project_sensitive"
+        assert manifest.privacy.trace_include_inputs is False
+        assert manifest.privacy.trace_include_outputs is False
+
+    def test_error_config(self):
+        """errors 使用 model_visible_error_policy。"""
+        manifest = ToolManifest(
+            name="get_workspace_state",
+            description="Read workspace state",
+            risk_category=ToolRiskCategory.read_only,
+            backend=ToolBackendConfig(endpoint="/internal/agent-tools/workspace-state"),
+        )
+        assert manifest.errors.model_visible_error_policy == "normalized_summary"
+
+    def test_resume_config(self):
+        """resume 使用 manifest_version / incompatible_version_policy。"""
+        manifest = ToolManifest(
+            name="get_workspace_state",
+            description="Read workspace state",
+            risk_category=ToolRiskCategory.read_only,
+            backend=ToolBackendConfig(endpoint="/internal/agent-tools/workspace-state"),
+        )
+        assert manifest.resume.manifest_version == 1
+        assert manifest.resume.incompatible_version_policy == "regenerate"
+
+    def test_trace_config(self):
+        """trace 使用 emits 列表。"""
+        manifest = ToolManifest(
+            name="get_workspace_state",
+            description="Read workspace state",
+            risk_category=ToolRiskCategory.read_only,
+            backend=ToolBackendConfig(endpoint="/internal/agent-tools/workspace-state"),
+        )
+        assert isinstance(manifest.trace.emits, list)
+        assert len(manifest.trace.emits) == 0
+
+    def test_retry_config(self):
+        """retry 使用 max_attempts。"""
+        manifest = ToolManifest(
+            name="get_workspace_state",
+            description="Read workspace state",
+            risk_category=ToolRiskCategory.read_only,
+            backend=ToolBackendConfig(endpoint="/internal/agent-tools/workspace-state"),
+        )
+        assert manifest.retry.max_attempts == 1
+
+    def test_proposal_config(self):
+        """proposal_confirmation 使用 creates_proposal / required_before_commit / public_action_only / resumes_model_loop_by_default。"""
+        manifest = ToolManifest(
+            name="create_stage_plan_proposal",
+            description="Create stage plan proposal",
+            risk_category=ToolRiskCategory.draft_only,
+            backend=ToolBackendConfig(endpoint="/internal/agent-tools/stage-plan-proposal"),
+            proposal_confirmation=ToolProposalConfig(
+                creates_proposal=True,
+                required_before_commit=True,
+            ),
+        )
+        assert manifest.proposal_confirmation.creates_proposal is True
+        assert manifest.proposal_confirmation.required_before_commit is True
+        assert manifest.proposal_confirmation.public_action_only is True
+        assert manifest.proposal_confirmation.resumes_model_loop_by_default is False
 
 
 class TestHumanActionManifest:
@@ -166,7 +286,7 @@ class TestHumanActionManifest:
             description="Confirm a pending proposal",
             action_type=HumanActionType.confirm_proposal,
             backend=ToolBackendConfig(endpoint="/api/proposals/{proposal_id}/confirm"),
-            effects=ToolEffectConfig(effect_type=ToolEffectType.primary_commit),
+            effects=ToolEffectConfig(effect_type=ToolEffectType.runtime_metadata_write),
         )
         assert manifest.model_callable is False
         assert manifest.human_triggered_only is True
@@ -178,7 +298,7 @@ class TestHumanActionManifest:
             description="Reject a pending proposal",
             action_type=HumanActionType.reject_proposal,
             backend=ToolBackendConfig(endpoint="/api/proposals/{proposal_id}/reject"),
-            effects=ToolEffectConfig(effect_type=ToolEffectType.runtime_metadata),
+            effects=ToolEffectConfig(effect_type=ToolEffectType.event_write),
         )
         assert manifest.model_callable is False
         assert manifest.human_triggered_only is True
@@ -190,10 +310,22 @@ class TestHumanActionManifest:
             description="Test action",
             action_type=HumanActionType.cancel_run,
             backend=ToolBackendConfig(endpoint="/test"),
-            effects=ToolEffectConfig(effect_type=ToolEffectType.runtime_metadata),
+            effects=ToolEffectConfig(effect_type=ToolEffectType.event_write),
         )
         # This is enforced by the Literal[False] type
         assert manifest.model_callable is False
+
+    def test_annotations_read_only_and_destructive(self):
+        """HumanActionManifest annotations 默认 read_only=False, destructive=False。"""
+        manifest = HumanActionManifest(
+            name="confirm_proposal",
+            description="Confirm proposal",
+            action_type=HumanActionType.confirm_proposal,
+            backend=ToolBackendConfig(endpoint="/api/proposals/{proposal_id}/confirm"),
+            effects=ToolEffectConfig(effect_type=ToolEffectType.runtime_metadata_write),
+        )
+        assert manifest.annotations.read_only is False
+        assert manifest.annotations.destructive is False
 
 
 class TestProjectFlowToolResult:
@@ -326,50 +458,50 @@ class TestAppendAPI:
 class TestBoundaryLayers:
     """Test boundary layer classification."""
 
-    def test_runtime_metadata(self):
-        """Runtime metadata tools have no side effects beyond events."""
+    def test_event_write(self):
+        """Event write tools have no side effects beyond events."""
         manifest = ToolManifest(
             name="get_workspace_state",
             description="Read workspace state",
             risk_category=ToolRiskCategory.read_only,
-            read_only=True,
+            annotations=ToolAnnotations(read_only=True),
             backend=ToolBackendConfig(endpoint="/internal/agent-tools/workspace-state"),
-            effects=ToolEffectConfig(effect_type=ToolEffectType.runtime_metadata),
+            effects=ToolEffectConfig(effect_type=ToolEffectType.event_write),
         )
-        assert manifest.effects.effect_type == ToolEffectType.runtime_metadata
+        assert manifest.effects.effect_type == ToolEffectType.event_write
 
-    def test_reviewable_draft(self):
+    def test_proposal_create(self):
         """Draft tools create proposals that need confirmation."""
         manifest = ToolManifest(
             name="create_stage_plan_proposal",
             description="Create stage plan proposal",
             risk_category=ToolRiskCategory.draft_only,
             backend=ToolBackendConfig(endpoint="/internal/agent-tools/stage-plan-proposal"),
-            effects=ToolEffectConfig(effect_type=ToolEffectType.reviewable_draft),
+            effects=ToolEffectConfig(effect_type=ToolEffectType.proposal_create),
         )
-        assert manifest.effects.effect_type == ToolEffectType.reviewable_draft
+        assert manifest.effects.effect_type == ToolEffectType.proposal_create
 
-    def test_advisory_write(self):
+    def test_advisory_record_create(self):
         """Advisory writes create records that don't change primary state."""
         manifest = ToolManifest(
             name="create_risk",
             description="Create risk record",
             risk_category=ToolRiskCategory.advisory_write,
             backend=ToolBackendConfig(endpoint="/internal/agent-tools/risks"),
-            effects=ToolEffectConfig(effect_type=ToolEffectType.advisory_write),
+            effects=ToolEffectConfig(effect_type=ToolEffectType.advisory_record_create),
         )
-        assert manifest.effects.effect_type == ToolEffectType.advisory_write
+        assert manifest.effects.effect_type == ToolEffectType.advisory_record_create
 
-    def test_primary_commit_human_only(self):
-        """Primary commits are human-only actions."""
+    def test_runtime_metadata_write_human_only(self):
+        """Runtime metadata writes are human-only actions."""
         manifest = HumanActionManifest(
             name="confirm_proposal",
             description="Confirm proposal",
             action_type=HumanActionType.confirm_proposal,
             backend=ToolBackendConfig(endpoint="/api/proposals/{proposal_id}/confirm"),
-            effects=ToolEffectConfig(effect_type=ToolEffectType.primary_commit),
+            effects=ToolEffectConfig(effect_type=ToolEffectType.runtime_metadata_write),
         )
-        assert manifest.effects.effect_type == ToolEffectType.primary_commit
+        assert manifest.effects.effect_type == ToolEffectType.runtime_metadata_write
         assert manifest.model_callable is False
 
 
@@ -383,6 +515,14 @@ class TestEnumValues:
             "completed", "cancelling", "cancelled", "failed",
         ]
         actual = [s.value for s in AgentRunStatus]
+        assert actual == expected
+
+    def test_tool_effect_type(self):
+        expected = [
+            "none", "event_write", "proposal_create",
+            "advisory_record_create", "runtime_metadata_write",
+        ]
+        actual = [e.value for e in ToolEffectType]
         assert actual == expected
 
     def test_side_effect_status(self):
@@ -407,7 +547,7 @@ class TestEnumValues:
             "model.streaming", "state.changed",
             "proposal.created", "proposal.confirmed", "proposal.rejected",
             "runtime.error", "agent.started", "agent.status", "agent.delta",
-            "agent.completed", "tool.progress", "advisory_record.created",
+            "agent.completed", "agent.failed", "tool.progress", "advisory_record.created",
             "proposal_confirmation.confirmed", "proposal_confirmation.rejected",
             "proposal_confirmation.committed", "run.state_changed",
         ]

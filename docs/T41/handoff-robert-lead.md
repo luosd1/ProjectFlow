@@ -132,16 +132,20 @@ S1 → S2 ──────────→ S9 ──→ S10 ──→ S15
 
 ### S10: Event bridge + trace envelope → #55
 
-**已完成（2026-07-05）。**
+**已完成（2026-07-05），2026-07-05 审查补丁。**
 
 - 完整 Pi → ProjectFlow event 映射
+- `agent_end` 区分成功/失败：有 error 或 isError 时映射为 `agent.failed`，否则映射为 `agent.completed`
+- `run.state_changed` 自动生成：FastAPI `append_events` 在 `state_patch` 非空时自动插入 `run.state_changed` 事件
+- 状态转换校验：FastAPI `_apply_state_patch` 校验转换合法性，非法转换抛 ValueError 返回 400
 - Trace envelope 串起 run/tool/proposal 关联
 - Proposal confirmation events
 - sidecar runtime lifecycle events are persisted through `POST /internal/agent-runs/{run_id}/events:append` before stream emission; stream events carry FastAPI-assigned `event_seq`
 - `proposal_persisted` and `advisory_record_persisted` tool results emit `proposal.created` / `advisory_record.created` product runtime events in the same append request as the tool result
 - backend persists runtime events in `agent_run_events` and exposes `GET /internal/agent-runs/{run_id}/events`
 - proposal confirm/reject records `proposal_confirmation.confirmed` / `proposal_confirmation.committed` / `proposal_confirmation.rejected` runtime events when the proposal source event has `tool_run_id`
-- verification: backend `324 passed`, agent-bridge `242 passed`, sidecar typecheck/build pass, changed backend files ruff pass
+- Python ToolManifest/ToolEffectType schema 已对齐 TS 侧 ProjectFlowToolManifest/EffectType
+- verification: backend `340 passed`, agent-bridge `244 passed`, sidecar typecheck/build pass, changed backend files ruff pass
 
 ### S15: Unit tests + evaluation tests + privacy/resume tests → #60
 

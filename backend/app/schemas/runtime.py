@@ -72,7 +72,7 @@ class AgentRunState(BaseModel):
 
 class ToolExecutionConfig(BaseModel):
     """Execution mode and concurrency settings."""
-    mode: Literal["sync", "async"] = "sync"
+    mode: Literal["parallel", "sequential"] = "sequential"
     concurrency_group: str | None = None
     max_concurrency: int = 1
     provider_parallel_tool_calls_allowed: bool = False
@@ -80,7 +80,7 @@ class ToolExecutionConfig(BaseModel):
 
 class ToolRetryConfig(BaseModel):
     """Retry configuration for tool."""
-    max_retries: int = 0
+    max_attempts: int = 1
     retry_on: list[str] = Field(default_factory=list)
 
 
@@ -92,40 +92,60 @@ class ToolBackendConfig(BaseModel):
 
 class ToolEffectConfig(BaseModel):
     """Side effect configuration."""
-    effect_type: ToolEffectType = ToolEffectType.runtime_metadata
+    effect_type: ToolEffectType = ToolEffectType.event_write
     idempotency_key_required: bool = True
     replay_safe: bool = True
 
 
 class ToolProposalConfig(BaseModel):
     """Proposal confirmation requirements."""
-    requires_confirmation: bool = False
-    confirmation_timeout_ms: int = 300000
+    creates_proposal: bool = False
+    required_before_commit: bool = False
+    public_action_only: bool = True
+    resumes_model_loop_by_default: Literal[False] = False
 
 
 class ToolPrivacyConfig(BaseModel):
     """Privacy settings for tool results."""
-    include_sensitive_data: bool = False
-    log_raw_payload: bool = False
+    data_classification: Literal["public", "project_sensitive", "secret"] = "project_sensitive"
+    trace_include_inputs: bool = False
+    trace_include_outputs: bool = False
 
 
 class ToolErrorConfig(BaseModel):
     """Error handling configuration."""
-    fallback_strategy: Literal["none", "template", "retry"] = "none"
-    max_retries: int = 0
+    model_visible_error_policy: Literal["normalized_summary", "redacted", "none"] = "normalized_summary"
 
 
 class ToolResumeConfig(BaseModel):
     """Resume behavior after interruption."""
-    replay_safe: bool = True
-    requires_idempotency_key: bool = True
+    manifest_version: int = 1
+    incompatible_version_policy: Literal["regenerate", "manual_review", "fail"] = "regenerate"
 
 
 class ToolTraceConfig(BaseModel):
     """Trace recording configuration."""
-    record_input: bool = True
-    record_output: bool = True
-    record_timing: bool = True
+    emits: list[str] = Field(default_factory=list)
+
+
+class ToolAnnotations(BaseModel):
+    """Tool behavioral annotations."""
+    read_only: bool = False
+    destructive: bool = False
+    idempotent: bool = True
+    open_world: bool = False
+
+
+class ToolResultLimit(BaseModel):
+    """Result size and redaction limits."""
+    max_bytes: int = 65536
+    redaction: Literal["none", "secrets", "pii"] = "none"
+
+
+class ToolExecutionApprovalExtension(BaseModel):
+    """ToolExecutionApproval extension — future scope, not yet runtime-supported."""
+    current_runtime_supported: Literal[False] = False
+    future_approval_scope: Literal["tool_call"] | None = None
 
 
 class ToolManifest(BaseModel):
@@ -140,15 +160,13 @@ class ToolManifest(BaseModel):
     description: str
     risk_category: ToolRiskCategory
     model_callable: bool = True
+    sidecar_only: bool = False
     human_triggered_only: bool = False
-    read_only: bool = False
-    destructive: bool = False
-    idempotent: bool = True
-    open_world: bool = False
+    annotations: ToolAnnotations = Field(default_factory=ToolAnnotations)
     timeout_ms: int = 30000
     execution: ToolExecutionConfig = Field(default_factory=ToolExecutionConfig)
     retry: ToolRetryConfig = Field(default_factory=ToolRetryConfig)
-    result_limit: int = 10000
+    result_limit: ToolResultLimit = Field(default_factory=ToolResultLimit)
     backend: ToolBackendConfig
     effects: ToolEffectConfig = Field(default_factory=ToolEffectConfig)
     proposal_confirmation: ToolProposalConfig = Field(default_factory=ToolProposalConfig)
@@ -156,6 +174,7 @@ class ToolManifest(BaseModel):
     errors: ToolErrorConfig = Field(default_factory=ToolErrorConfig)
     resume: ToolResumeConfig = Field(default_factory=ToolResumeConfig)
     trace: ToolTraceConfig = Field(default_factory=ToolTraceConfig)
+    tool_execution_approval_extension: ToolExecutionApprovalExtension | None = None
 
 
 # ─── HumanActionManifest ────────────────────────────────────────────────────
@@ -175,8 +194,9 @@ class HumanActionManifest(BaseModel):
     model_callable: Literal[False] = False
     human_triggered_only: Literal[True] = True
     risk_category: Literal["internal_write"] = "internal_write"
-    read_only: Literal[False] = False
-    destructive: Literal[False] = False
+    annotations: ToolAnnotations = Field(
+        default_factory=lambda: ToolAnnotations(read_only=False, destructive=False)
+    )
     timeout_ms: int = 0
     backend: ToolBackendConfig
     effects: ToolEffectConfig

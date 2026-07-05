@@ -182,6 +182,7 @@ def execute_agent_tool(
                 proposal_id=flow_result.proposal_id,
                 request=request,
             )
+            session.commit()
         return _proposal_tool_result(
             proposal_id=flow_result.proposal_id,
             agent_event_id=_proposal_agent_event_id(session, flow_result.proposal_id),
@@ -270,6 +271,7 @@ def execute_agent_tool(
                 proposal_id=flow_result.proposal_id,
                 request=request,
             )
+            session.commit()
         return _proposal_tool_result(
             proposal_id=flow_result.proposal_id,
             agent_event_id=_proposal_agent_event_id(session, flow_result.proposal_id),
@@ -522,7 +524,7 @@ def _tag_proposal_event_with_idempotency_key(
     snapshot["tool_name"] = request.tool_name
     event.set_input_snapshot(snapshot)
     session.add(event)
-    session.commit()
+    session.flush()
 
 
 def _advisory_tool_result(
@@ -785,6 +787,9 @@ def _build_replan_signal(
         for update in checkin_output.task_updates
     ]
     requires_replan = bool(task_changes) or risk_output.requires_confirmation
+    # 注意：risk_output.requires_confirmation 在新 runtime 中的语义是
+    # "mitigation 涉及主事实变更需要 replan proposal 确认"，
+    # 不再阻止 advisory Risk row 的创建（Risk row 本身是 advisory record，可直接创建）。
     reasons: list[str] = []
     if task_changes:
         reasons.append("签到分析产生了任务状态变化信号，必须进入待确认的重规划草案。")

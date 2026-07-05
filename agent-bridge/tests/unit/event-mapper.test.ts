@@ -45,11 +45,35 @@ describe("event-mapper", () => {
     expect(result.payload.error).toEqual({ code: "TIMEOUT", message: "Tool timed out" });
   });
 
-  it("maps agent_end to agent.completed", () => {
+  it("maps agent_end to agent.completed when no error", () => {
     const piEvent: PiEvent = { type: "agent_end", data: {} };
     const result = mapPiEvent(piEvent, runId);
     expect(result.type).toBe("agent.completed");
     expect(result.newStatus).toBe("completed");
+  });
+
+  it("maps agent_end to agent.failed when error is present", () => {
+    const piEvent: PiEvent = {
+      type: "agent_end",
+      data: {},
+      error: { code: "RUNTIME_ERROR", message: "Agent execution failed" },
+    };
+    const result = mapPiEvent(piEvent, runId);
+    expect(result.type).toBe("agent.failed");
+    expect(result.newStatus).toBe("failed");
+    expect(result.payload.error).toEqual({ code: "RUNTIME_ERROR", message: "Agent execution failed" });
+  });
+
+  it("maps agent_end to agent.failed when isError is true", () => {
+    const piEvent: PiEvent = {
+      type: "agent_end",
+      data: {},
+      isError: true,
+    };
+    const result = mapPiEvent(piEvent, runId);
+    expect(result.type).toBe("agent.failed");
+    expect(result.newStatus).toBe("failed");
+    expect(result.payload.is_error).toBe(true);
   });
 
   it("maps policy_block to tool.blocked", () => {

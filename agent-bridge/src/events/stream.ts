@@ -15,6 +15,7 @@ export type StreamEventType =
   | "run.status"
   | "agent.delta"
   | "agent.completed"
+  | "agent.failed"
   | "model.streaming"
   | "state.changed"
   | "run.state_changed"

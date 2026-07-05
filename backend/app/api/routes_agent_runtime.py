@@ -91,6 +91,9 @@ def append_agent_run_events(
     try:
         return service.append_events(run_id, request)
     except ValueError as e:
+        # 非法状态转换返回 400，其他 ValueError（如 run not found）返回 404
+        if "非法状态转换" in str(e):
+            raise HTTPException(status_code=400, detail=str(e))
         raise HTTPException(status_code=404, detail=str(e))
 
 

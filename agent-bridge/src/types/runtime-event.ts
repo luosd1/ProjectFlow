@@ -24,6 +24,7 @@ export type RuntimeEventType =
   | "agent.status"
   | "agent.delta"
   | "agent.completed"
+  | "agent.failed"
   | "tool.progress"
   | "advisory_record.created"
   | "proposal_confirmation.confirmed"
