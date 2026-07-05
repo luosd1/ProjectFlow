@@ -1,5 +1,3 @@
-import json
-
 from fastapi import APIRouter, Body, Depends, HTTPException, Query
 from sqlmodel import Session
 
@@ -15,38 +13,24 @@ from app.services.agent_proposal_service import (
     get_proposal,
     list_proposals_by_project,
     reject_proposal,
+    to_proposal_read,
 )
 
 router = APIRouter(tags=["agent-proposals"])
 
 
 def _proposal_to_read(proposal) -> AgentProposalRead:
-    """Convert an AgentProposal model to AgentProposalRead, parsing JSON string fields."""
-    payload = proposal.payload
-    if isinstance(payload, str):
-        payload = json.loads(payload)
-    return AgentProposalRead(
-        id=proposal.id,
-        project_id=proposal.project_id,
-        workspace_id=proposal.workspace_id,
-        proposal_type=proposal.proposal_type,
-        status=proposal.status,
-        agent_event_id=proposal.agent_event_id,
-        payload=payload,
-        confirmed_by=proposal.confirmed_by,
-        confirmed_at=proposal.confirmed_at,
-        rejection_reason=proposal.rejection_reason,
-        created_at=proposal.created_at,
-    )
+    return to_proposal_read(proposal)
 
 
 @router.get("/agent-proposals", response_model=list[AgentProposalRead])
 def api_list_agent_proposals(
     project_id: str = Query(...),
     proposal_type: str | None = Query(None),
+    status: str | None = Query(None, description="按状态过滤（pending/confirmed/rejected）"),
     session: Session = Depends(get_session),
 ):
-    proposals = list_proposals_by_project(session, project_id, proposal_type)
+    proposals = list_proposals_by_project(session, project_id, proposal_type, status)
     return [_proposal_to_read(p) for p in proposals]
 
 

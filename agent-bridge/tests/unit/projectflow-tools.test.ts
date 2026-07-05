@@ -1,6 +1,8 @@
 /**
  * Tests for ProjectFlow read-only tools.
- * Verifies manifest completeness, read-only semantics, and registration.
+ * Verifies manifest completeness, read-only semantics, registration, and that
+ * each executor routes through the unified POST /internal/agent-tools/{name}
+ * contract via createFastapiToolExecutor (not public GET).
  */
 
 import { describe, it, expect } from "vitest";
@@ -9,17 +11,27 @@ import { registerDefaultTools } from "../../src/tools/register-defaults.js";
 import { ToolRegistry } from "../../src/tools/registry.js";
 import type { FastapiClient } from "../../src/tools/fastapi-client.js";
 import type { ProjectFlowToolManifest } from "../../src/types/tool-manifest.js";
+import type { ToolExecutionContext } from "../../src/tools/registry.js";
 
-// Stub FastapiClient for tests
-function createStubFastapiClient(): FastapiClient {
+// Stub FastapiClient for tests. callTool records invocations so we can assert
+// that executors route through the unified internal contract.
+function createStubFastapiClient(): FastapiClient & {
+  calls: Array<{ toolName: string; payload: Record<string, unknown> }>;
+} {
+  const calls: Array<{ toolName: string; payload: Record<string, unknown> }> = [];
   return {
-    getPublic: async () => ({}),
+    calls,
+    callTool: async (toolName: string, payload: Record<string, unknown>) => {
+      calls.push({ toolName, payload });
+      return { status: "success", data: { toolName, payload } };
+    },
     startRun: async () => ({ run_id: "test", status: "created" }),
     getRunStatus: async () => ({ run_id: "test", status: "created", current_turn: 0, current_step: 0, last_event_seq: 0, created_at: "", updated_at: "" }),
     appendEvents: async () => ({ state_version: 1, events: [], tool_results: [] }),
     cancelRun: async () => ({ run_id: "test", status: "cancelled", cancelled: true }),
-    callTool: async () => ({}),
-  } as unknown as FastapiClient;
+  } as unknown as FastapiClient & {
+    calls: Array<{ toolName: string; payload: Record<string, unknown> }>;
+  };
 }
 
 const TOOL_NAMES = [
@@ -28,6 +40,36 @@ const TOOL_NAMES = [
   "list_pending_proposals",
   "get_timeline_slice",
 ];
+
+// Map manifest tool name → internal endpoint tool name (POST /internal/agent-tools/{name})
+const INTERNAL_TOOL_NAME: Record<string, string> = {
+  get_workspace_state: "workspace-state",
+  get_agent_conversation: "conversation",
+  list_pending_proposals: "pending-proposals",
+  get_timeline_slice: "timeline-slice",
+};
+
+const INTERNAL_ENDPOINT: Record<string, string> = {
+  get_workspace_state: "POST /internal/agent-tools/workspace-state",
+  get_agent_conversation: "POST /internal/agent-tools/conversation",
+  list_pending_proposals: "POST /internal/agent-tools/pending-proposals",
+  get_timeline_slice: "POST /internal/agent-tools/timeline-slice",
+};
+
+function makeContext(overrides: Partial<ToolExecutionContext> = {}): ToolExecutionContext {
+  return {
+    runId: "run_test",
+    toolCallId: "call_test",
+    conversationId: "conv_test",
+    workspaceId: "ws_test",
+    projectId: "proj_test",
+    toolName: "get_workspace_state",
+    toolVersion: 1,
+    manifestVersion: 1,
+    idempotencyKey: "run_test:call_test:v1",
+    ...overrides,
+  };
+}
 
 describe("projectflow-tools", () => {
   describe("createReadOnlyTools", () => {
@@ -77,10 +119,12 @@ describe("projectflow-tools", () => {
           expect(m.outputSchema).toBeDefined();
         });
 
-        it("has backend config", () => {
+        it("has backend config with POST method and internal endpoint", () => {
           expect(m.backend).toBeDefined();
           expect(m.backend.owner).toBe("fastapi");
-          expect(m.backend.endpoint.length).toBeGreaterThan(0);
+          expect(m.backend.method).toBe("POST");
+          expect(m.backend.endpoint).toBe(INTERNAL_ENDPOINT[m.name]);
+          expect(m.backend.endpoint).toMatch(/^POST \/internal\/agent-tools\//);
         });
 
         it("has execution config", () => {
@@ -192,6 +236,64 @@ describe("projectflow-tools", () => {
         expect(tool.manifest.effects.effectType).not.toBe("commit_persisted");
       });
     }
+  });
+
+  describe("executor routes through unified internal contract", () => {
+    it("get_workspace_state calls POST /internal/agent-tools/workspace-state with args in arguments", async () => {
+      const client = createStubFastapiClient();
+      const tools = createReadOnlyTools(client);
+      const tool = tools.find((t) => t.manifest.name === "get_workspace_state")!;
+      await tool.execute({ workspace_id: "ws1", project_id: "p1" }, makeContext());
+      expect(client.calls.length).toBe(1);
+      expect(client.calls[0]!.toolName).toBe("workspace-state");
+      expect(client.calls[0]!.payload.arguments).toEqual({ workspace_id: "ws1", project_id: "p1" });
+      expect(client.calls[0]!.payload.run_id).toBe("run_test");
+      expect(client.calls[0]!.payload.tool_call_id).toBe("call_test");
+      expect(client.calls[0]!.payload.idempotency_key).toBe("run_test:call_test:v1");
+    });
+
+    it("get_agent_conversation calls POST /internal/agent-tools/conversation", async () => {
+      const client = createStubFastapiClient();
+      const tools = createReadOnlyTools(client);
+      const tool = tools.find((t) => t.manifest.name === "get_agent_conversation")!;
+      await tool.execute({ project_id: "p1" }, makeContext());
+      expect(client.calls[0]!.toolName).toBe("conversation");
+      expect(client.calls[0]!.payload.arguments).toEqual({ project_id: "p1" });
+    });
+
+    it("list_pending_proposals calls POST /internal/agent-tools/pending-proposals (status filter applied by backend)", async () => {
+      const client = createStubFastapiClient();
+      const tools = createReadOnlyTools(client);
+      const tool = tools.find((t) => t.manifest.name === "list_pending_proposals")!;
+      await tool.execute({ project_id: "p1" }, makeContext());
+      expect(client.calls[0]!.toolName).toBe("pending-proposals");
+      expect(client.calls[0]!.payload.arguments).toEqual({ project_id: "p1" });
+    });
+
+    it("get_timeline_slice passes limit/since/event_types through arguments", async () => {
+      const client = createStubFastapiClient();
+      const tools = createReadOnlyTools(client);
+      const tool = tools.find((t) => t.manifest.name === "get_timeline_slice")!;
+      await tool.execute(
+        { project_id: "p1", limit: 10, since: "2026-07-01T00:00:00Z", event_types: ["agent.started"] },
+        makeContext(),
+      );
+      expect(client.calls[0]!.toolName).toBe("timeline-slice");
+      expect(client.calls[0]!.payload.arguments).toEqual({
+        project_id: "p1",
+        limit: 10,
+        since: "2026-07-01T00:00:00Z",
+        event_types: ["agent.started"],
+      });
+    });
+
+    it("each tool maps to the expected internal tool name", () => {
+      const tools = createReadOnlyTools(createStubFastapiClient());
+      for (const tool of tools) {
+        const expected = INTERNAL_TOOL_NAME[tool.manifest.name];
+        expect(expected).toBeDefined();
+      }
+    });
   });
 
   describe("registerDefaultTools", () => {

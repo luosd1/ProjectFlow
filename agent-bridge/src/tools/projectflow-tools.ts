@@ -3,12 +3,17 @@
  * These tools allow the Agent to query workspace state, conversation history,
  * pending proposals, and timeline events without modifying any state.
  *
- * All tools call existing FastAPI public API endpoints via FastapiClient.getPublic().
+ * All tools go through the unified internal contract:
+ *   POST /internal/agent-tools/{tool-name}
+ * with a single envelope (run_id, tool_call_id, arguments, trace, ...) built by
+ * createFastapiToolExecutor. Read-only semantics are expressed via the manifest
+ * (risk_category=read_only, effects.effect_type=none), NOT via HTTP GET.
  */
 
 import type { ProjectFlowToolManifest } from "@/types/tool-manifest.js";
 import type { FastapiClient } from "./fastapi-client.js";
-import type { RegisteredTool, ToolExecutionContext } from "./registry.js";
+import type { RegisteredTool } from "./registry.js";
+import { createFastapiToolExecutor } from "./registry.js";
 
 // ─── Shared manifest defaults for read-only tools ────────────────────────────
 
@@ -81,19 +86,10 @@ const getWorkspaceStateManifest: ProjectFlowToolManifest = {
   },
   backend: {
     owner: "fastapi",
-    endpoint: "GET /api/workspaces/{workspace_id}/state",
-    method: "POST", // wire format compat; actual call is GET via getPublic
+    endpoint: "POST /internal/agent-tools/workspace-state",
+    method: "POST",
   },
 };
-
-function createGetWorkspaceStateExecutor(fastapiClient: FastapiClient) {
-  return async (args: Record<string, unknown>, _context: ToolExecutionContext): Promise<unknown> => {
-    const workspaceId = args.workspace_id as string;
-    const projectId = args.project_id as string | undefined;
-    const query = projectId ? `?project_id=${encodeURIComponent(projectId)}` : "";
-    return fastapiClient.getPublic(`/api/workspaces/${encodeURIComponent(workspaceId)}/state${query}`);
-  };
-}
 
 // ─── Tool: get_agent_conversation ─────────────────────────────────────────────
 
@@ -114,17 +110,10 @@ const getAgentConversationManifest: ProjectFlowToolManifest = {
   },
   backend: {
     owner: "fastapi",
-    endpoint: "GET /api/projects/{project_id}/agent-conversation",
+    endpoint: "POST /internal/agent-tools/conversation",
     method: "POST",
   },
 };
-
-function createGetAgentConversationExecutor(fastapiClient: FastapiClient) {
-  return async (args: Record<string, unknown>, _context: ToolExecutionContext): Promise<unknown> => {
-    const projectId = args.project_id as string;
-    return fastapiClient.getPublic(`/api/projects/${encodeURIComponent(projectId)}/agent-conversation`);
-  };
-}
 
 // ─── Tool: list_pending_proposals ─────────────────────────────────────────────
 
@@ -145,19 +134,10 @@ const listPendingProposalsManifest: ProjectFlowToolManifest = {
   },
   backend: {
     owner: "fastapi",
-    endpoint: "GET /api/agent-proposals?project_id={project_id}&status=pending",
+    endpoint: "POST /internal/agent-tools/pending-proposals",
     method: "POST",
   },
 };
-
-function createListPendingProposalsExecutor(fastapiClient: FastapiClient) {
-  return async (args: Record<string, unknown>, _context: ToolExecutionContext): Promise<unknown> => {
-    const projectId = args.project_id as string;
-    return fastapiClient.getPublic(
-      `/api/agent-proposals?project_id=${encodeURIComponent(projectId)}&status=pending`,
-    );
-  };
-}
 
 // ─── Tool: get_timeline_slice ─────────────────────────────────────────────────
 
@@ -185,47 +165,40 @@ const getTimelineSliceManifest: ProjectFlowToolManifest = {
   },
   backend: {
     owner: "fastapi",
-    endpoint: "GET /api/projects/{project_id}/timeline",
+    endpoint: "POST /internal/agent-tools/timeline-slice",
     method: "POST",
   },
 };
 
-function createGetTimelineSliceExecutor(fastapiClient: FastapiClient) {
-  return async (args: Record<string, unknown>, _context: ToolExecutionContext): Promise<unknown> => {
-    const projectId = args.project_id as string;
-    const limit = (args.limit as number) ?? 20;
-    const since = args.since as string | undefined;
-    const eventTypes = args.event_types as string[] | undefined;
-
-    const params = new URLSearchParams({ limit: String(limit) });
-    if (since) params.set("since", since);
-    if (eventTypes?.length) params.set("event_types", eventTypes.join(","));
-
-    return fastapiClient.getPublic(
-      `/api/projects/${encodeURIComponent(projectId)}/timeline?${params.toString()}`,
-    );
-  };
-}
-
 // ─── Export: all read-only tools ──────────────────────────────────────────────
 
+/**
+ * Build the 4 read-only tools. Each executor is produced by
+ * createFastapiToolExecutor, which wraps the args in the unified
+ * POST /internal/agent-tools/{name} envelope (run_id, tool_call_id,
+ * arguments, trace, idempotency_key, ...).
+ *
+ * The tool-specific args (workspace_id, project_id, limit, since, ...)
+ * are passed by the caller as `args` and arrive at the backend as
+ * `arguments`.
+ */
 export function createReadOnlyTools(fastapiClient: FastapiClient): RegisteredTool[] {
   return [
     {
       manifest: getWorkspaceStateManifest,
-      execute: createGetWorkspaceStateExecutor(fastapiClient),
+      execute: createFastapiToolExecutor(fastapiClient, "workspace-state"),
     },
     {
       manifest: getAgentConversationManifest,
-      execute: createGetAgentConversationExecutor(fastapiClient),
+      execute: createFastapiToolExecutor(fastapiClient, "conversation"),
     },
     {
       manifest: listPendingProposalsManifest,
-      execute: createListPendingProposalsExecutor(fastapiClient),
+      execute: createFastapiToolExecutor(fastapiClient, "pending-proposals"),
     },
     {
       manifest: getTimelineSliceManifest,
-      execute: createGetTimelineSliceExecutor(fastapiClient),
+      execute: createFastapiToolExecutor(fastapiClient, "timeline-slice"),
     },
   ];
 }

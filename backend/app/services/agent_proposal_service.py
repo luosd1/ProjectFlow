@@ -12,6 +12,27 @@ from app.agent.output_schemas import (
 )
 from app.models import AgentEvent, AgentProposal, Project, Stage, Task, User
 from app.models.enums import AgentEventType, AgentProposalStatus, ProjectStatus, StageStatus
+from app.schemas.agent_proposal import AgentProposalRead
+
+
+def to_proposal_read(proposal: AgentProposal) -> AgentProposalRead:
+    """Convert an AgentProposal model to AgentProposalRead, parsing JSON string fields."""
+    payload = proposal.payload
+    if isinstance(payload, str):
+        payload = json.loads(payload)
+    return AgentProposalRead(
+        id=proposal.id,
+        project_id=proposal.project_id,
+        workspace_id=proposal.workspace_id,
+        proposal_type=proposal.proposal_type,
+        status=proposal.status,
+        agent_event_id=proposal.agent_event_id,
+        payload=payload,
+        confirmed_by=proposal.confirmed_by,
+        confirmed_at=proposal.confirmed_at,
+        rejection_reason=proposal.rejection_reason,
+        created_at=proposal.created_at,
+    )
 
 
 def create_proposal(
@@ -52,10 +73,13 @@ def list_proposals_by_project(
     session: Session,
     project_id: str,
     proposal_type: str | None = None,
+    status: str | None = None,
 ) -> list[AgentProposal]:
     query = select(AgentProposal).where(AgentProposal.project_id == project_id)
     if proposal_type:
         query = query.where(AgentProposal.proposal_type == proposal_type)
+    if status:
+        query = query.where(AgentProposal.status == status)
     return list(session.exec(query).all())
 
 

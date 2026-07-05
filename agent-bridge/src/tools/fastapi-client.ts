@@ -91,14 +91,6 @@ export class FastapiClient {
   async callTool(toolName: string, payload: Record<string, unknown>): Promise<unknown> {
     return this.request("POST", `/internal/agent-tools/${toolName}`, payload);
   }
-
-  /**
-   * GET request to a public API endpoint (no service token).
-   * Used by read-only tools that call existing public endpoints.
-   */
-  async getPublic<T>(path: string): Promise<T> {
-    return this.fetchJson<T>(`${this.baseUrl}${path}`, { method: "GET" });
-  }
 }
 
 export class FastapiError extends Error {

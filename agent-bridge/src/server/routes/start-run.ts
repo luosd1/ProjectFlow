@@ -8,7 +8,6 @@ import { parseRunStartRequest } from "@/types/wire.js";
 import { createRunState } from "@/types/run-state.js";
 import { executeRun } from "@/runtime/pi-runtime.js";
 import { ModelRouter } from "@/runtime/model-router.js";
-import { registerDefaultTools } from "@/tools/register-defaults.js";
 import type { StreamEventType } from "@/events/stream.js";
 import type { RuntimeEvent } from "@/types/runtime-event.js";
 import type { RunContext } from "./utils.js";
@@ -50,8 +49,8 @@ export async function handleStartRun(
     status: runState.status,
   });
 
-  // Register default read-only tools (idempotent — Map.set overwrites same name)
-  registerDefaultTools(ctx.toolRegistry, ctx.fastapiClient);
+  // Default read-only tools are registered once at server startup (see app.ts);
+  // the shared registry is reused across runs.
 
   // Start the runtime loop asynchronously
   executeRun(

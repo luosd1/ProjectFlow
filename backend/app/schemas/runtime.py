@@ -266,6 +266,32 @@ class TraceEnvelope(BaseModel):
     include_sensitive_data: bool = False
 
 
+# ─── Internal Tool Execution API ────────────────────────────────────────────
+
+
+class ToolExecutionRequest(BaseModel):
+    """Unified envelope for POST /internal/agent-tools/{tool_name}.
+
+    Sidecar submits this; FastAPI dispatches to the tool handler and returns
+    a ProjectFlowToolResult. Read-only tools express read-only semantics via
+    the manifest (risk_category=read_only), not via HTTP method.
+    """
+
+    run_id: str
+    tool_call_id: str
+    conversation_id: str
+    workspace_id: str
+    project_id: str
+    tool_name: str
+    tool_version: int = 1
+    manifest_version: int = 1
+    idempotency_key: str
+    arguments: dict[str, Any] = Field(default_factory=dict)
+    client_event_id: str | None = None
+    ordering_hint: int = 0
+    trace: dict[str, Any] = Field(default_factory=dict)
+
+
 # ─── Append API Request/Response ────────────────────────────────────────────
 
 

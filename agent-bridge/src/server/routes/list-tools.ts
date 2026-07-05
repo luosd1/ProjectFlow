@@ -1,9 +1,13 @@
 /**
  * GET /tools/list — return all model-callable tool manifests.
  * Informational endpoint for debugging and tool discovery.
+ *
+ * Wire payload is snake_case (manifests are camelCase internally); converted
+ * via snakifyKeys before serialization.
  */
 
 import type { IncomingMessage, ServerResponse } from "node:http";
+import { snakifyKeys } from "@/types/wire.js";
 import type { RunContext } from "./utils.js";
 
 export async function handleListTools(
@@ -13,6 +17,7 @@ export async function handleListTools(
   ctx: RunContext,
 ): Promise<void> {
   const manifests = ctx.toolRegistry.getModelCallableManifests();
+  const wire = manifests.map((m) => snakifyKeys(m));
   res.writeHead(200, { "Content-Type": "application/json" });
-  res.end(JSON.stringify({ tools: manifests }, null, 2));
+  res.end(JSON.stringify({ tools: wire }, null, 2));
 }
