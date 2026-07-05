@@ -6,7 +6,7 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { createReadOnlyTools, createProposalTools } from "../../src/tools/projectflow-tools.js";
+import { createReadOnlyTools, createProposalTools, createAdvisoryTools } from "../../src/tools/projectflow-tools.js";
 import { registerDefaultTools } from "../../src/tools/register-defaults.js";
 import { ToolRegistry } from "../../src/tools/registry.js";
 import type { FastapiClient } from "../../src/tools/fastapi-client.js";
@@ -47,6 +47,9 @@ const DEFAULT_TOOL_NAMES = [
   "analyze_checkins_and_risks",
   "generate_replan_proposal",
   "recommend_assignment",
+  "create_risk",
+  "create_checkin",
+  "update_stage_progress",
 ];
 
 // Map manifest tool name → internal endpoint tool name (POST /internal/agent-tools/{name})
@@ -59,6 +62,9 @@ const INTERNAL_TOOL_NAME: Record<string, string> = {
   analyze_checkins_and_risks: "checkins-and-risks-analysis",
   generate_replan_proposal: "replan-proposal",
   recommend_assignment: "assignment-recommendation",
+  create_risk: "create-risk",
+  create_checkin: "create-checkin",
+  update_stage_progress: "update-stage-progress",
 };
 
 const INTERNAL_ENDPOINT: Record<string, string> = {
@@ -70,6 +76,9 @@ const INTERNAL_ENDPOINT: Record<string, string> = {
   analyze_checkins_and_risks: "POST /internal/agent-tools/checkins-and-risks-analysis",
   generate_replan_proposal: "POST /internal/agent-tools/replan-proposal",
   recommend_assignment: "POST /internal/agent-tools/assignment-recommendation",
+  create_risk: "POST /internal/agent-tools/create-risk",
+  create_checkin: "POST /internal/agent-tools/create-checkin",
+  update_stage_progress: "POST /internal/agent-tools/update-stage-progress",
 };
 
 function makeContext(overrides: Partial<ToolExecutionContext> = {}): ToolExecutionContext {
@@ -264,6 +273,7 @@ describe("projectflow-tools", () => {
         "generate_replan_proposal",
         "generate_stage_plan_proposal",
         "recommend_assignment",
+        "update_stage_progress",
       ]);
     });
 
@@ -501,7 +511,7 @@ describe("projectflow-tools", () => {
       const registry = new ToolRegistry();
       const client = createStubFastapiClient();
       registerDefaultTools(registry, client);
-      expect(registry.size).toBe(8);
+      expect(registry.size).toBe(11);
       for (const name of DEFAULT_TOOL_NAMES) {
         expect(registry.has(name)).toBe(true);
       }
@@ -511,14 +521,14 @@ describe("projectflow-tools", () => {
       const registry = new ToolRegistry();
       registerDefaultTools(registry, createStubFastapiClient());
       const manifests = registry.getModelCallableManifests();
-      expect(manifests.length).toBe(8);
+      expect(manifests.length).toBe(11);
     });
 
     it("getManifests returns all default manifests", () => {
       const registry = new ToolRegistry();
       registerDefaultTools(registry, createStubFastapiClient());
       const manifests = registry.getManifests();
-      expect(manifests.length).toBe(8);
+      expect(manifests.length).toBe(11);
       const names = manifests.map((m: ProjectFlowToolManifest) => m.name).sort();
       expect(names).toEqual([...DEFAULT_TOOL_NAMES].sort());
     });
@@ -693,6 +703,512 @@ describe("projectflow-tools", () => {
         recommended_owner_user_id: "u1",
         reason: "技能匹配",
       });
+    });
+  });
+
+  // ─── S11: create_risk / create_checkin / update_stage_progress ──────────
+
+  describe("createAdvisoryTools", () => {
+    it("returns all advisory tools", () => {
+      const tools = createAdvisoryTools(createStubFastapiClient());
+      const names = tools.map((tool) => tool.manifest.name).sort();
+      expect(names).toEqual([
+        "analyze_checkins_and_risks",
+        "create_checkin",
+        "create_risk",
+      ]);
+    });
+
+    it("each tool has an execute function", () => {
+      const tools = createAdvisoryTools(createStubFastapiClient());
+      for (const tool of tools) {
+        expect(typeof tool.execute).toBe("function");
+      }
+    });
+  });
+
+  describe("create_risk manifest completeness", () => {
+    const tools = createAdvisoryTools(createStubFastapiClient());
+    const m = tools.find((tool) => tool.manifest.name === "create_risk")!.manifest;
+
+    it("has schemaVersion 1", () => {
+      expect(m.schemaVersion).toBe(1);
+    });
+
+    it("has version 1", () => {
+      expect(m.version).toBe(1);
+    });
+
+    it("has non-empty description", () => {
+      expect(m.description.length).toBeGreaterThan(0);
+    });
+
+    it("has inputSchema with required fields", () => {
+      expect(m.inputSchema).toBeDefined();
+      const schema = m.inputSchema as { required: string[] };
+      expect(schema.required).toContain("type");
+      expect(schema.required).toContain("severity");
+      expect(schema.required).toContain("title");
+      expect(schema.required).toContain("description");
+      expect(schema.required).toContain("evidence");
+      expect(schema.required).toContain("recommendation");
+    });
+
+    it("has outputSchema", () => {
+      expect(m.outputSchema).toBeDefined();
+    });
+
+    it("has backend config with POST method and internal endpoint", () => {
+      expect(m.backend.owner).toBe("fastapi");
+      expect(m.backend.method).toBe("POST");
+      expect(m.backend.endpoint).toBe("POST /internal/agent-tools/create-risk");
+    });
+
+    it("has execution config", () => {
+      expect(m.execution).toBeDefined();
+      expect(m.execution.mode).toBe("sequential");
+    });
+
+    it("has timeoutMs > 0", () => {
+      expect(m.timeoutMs).toBeGreaterThan(0);
+    });
+
+    it("has retry config", () => {
+      expect(m.retry).toBeDefined();
+      expect(typeof m.retry.maxAttempts).toBe("number");
+    });
+
+    it("has resultLimit config", () => {
+      expect(m.resultLimit).toBeDefined();
+      expect(typeof m.resultLimit.maxBytes).toBe("number");
+      expect(m.resultLimit.maxBytes).toBeGreaterThan(0);
+    });
+
+    it("has effects config with advisory_record_create", () => {
+      expect(m.effects).toBeDefined();
+      expect(m.effects.effectType).toBe("advisory_record_create");
+      expect(m.effects.idempotencyKeyRequired).toBe(true);
+      expect(m.effects.replaySafe).toBe(true);
+    });
+
+    it("has no proposalConfirmation", () => {
+      expect(m.proposalConfirmation).toBeUndefined();
+    });
+
+    it("has privacy config", () => {
+      expect(m.privacy).toBeDefined();
+      expect(m.privacy.dataClassification).toBe("project_sensitive");
+    });
+
+    it("has errors config", () => {
+      expect(m.errors).toBeDefined();
+      expect(m.errors.modelVisibleErrorPolicy).toBe("normalized_summary");
+    });
+
+    it("has resume config", () => {
+      expect(m.resume).toBeDefined();
+      expect(m.resume.manifestVersion).toBe(1);
+    });
+
+    it("has trace config", () => {
+      expect(m.trace).toBeDefined();
+      expect(Array.isArray(m.trace.emits)).toBe(true);
+    });
+  });
+
+  describe("create_risk advisory semantics", () => {
+    const tools = createAdvisoryTools(createStubFastapiClient());
+    const m = tools.find((tool) => tool.manifest.name === "create_risk")!.manifest;
+
+    it("riskCategory is advisory_write", () => {
+      expect(m.riskCategory).toBe("advisory_write");
+    });
+
+    it("annotations.readOnly is false", () => {
+      expect(m.annotations.readOnly).toBe(false);
+    });
+
+    it("annotations.destructive is false", () => {
+      expect(m.annotations.destructive).toBe(false);
+    });
+
+    it("annotations.openWorld is false", () => {
+      expect(m.annotations.openWorld).toBe(false);
+    });
+
+    it("modelCallable is true", () => {
+      expect(m.modelCallable).toBe(true);
+    });
+
+    it("sidecarOnly is false", () => {
+      expect(m.sidecarOnly).toBe(false);
+    });
+
+    it("humanTriggeredOnly is false", () => {
+      expect(m.humanTriggeredOnly).toBe(false);
+    });
+
+    it("does not have commit_persisted effect", () => {
+      expect(m.effects.effectType).not.toBe("commit_persisted");
+    });
+
+    it("execution mode is sequential", () => {
+      expect(m.execution.mode).toBe("sequential");
+    });
+
+    it("concurrencyGroup is project_advisory_write", () => {
+      expect(m.execution.concurrencyGroup).toBe("project_advisory_write");
+    });
+
+    it("idempotencyKeyRequired is true", () => {
+      expect(m.effects.idempotencyKeyRequired).toBe(true);
+    });
+
+    it("replaySafe is true", () => {
+      expect(m.effects.replaySafe).toBe(true);
+    });
+  });
+
+  describe("create_risk executor routes correctly", () => {
+    it("calls POST /internal/agent-tools/create-risk with args in arguments", async () => {
+      const client = createStubFastapiClient();
+      const tools = createAdvisoryTools(client);
+      const tool = tools.find((t) => t.manifest.name === "create_risk")!;
+      const args = {
+        type: "deadline",
+        severity: "high",
+        title: "截止日期风险",
+        description: "距离截止日期仅剩3天",
+        evidence: ["日历显示"],
+        recommendation: "加快进度",
+      };
+      await tool.execute(args, makeContext({ toolName: "create_risk" }));
+      expect(client.calls.length).toBe(1);
+      expect(client.calls[0]!.toolName).toBe("create-risk");
+      expect(client.calls[0]!.payload.arguments).toEqual(args);
+      expect(client.calls[0]!.payload.run_id).toBe("run_test");
+      expect(client.calls[0]!.payload.tool_call_id).toBe("call_test");
+      expect(client.calls[0]!.payload.idempotency_key).toBe("run_test:call_test:v1");
+    });
+  });
+
+  describe("create_checkin manifest completeness", () => {
+    const tools = createAdvisoryTools(createStubFastapiClient());
+    const m = tools.find((tool) => tool.manifest.name === "create_checkin")!.manifest;
+
+    it("has schemaVersion 1", () => {
+      expect(m.schemaVersion).toBe(1);
+    });
+
+    it("has version 1", () => {
+      expect(m.version).toBe(1);
+    });
+
+    it("has non-empty description", () => {
+      expect(m.description.length).toBeGreaterThan(0);
+    });
+
+    it("has inputSchema with required fields", () => {
+      expect(m.inputSchema).toBeDefined();
+      const schema = m.inputSchema as { required: string[] };
+      expect(schema.required).toContain("task_id");
+      expect(schema.required).toContain("what_done");
+    });
+
+    it("has outputSchema", () => {
+      expect(m.outputSchema).toBeDefined();
+    });
+
+    it("has backend config with POST method and internal endpoint", () => {
+      expect(m.backend.owner).toBe("fastapi");
+      expect(m.backend.method).toBe("POST");
+      expect(m.backend.endpoint).toBe("POST /internal/agent-tools/create-checkin");
+    });
+
+    it("has execution config", () => {
+      expect(m.execution).toBeDefined();
+      expect(m.execution.mode).toBe("sequential");
+    });
+
+    it("has timeoutMs > 0", () => {
+      expect(m.timeoutMs).toBeGreaterThan(0);
+    });
+
+    it("has retry config", () => {
+      expect(m.retry).toBeDefined();
+      expect(typeof m.retry.maxAttempts).toBe("number");
+    });
+
+    it("has resultLimit config", () => {
+      expect(m.resultLimit).toBeDefined();
+      expect(typeof m.resultLimit.maxBytes).toBe("number");
+      expect(m.resultLimit.maxBytes).toBeGreaterThan(0);
+    });
+
+    it("has effects config with advisory_record_create", () => {
+      expect(m.effects).toBeDefined();
+      expect(m.effects.effectType).toBe("advisory_record_create");
+      expect(m.effects.idempotencyKeyRequired).toBe(true);
+      expect(m.effects.replaySafe).toBe(true);
+    });
+
+    it("has no proposalConfirmation", () => {
+      expect(m.proposalConfirmation).toBeUndefined();
+    });
+
+    it("has privacy config", () => {
+      expect(m.privacy).toBeDefined();
+      expect(m.privacy.dataClassification).toBe("project_sensitive");
+    });
+
+    it("has errors config", () => {
+      expect(m.errors).toBeDefined();
+      expect(m.errors.modelVisibleErrorPolicy).toBe("normalized_summary");
+    });
+
+    it("has resume config", () => {
+      expect(m.resume).toBeDefined();
+      expect(m.resume.manifestVersion).toBe(1);
+    });
+
+    it("has trace config", () => {
+      expect(m.trace).toBeDefined();
+      expect(Array.isArray(m.trace.emits)).toBe(true);
+    });
+  });
+
+  describe("create_checkin advisory semantics", () => {
+    const tools = createAdvisoryTools(createStubFastapiClient());
+    const m = tools.find((tool) => tool.manifest.name === "create_checkin")!.manifest;
+
+    it("riskCategory is advisory_write", () => {
+      expect(m.riskCategory).toBe("advisory_write");
+    });
+
+    it("annotations.readOnly is false", () => {
+      expect(m.annotations.readOnly).toBe(false);
+    });
+
+    it("annotations.destructive is false", () => {
+      expect(m.annotations.destructive).toBe(false);
+    });
+
+    it("annotations.openWorld is false", () => {
+      expect(m.annotations.openWorld).toBe(false);
+    });
+
+    it("modelCallable is true", () => {
+      expect(m.modelCallable).toBe(true);
+    });
+
+    it("sidecarOnly is false", () => {
+      expect(m.sidecarOnly).toBe(false);
+    });
+
+    it("humanTriggeredOnly is false", () => {
+      expect(m.humanTriggeredOnly).toBe(false);
+    });
+
+    it("does not have commit_persisted effect", () => {
+      expect(m.effects.effectType).not.toBe("commit_persisted");
+    });
+
+    it("execution mode is sequential", () => {
+      expect(m.execution.mode).toBe("sequential");
+    });
+
+    it("concurrencyGroup is project_advisory_write", () => {
+      expect(m.execution.concurrencyGroup).toBe("project_advisory_write");
+    });
+
+    it("idempotencyKeyRequired is true", () => {
+      expect(m.effects.idempotencyKeyRequired).toBe(true);
+    });
+
+    it("replaySafe is true", () => {
+      expect(m.effects.replaySafe).toBe(true);
+    });
+  });
+
+  describe("create_checkin executor routes correctly", () => {
+    it("calls POST /internal/agent-tools/create-checkin with args in arguments", async () => {
+      const client = createStubFastapiClient();
+      const tools = createAdvisoryTools(client);
+      const tool = tools.find((t) => t.manifest.name === "create_checkin")!;
+      const args = {
+        task_id: "t1",
+        what_done: "完成后端 API 开发",
+        blocker: "无",
+        user_id: "u1",
+      };
+      await tool.execute(args, makeContext({ toolName: "create_checkin" }));
+      expect(client.calls.length).toBe(1);
+      expect(client.calls[0]!.toolName).toBe("create-checkin");
+      expect(client.calls[0]!.payload.arguments).toEqual(args);
+      expect(client.calls[0]!.payload.run_id).toBe("run_test");
+      expect(client.calls[0]!.payload.tool_call_id).toBe("call_test");
+      expect(client.calls[0]!.payload.idempotency_key).toBe("run_test:call_test:v1");
+    });
+  });
+
+  describe("update_stage_progress manifest completeness", () => {
+    const tools = createProposalTools(createStubFastapiClient());
+    const m = tools.find((tool) => tool.manifest.name === "update_stage_progress")!.manifest;
+
+    it("has schemaVersion 1", () => {
+      expect(m.schemaVersion).toBe(1);
+    });
+
+    it("has version 1", () => {
+      expect(m.version).toBe(1);
+    });
+
+    it("has non-empty description", () => {
+      expect(m.description.length).toBeGreaterThan(0);
+    });
+
+    it("has inputSchema with required fields", () => {
+      expect(m.inputSchema).toBeDefined();
+      const schema = m.inputSchema as { required: string[] };
+      expect(schema.required).toContain("stage_id");
+      expect(schema.required).toContain("progress_summary");
+      expect(schema.required).toContain("next_steps");
+    });
+
+    it("has outputSchema", () => {
+      expect(m.outputSchema).toBeDefined();
+    });
+
+    it("has backend config with POST method and internal endpoint", () => {
+      expect(m.backend.owner).toBe("fastapi");
+      expect(m.backend.method).toBe("POST");
+      expect(m.backend.endpoint).toBe("POST /internal/agent-tools/update-stage-progress");
+    });
+
+    it("has execution config", () => {
+      expect(m.execution).toBeDefined();
+      expect(m.execution.mode).toBe("sequential");
+    });
+
+    it("has timeoutMs > 0", () => {
+      expect(m.timeoutMs).toBeGreaterThan(0);
+    });
+
+    it("has retry config", () => {
+      expect(m.retry).toBeDefined();
+      expect(typeof m.retry.maxAttempts).toBe("number");
+    });
+
+    it("has resultLimit config", () => {
+      expect(m.resultLimit).toBeDefined();
+      expect(typeof m.resultLimit.maxBytes).toBe("number");
+      expect(m.resultLimit.maxBytes).toBeGreaterThan(0);
+    });
+
+    it("has effects config with proposal_create", () => {
+      expect(m.effects).toBeDefined();
+      expect(m.effects.effectType).toBe("proposal_create");
+      expect(m.effects.idempotencyKeyRequired).toBe(true);
+      expect(m.effects.replaySafe).toBe(true);
+    });
+
+    it("has proposalConfirmation config", () => {
+      expect(m.proposalConfirmation).toBeDefined();
+      expect(m.proposalConfirmation!.createsProposal).toBe(true);
+      expect(m.proposalConfirmation!.requiredBeforeCommit).toBe(true);
+    });
+
+    it("has privacy config", () => {
+      expect(m.privacy).toBeDefined();
+      expect(m.privacy.dataClassification).toBe("project_sensitive");
+    });
+
+    it("has errors config", () => {
+      expect(m.errors).toBeDefined();
+      expect(m.errors.modelVisibleErrorPolicy).toBe("normalized_summary");
+    });
+
+    it("has resume config", () => {
+      expect(m.resume).toBeDefined();
+      expect(m.resume.manifestVersion).toBe(1);
+    });
+
+    it("has trace config", () => {
+      expect(m.trace).toBeDefined();
+      expect(Array.isArray(m.trace.emits)).toBe(true);
+    });
+  });
+
+  describe("update_stage_progress proposal semantics", () => {
+    const tools = createProposalTools(createStubFastapiClient());
+    const m = tools.find((tool) => tool.manifest.name === "update_stage_progress")!.manifest;
+
+    it("riskCategory is draft_only", () => {
+      expect(m.riskCategory).toBe("draft_only");
+    });
+
+    it("annotations.readOnly is false", () => {
+      expect(m.annotations.readOnly).toBe(false);
+    });
+
+    it("annotations.destructive is false", () => {
+      expect(m.annotations.destructive).toBe(false);
+    });
+
+    it("annotations.openWorld is false", () => {
+      expect(m.annotations.openWorld).toBe(false);
+    });
+
+    it("modelCallable is true", () => {
+      expect(m.modelCallable).toBe(true);
+    });
+
+    it("sidecarOnly is false", () => {
+      expect(m.sidecarOnly).toBe(false);
+    });
+
+    it("humanTriggeredOnly is false", () => {
+      expect(m.humanTriggeredOnly).toBe(false);
+    });
+
+    it("does not have commit_persisted effect", () => {
+      expect(m.effects.effectType).not.toBe("commit_persisted");
+    });
+
+    it("execution mode is sequential", () => {
+      expect(m.execution.mode).toBe("sequential");
+    });
+
+    it("concurrencyGroup is project_proposal_write", () => {
+      expect(m.execution.concurrencyGroup).toBe("project_proposal_write");
+    });
+
+    it("idempotencyKeyRequired is true", () => {
+      expect(m.effects.idempotencyKeyRequired).toBe(true);
+    });
+
+    it("replaySafe is true", () => {
+      expect(m.effects.replaySafe).toBe(true);
+    });
+  });
+
+  describe("update_stage_progress executor routes correctly", () => {
+    it("calls POST /internal/agent-tools/update-stage-progress with args in arguments", async () => {
+      const client = createStubFastapiClient();
+      const tools = createProposalTools(client);
+      const tool = tools.find((t) => t.manifest.name === "update_stage_progress")!;
+      const args = {
+        stage_id: "s1",
+        progress_summary: "阶段进展顺利",
+        next_steps: "继续推进剩余任务",
+      };
+      await tool.execute(args, makeContext({ toolName: "update_stage_progress" }));
+      expect(client.calls.length).toBe(1);
+      expect(client.calls[0]!.toolName).toBe("update-stage-progress");
+      expect(client.calls[0]!.payload.arguments).toEqual(args);
+      expect(client.calls[0]!.payload.run_id).toBe("run_test");
+      expect(client.calls[0]!.payload.tool_call_id).toBe("call_test");
+      expect(client.calls[0]!.payload.idempotency_key).toBe("run_test:call_test:v1");
     });
   });
 });

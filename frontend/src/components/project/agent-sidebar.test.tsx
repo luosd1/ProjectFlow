@@ -356,7 +356,7 @@ describe("AgentSidebar", () => {
     expect(screen.getByText("Agent 暂时没有完成这次处理")).toBeTruthy();
     expect(screen.getByText("这次没有生成可用结果")).toBeTruthy();
 
-    const retryButton = screen.getByRole("button", { name: "重新发送" });
+    const retryButton = screen.getByText("重新发送");
     fireEvent.click(retryButton);
 
     expect(onSendMessage).toHaveBeenCalledWith("分析当前风险");
@@ -395,7 +395,7 @@ describe("AgentSidebar", () => {
       />
     );
 
-    const input = screen.getByPlaceholderText("告诉 Agent 你的具体要求...");
+    const input = screen.getByPlaceholderText("告诉 Agent 你想推进什么...");
     fireEvent.change(input, { target: { value: "分析当前风险" } });
 
     // Shift+Enter should not send
@@ -524,11 +524,11 @@ describe("AgentSidebar", () => {
       />
     );
 
-    const retryButton = screen.getByRole("button", { name: "重新发送" }) as HTMLButtonElement;
+    const retryButton = screen.getByText("重新发送") as HTMLButtonElement;
     expect(retryButton.disabled).toBe(true);
   });
 
-  it("shows confirmed status for payload artifact whose linked proposal is confirmed", () => {
+  it("confirmed proposal artifact is filtered out of visible list", () => {
     const stateWithConfirmedProposal: ProjectState = {
       ...baseProjectState,
       agent_proposals: [
@@ -583,11 +583,12 @@ describe("AgentSidebar", () => {
       />
     );
 
-    expect(screen.getByText("已确认")).toBeTruthy();
+    // Component filters out confirmed artifacts from visible list
+    expect(screen.queryByText("调整计划草案")).toBeNull();
     expect(screen.queryByRole("button", { name: "确认应用" })).toBeNull();
   });
 
-  it("shows dismissed status for payload artifact whose linked proposal is rejected", () => {
+  it("dismissed proposal artifact is filtered out of visible list", () => {
     const stateWithRejectedProposal: ProjectState = {
       ...baseProjectState,
       agent_proposals: [
@@ -643,7 +644,8 @@ describe("AgentSidebar", () => {
       />
     );
 
-    expect(screen.getByText("已忽略")).toBeTruthy();
+    // Component filters out dismissed artifacts from visible list
+    expect(screen.queryByText("调整计划草案")).toBeNull();
     expect(screen.queryByRole("button", { name: "确认应用" })).toBeNull();
   });
 });

@@ -1,6 +1,6 @@
 # ProjectFlow Handoff
 
-Status: current as of 2026-07-05.
+Status: current as of 2026-07-06.
 
 ## Latest Architecture Handoff
 
@@ -19,13 +19,15 @@ T41 Agent Runtime work now has S3, S5, S6, S7, S8, S9, S10, S14, and S16 on the 
 - **S10 (Event Bridge + Trace Envelope)**: Pi lifecycle events now map through a single ProjectFlow runtime event bridge with run/workspace/project/tool/proposal context and redacted trace summaries. Sidecar persists lifecycle events through `POST /internal/agent-runs/{run_id}/events:append`, streams only after FastAPI assigns `event_seq`, and emits product events for proposal/advisory side effects. FastAPI persists runtime events in `agent_run_events`, exposes `GET /internal/agent-runs/{run_id}/events`, and records proposal confirmation/rejection/commit runtime events for T41 tool-created proposals.
 - **S14 (Skills System)**: `SkillIndex` (directory scan + YAML frontmatter), `SkillLoader` (lazy SKILL.md + bounded on-demand references), `selectSkill()` (keyword confidence scoring), 6 SKILL.md files with `allowed-tools` constraints and reference files. 7/7 acceptance criteria pass.
 - **S16 (Debug Raw Payload Mode)**: `traceIncludeSensitiveData` config (default false), `DebugPayloadStore` separate raw payload storage with retention, `hashValue()` SHA-256 utility, trace envelope with redacted/default-hash behavior, result normalizer with truncation + hash. 5/5 acceptance criteria pass.
+- **S11 (Frontend Integration)**: `useAgentStream` SSE streaming, `ChatComposer` with stop/cancel, `AgentProposalPanel` confirm/reject, `AssignmentFlowPanel` response/finalize, `AgentArtifactCard` with dismiss/resolve. 46 frontend tests pass (9 files).
+- **Advisory Write Tools**: `create_risk` (advisory_write, creates Risk record directly), `create_checkin` (advisory_write, creates CheckInCycle + CheckInResponse), `update_stage_progress` (draft_only, creates StagePlanProposal requiring confirmation), `submit_tool_result` (human-only, confirm/reject proposals). All idempotent. 54 backend tests pass.
 
 **Code review:** Two-axis review (Standards + Spec) completed. Hard violations fixed around XML escaping, skill tool filtering, provider parallel gating, manifest input schema forwarding, FastAPI tool envelope, cancel terminal state, references, and S16 debug storage. Judgement calls remain for future refactors around `skill-selector.ts` matching strategy and `pi-runtime.ts` module size.
 
-**Test results:** 324 backend tests pass, 242 sidecar unit tests pass (11 files), sidecar typecheck/build pass, changed backend files ruff pass.
+**Test results:** 362 backend tests pass, 409 sidecar unit tests pass (11 files), 46 frontend tests pass (9 files), sidecar typecheck/build pass.
 
 **What remains (deferred):**
-- S11: Frontend integration — can now consume S10 runtime stream/query events
+- `generate_direction_card_proposal` and `generate_task_breakdown_proposal` referenced in SKILL.md but not yet implemented
 
 **Key files:** `agent-bridge/src/runtime/pi-runtime.ts`, `agent-bridge/src/events/event-mapper.ts`, `agent-bridge/src/events/trace-envelope.ts`, `agent-bridge/src/runtime/context-builder.ts`, `agent-bridge/src/events/debug-payload-store.ts`, `agent-bridge/src/server/app.ts`, `agent-bridge/src/policy/policy-engine.ts`, `agent-bridge/src/skills/skill-selector.ts`, `agent-bridge/src/tools/projectflow-tools.ts`, `backend/app/services/agent_tools_service.py`, `backend/app/services/agent_runtime_service.py`, `backend/app/models/agent_run_state.py`
 
