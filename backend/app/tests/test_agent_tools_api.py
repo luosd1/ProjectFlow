@@ -248,6 +248,37 @@ class TestInternalAgentTools:
         assert proposals_resp.status_code == 200, proposals_resp.text
         assert [p["id"] for p in proposals_resp.json()] == [first_data["links"]["proposal_id"]]
 
+    def test_replan_proposal_tool_blocks_when_pending_replan_exists(self, client, test_engine):
+        _seed(test_engine)
+        first = client.post(
+            "/internal/agent-tools/replan-proposal",
+            json=_envelope(
+                "generate_replan_proposal",
+                {"project_id": "p1", "user_instruction": "根据最新签到和风险生成计划调整草案。"},
+            ),
+        )
+        assert first.status_code == 200, first.text
+        existing_proposal_id = first.json()["links"]["proposal_id"]
+
+        second_envelope = _envelope(
+            "generate_replan_proposal",
+            {"project_id": "p1", "user_instruction": "再次生成计划调整草案。"},
+        )
+        second_envelope["tool_call_id"] = "call_second"
+        second_envelope["idempotency_key"] = "run_test:call_second:v1"
+
+        second = client.post("/internal/agent-tools/replan-proposal", json=second_envelope)
+
+        assert second.status_code == 200, second.text
+        second_data = second.json()
+        assert second_data["status"] == "blocked"
+        assert second_data["side_effect_status"] == "no_side_effect"
+        assert second_data["links"]["proposal_id"] == existing_proposal_id
+
+        proposals_resp = client.get("/api/agent-proposals", params={"project_id": "p1", "proposal_type": "replan"})
+        assert proposals_resp.status_code == 200, proposals_resp.text
+        assert [p["id"] for p in proposals_resp.json()] == [existing_proposal_id]
+
 
 class TestPublicProposalStatusFilter:
     """The public /api/agent-proposals route must honor status=pending (previously silently ignored)."""

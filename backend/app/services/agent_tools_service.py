@@ -14,7 +14,7 @@ from typing import Any
 from sqlmodel import Session, select
 
 from app.models import AgentEvent, AgentProposal
-from app.models.enums import SideEffectStatus, ToolResultStatus
+from app.models.enums import AgentProposalStatus, SideEffectStatus, ToolResultStatus
 from app.schemas.agent_proposal import AgentProposalRead
 from app.schemas.agent_conversation import AgentConversationRead
 from app.schemas.runtime import ProjectFlowToolResult, ToolError, ToolExecutionRequest, ToolLinks
@@ -133,6 +133,14 @@ def execute_agent_tool(
                 observation="已复用同一次工具调用生成的计划调整草案。",
             )
 
+        pending_proposal = _find_pending_replan_proposal(
+            session,
+            workspace_id=workspace_id,
+            project_id=project_id,
+        )
+        if pending_proposal is not None:
+            return _blocked_pending_replan_result(pending_proposal, request)
+
         try:
             flow_result = run_agent_flow(
                 session,
@@ -199,6 +207,46 @@ def _replan_proposal_result(
         ),
         observation=observation,
     )
+
+
+def _blocked_pending_replan_result(
+    proposal: AgentProposal,
+    request: ToolExecutionRequest,
+) -> ProjectFlowToolResult:
+    message = "项目已有待确认的计划调整草案，请先确认或拒绝现有草案后再生成新的重规划。"
+    return ProjectFlowToolResult(
+        status=ToolResultStatus.blocked,
+        data={
+            "existing_proposal": to_proposal_read(proposal).model_dump(mode="json"),
+        },
+        error=ToolError(
+            code="PENDING_REPLAN_PROPOSAL_EXISTS",
+            reason=message,
+            message=message,
+        ),
+        side_effect_status=SideEffectStatus.no_side_effect,
+        idempotency_key=request.idempotency_key,
+        links=ToolLinks(proposal_id=proposal.id),
+        observation=message,
+    )
+
+
+def _find_pending_replan_proposal(
+    session: Session,
+    *,
+    workspace_id: str,
+    project_id: str,
+) -> AgentProposal | None:
+    return session.exec(
+        select(AgentProposal)
+        .where(
+            AgentProposal.workspace_id == workspace_id,
+            AgentProposal.project_id == project_id,
+            AgentProposal.proposal_type == "replan",
+            AgentProposal.status == AgentProposalStatus.pending,
+        )
+        .order_by(AgentProposal.created_at.desc())
+    ).first()
 
 
 def _find_replan_proposal_for_idempotency_key(
