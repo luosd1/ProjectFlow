@@ -379,6 +379,8 @@ State purity：
 - 不 commit stage/task/date；
 - 必须读取 pending proposals，避免重复或冲突 replan。
 
+2026-07-05 implementation note: S9 implements this as `POST /internal/agent-tools/replan-proposal` behind the model-facing `generate_replan_proposal` manifest. The manifest is `risk_category=draft_only`, sequential, `concurrency_group=project_proposal_write`, `effects.effect_type=proposal_create`, and requires an idempotency key. FastAPI reuses the same proposal for repeated idempotency keys and returns `status=blocked`, `side_effect_status=no_side_effect`, and the existing `links.proposal_id` when another pending replan already exists.
+
 ---
 
 ## 5. Human-triggered APIs
@@ -484,6 +486,8 @@ POST /internal/agent-tools/assignment-recommendation
 POST /internal/agent-tools/checkins-and-risks-analysis
 POST /internal/agent-tools/replan-proposal
 ```
+
+Current implementation status as of 2026-07-05: `workspace-state`, `conversation`, `pending-proposals`, `timeline-slice`, and `replan-proposal` are implemented. The remaining proposal/advisory tools stay in the planned endpoint set until their slices land.
 
 internal endpoint 统一接收：
 

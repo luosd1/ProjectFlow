@@ -63,7 +63,7 @@ ProjectFlow/
 │   │   ├── types/             # run-state.ts, tool-manifest.ts, tool-result.ts, wire.ts, runtime-event.ts
 │   │   └── utils/             # 工具函数
 │   ├── skills/                # 6 SKILL.md files
-│   └── tests/unit/            # 11 test files, 193 tests
+│   └── tests/unit/            # 11 test files, 200 tests
 ├── frontend/
 │   ├── src/
 │   │   ├── app/               # Next.js 页面路由（不写业务逻辑）
@@ -582,9 +582,19 @@ Base URL: `http://localhost:8000/api`
 | POST | /agent/assign | 分工推荐 → AssignmentProposal |
 | POST | /agent/negotiate | 协商建议 → AgentEvent timeline-only |
 | POST | /agent/active-push | 主动推送 → ActionCard |
-| POST | /agent/check-in-analysis | 签到分析 → Risk/ActionCard |
+| POST | /agent/check-in-analysis | 签到分析 → Risk + inferred task changes as AgentProposal(replan) |
 | POST | /agent/risk-analysis | 风险分析 → Risk |
 | POST | /agent/replan | 重排建议 → AgentProposal(replan)，需确认 |
+
+### T41 Internal Agent Tools
+
+| 方法 | 端点 | 说明 |
+|------|------|------|
+| POST | /internal/agent-tools/workspace-state | read-only WorkspaceState 工具 |
+| POST | /internal/agent-tools/conversation | read-only Agent conversation 工具 |
+| POST | /internal/agent-tools/pending-proposals | read-only pending proposal 工具 |
+| POST | /internal/agent-tools/timeline-slice | read-only timeline slice 工具 |
+| POST | /internal/agent-tools/replan-proposal | draft-only `generate_replan_proposal`，创建 pending replan proposal；重复 pending replan 时返回 blocked |
 
 ### 提案确认
 
@@ -675,7 +685,7 @@ Base URL: `http://localhost:8000/api`
 
 ## 9. 测试
 
-### 后端测试（16 个文件）
+### 后端测试（重点文件；当前共 26 个 `test_*.py`）
 
 | 文件 | 覆盖范围 |
 |------|---------|
@@ -685,8 +695,10 @@ Base URL: `http://localhost:8000/api`
 | test_agent_workflow.py | Agent 执行引擎 |
 | test_agent_output_schemas.py | Agent 输出 schema 校验 |
 | test_agent_proposal_confirm.py | 提案确认流程 |
+| test_agent_tools_api.py | T41 internal agent tool envelope、read-only tools、replan proposal idempotency/blocked |
 | test_api_workspace_project.py | Workspace/Project API |
 | test_assignment_flow.py | 分工全流程 |
+| test_checkin_replan_migration.py | S9 check-in inferred task updates → replan proposal，不直接改 Task.status |
 | test_checkin_risk_replan_flow.py | 签到→风险→重排 |
 | test_demo_export_flow.py | Demo 重置+导出 |
 | test_issue4_smoke.py | Issue 4 回归 |
@@ -702,9 +714,10 @@ Base URL: `http://localhost:8000/api`
 - vitest + @testing-library/react
 - 覆盖：api.ts、app-shell、projectflow-home、action-card、agent-proposal-panel、project-dashboard、task-status-update、error-boundaries
 
-### 验证基线（Phase 39 基线）
+### 验证基线（2026-07-05）
 
-- 后端 pytest：244 passing
+- 后端 pytest：302 passing
+- agent-bridge：200 tests passing, typecheck passing, build passing
 - 前端：26 tests passing, lint passing, build passing
 
 ---
@@ -806,7 +819,7 @@ npm audit --omit=dev                # 安全审计
 | 39 | Agent UX Integration & Stage Auto-Advance | ✅ 2026-06-07 |
 | 40 | Agent Sidebar UI Polish & Planner Reliability | ✅ 2026-06-07 |
 | 41 | Security Review & Performance Optimization | ✅ 2026-06-08 |
-| T41 | Agent Runtime Architecture Docs + Sidecar (S3/S5/S14/S16) | ✅ 2026-07-05 |
+| T41 | Agent Runtime Architecture Docs + Sidecar (S3/S5/S14/S16) + S9 check-in/replan migration | ✅ 2026-07-05 |
 
 ---
 

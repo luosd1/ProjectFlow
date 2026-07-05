@@ -6,7 +6,7 @@ The shipped MVP still uses a legacy single `CoordinatorAgent`. The confirmed T41
 
 ## Current Status
 
-All MVP phases and MVP Usable tasks complete. Phase 24-29 (Agent Output Quality, T23 Fixes, Code Review, Frontend Redesign) complete through 2026-06-05. Phase 37-39 (Workspace UX, Landing Redesign, Agent UX Fixes, Task Ordering, Stage Auto-Advance) complete through 2026-06-07. Phase 40 (Agent Sidebar Polish) complete 2026-06-07. Phase 41 (Security Review & Performance Optimization) complete 2026-06-08. T41 Agent Runtime architecture docs were confirmed and pushed on 2026-07-04.
+All MVP phases and MVP Usable tasks complete. Phase 24-29 (Agent Output Quality, T23 Fixes, Code Review, Frontend Redesign) complete through 2026-06-05. Phase 37-39 (Workspace UX, Landing Redesign, Agent UX Fixes, Task Ordering, Stage Auto-Advance) complete through 2026-06-07. Phase 40 (Agent Sidebar Polish) complete 2026-06-07. Phase 41 (Security Review & Performance Optimization) complete 2026-06-08. T41 Agent Runtime architecture docs were confirmed and pushed on 2026-07-04; sidecar slices S3/S5/S14/S16 and lead slice S9 were implemented through 2026-07-05.
 
 - Phase 0 / GitHub #2 — Guardrails & Setup
 - Phase 1 / GitHub #3 — Account / Workspace / Member Profile
@@ -35,8 +35,9 @@ All MVP phases and MVP Usable tasks complete. Phase 24-29 (Agent Output Quality,
 - Phase 37-39 — Workspace UX, Landing Redesign, Agent UX Fixes (2026-06-06~07)
 - Phase 40 — Agent Sidebar UI Polish & Planner Reliability (2026-06-07)
 - Phase 41 — Security Review & Performance Optimization (2026-06-08)
+- T41 S9 / GitHub #54 — Check-in inferred task changes route through replan proposal (2026-07-05)
 
-Implemented: FastAPI backend (70 endpoint method/path pairs, 19 persistence tables/domain models with indexed foreign keys), agent infrastructure with mock/OpenAI-compatible provider diagnostics (httpx connection pool), current time/resource-aware WorkspaceState prompts, enriched direction clarification, confirm-to-persist `AgentProposal` flow for clarify/plan/breakdown/replan, timeline-only negotiate agent output, stage auto-advance on task completion, Task `order_index` sort chain, seed/reset/export, file upload with type/size validation, Next.js frontend (7 routes, project resources panel, user identity switcher, Agent proposal/timeline status badges, stage-grouped task breakdown, pending proposal preview banners, lazy-loaded markdown, memoized streaming), 244 backend tests passing, 26 frontend tests passing, frontend lint+build clean.
+Implemented: FastAPI backend (70 endpoint method/path pairs plus internal T41 tool endpoints, 19 persistence tables/domain models with indexed foreign keys), agent infrastructure with mock/OpenAI-compatible provider diagnostics (httpx connection pool), current time/resource-aware WorkspaceState prompts, enriched direction clarification, confirm-to-persist `AgentProposal` flow for clarify/plan/breakdown/replan, check-in inferred task status changes converted to pending replan proposals instead of direct `Task.status` writes, timeline-only negotiate agent output, stage auto-advance on human task completion, Task `order_index` sort chain, seed/reset/export, file upload with type/size validation, Next.js frontend (7 routes, project resources panel, user identity switcher, Agent proposal/timeline status badges, stage-grouped task breakdown, pending proposal preview banners, lazy-loaded markdown, memoized streaming), 302 backend tests passing, 200 agent-bridge tests passing, 26 frontend tests passing, frontend lint+build clean.
 
 ## Stack
 

@@ -244,7 +244,7 @@ POST /api/agent/replan
 POST /api/agent/retrospective
 ```
 
-Agent outputs are validated before persistence. Clarification, stage planning, task breakdown, and replan outputs create `AgentProposal` records (pending confirmation) instead of directly mutating project state. Assignment, active-push, check-in-analysis, and risk-analysis endpoints persist their validated proposals or records through services. Negotiate records the structured output in the AgentEvent timeline only; the concrete assignment negotiation records are owned by the assignment negotiation flow, not the generic AgentProposal confirm service. Replan proposals do not apply changes until they are confirmed through `/api/agent-proposals/{proposal_id}/confirm`, which delegates to the same deterministic replan service used by `/api/replans/confirm`.
+Agent outputs are validated before persistence. Clarification, stage planning, task breakdown, and replan outputs create `AgentProposal` records (pending confirmation) instead of directly mutating project state. Assignment and active-push endpoints persist typed proposals or advisory records through services. Check-in analysis may persist Risk advisory records, but inferred task status changes are converted into pending `replan` proposals and do not call the human task status command path. Risk analysis persists Risk advisory records; mitigations that change task/stage/project state must go through replan confirmation. Negotiate records the structured output in the AgentEvent timeline only; the concrete assignment negotiation records are owned by the assignment negotiation flow, not the generic AgentProposal confirm service. Replan proposals do not apply changes until they are confirmed through `/api/agent-proposals/{proposal_id}/confirm`, which delegates to the same deterministic replan service used by `/api/replans/confirm`.
 
 The agent response includes `proposal_id` for clarify, plan, breakdown, and replan outputs; direct-persist or timeline-only events return `null`:
 
@@ -259,6 +259,22 @@ The agent response includes `proposal_id` for clarify, plan, breakdown, and repl
   "proposal_id": "uuid"
 }
 ```
+
+### Internal Agent Tools
+
+Internal tool endpoints use the T41 unified envelope and are called by the sidecar, not by browser clients. They are mounted outside the public `/api` prefix.
+
+```http
+POST /internal/agent-tools/workspace-state
+POST /internal/agent-tools/conversation
+POST /internal/agent-tools/pending-proposals
+POST /internal/agent-tools/timeline-slice
+POST /internal/agent-tools/replan-proposal
+```
+
+Every request accepts `run_id`, `tool_call_id`, `conversation_id`, `workspace_id`, `project_id`, `tool_name`, `tool_version`, `manifest_version`, `idempotency_key`, `arguments`, `client_event_id`, `ordering_hint`, and `trace`. Every response is a `ProjectFlowToolResult` with `status`, `data`, `error`, `side_effect_status`, `idempotency_key`, `links`, `observation`, and optional `trace`.
+
+Read-only tools return `side_effect_status=no_side_effect`. `POST /internal/agent-tools/replan-proposal` is a draft-only proposal tool for the model-facing `generate_replan_proposal` manifest. On success it persists a pending `replan` `AgentProposal` and returns `side_effect_status=proposal_persisted` plus `links.proposal_id`. Repeating the same `idempotency_key` reuses the same proposal; a different tool call is blocked with `status=blocked` and `side_effect_status=no_side_effect` if a pending replan already exists for the project.
 
 ### Agent Conversations
 

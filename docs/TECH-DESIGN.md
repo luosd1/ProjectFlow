@@ -15,7 +15,7 @@
 
 ## 1.1 Current Implementation Snapshot
 
-Snapshot date: 2026-06-08.
+Snapshot date: 2026-07-05.
 
 - Phase 0-41 全部完成。
 - Phase 41（2026-06-08）：全面安全审查与性能优化。安全修复：文件上传类型白名单+大小限制+移除路径泄露、资源 file_name 路径穿越防护、workspace_state XML 注入转义、user_id 存在性校验。后端性能：16 个模型全部添加数据库索引、LLM 客户端改用 httpx 连接池复用、AgentEvent input_snapshot 精简为摘要、N+1 查询批量优化、workspace_state 传递避免重复构建。前端性能：reloadProject 防抖去重、React.memo + useMemo 优化、StreamingText 节流渲染、height:auto 动画替换、react-markdown 懒加载、app-shell 移除 framer-motion、useAgentStream 闭包修复、abort 清理、useAgentChat hook 提取、request 可配置超时。
@@ -40,9 +40,9 @@ Snapshot date: 2026-06-08.
 - MVP Usable #19 (Frontend Agent Status and Review UX) is complete.
 - MVP Usable #21 (Real-Provider Verification and MVP Usable Runbook) is complete.
 - Phase 37-40: Agent conversation workflow, chat-first sidebar, streaming, PRD 对照修复（方向卡字段补全、导出中文、卡片样式统一、内联确认、复盘 Agent 总结）。
-- Current verification baseline: backend pytest 244 passing, frontend lint passing, frontend build passing, frontend audit 0 vulnerabilities.
+- Current verification baseline: backend pytest 302 passing; agent-bridge 200 tests passing with typecheck/build passing; frontend lint/build/audit baseline remains from the Phase 41 verification pass.
 
-T41 Agent Runtime update: on 2026-07-04, the target Agent runtime architecture was confirmed separately in `docs/T41/`. This TECH-DESIGN remains the MVP/current-implementation design. For new Agent runtime work, use the T41 docs, `CONTEXT.md`, and `docs/adr/` as the source of truth.
+T41 Agent Runtime update: on 2026-07-04, the target Agent runtime architecture was confirmed separately in `docs/T41/`. Through 2026-07-05, sidecar slices S3/S5/S14/S16 and lead slice S9 are implemented: `generate_replan_proposal` is registered as a draft-only internal tool, and Agent-inferred check-in task status changes now create pending replan proposals instead of directly writing `Task.status`. This TECH-DESIGN remains the MVP/current-implementation design. For new Agent runtime work, use the T41 docs, `CONTEXT.md`, and `docs/adr/` as the source of truth.
 
 ---
 
@@ -1471,7 +1471,7 @@ All agent responses include structured persistence metadata:
 }
 ```
 
-For `clarify`, `plan`, `breakdown`, and `replan`, `proposal_id` points to a pending `AgentProposal`. These routes do not directly mutate `Project.direction_card`, `Stage`, `Task`, or replan targets; mutation happens only after proposal confirmation. For `negotiate`, `proposal_id` is null: the Agent output is logged in timeline only because generic proposal confirmation cannot apply negotiation payloads.
+For `clarify`, `plan`, `breakdown`, and `replan`, `proposal_id` points to a pending `AgentProposal`. These routes do not directly mutate `Project.direction_card`, `Stage`, `Task`, or replan targets; mutation happens only after proposal confirmation. Since T41 S9, `check-in-analysis` also routes inferred task status changes into pending `replan` proposals and only persists Risk advisory records directly. For `negotiate`, `proposal_id` is null: the Agent output is logged in timeline only because generic proposal confirmation cannot apply negotiation payloads.
 
 ---
 
