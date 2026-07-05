@@ -30,6 +30,25 @@ export class FastapiClient {
     this.timeoutMs = config.timeoutMs ?? 30000;
   }
 
+  /** Shared fetch with timeout and error handling. */
+  private async fetchJson<T>(url: string, init: RequestInit): Promise<T> {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), this.timeoutMs);
+
+    try {
+      const response = await fetch(url, { ...init, signal: controller.signal });
+
+      if (!response.ok) {
+        const text = await response.text().catch(() => "");
+        throw new FastapiError(response.status, text, url);
+      }
+
+      return (await response.json()) as T;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
   private async request<T>(method: string, path: string, body?: unknown): Promise<T> {
     const url = `${this.baseUrl}${path}`;
     const headers: Record<string, string> = {
@@ -37,26 +56,11 @@ export class FastapiClient {
       Authorization: `Bearer ${this.serviceToken}`,
     };
 
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), this.timeoutMs);
-
-    try {
-      const response = await fetch(url, {
-        method,
-        headers,
-        body: body !== undefined ? JSON.stringify(body) : undefined,
-        signal: controller.signal,
-      });
-
-      if (!response.ok) {
-        const text = await response.text().catch(() => "");
-        throw new FastapiError(response.status, text, path);
-      }
-
-      return (await response.json()) as T;
-    } finally {
-      clearTimeout(timer);
-    }
+    return this.fetchJson<T>(url, {
+      method,
+      headers,
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+    });
   }
 
   /** Start a new agent run. */
@@ -86,6 +90,14 @@ export class FastapiClient {
    */
   async callTool(toolName: string, payload: Record<string, unknown>): Promise<unknown> {
     return this.request("POST", `/internal/agent-tools/${toolName}`, payload);
+  }
+
+  /**
+   * GET request to a public API endpoint (no service token).
+   * Used by read-only tools that call existing public endpoints.
+   */
+  async getPublic<T>(path: string): Promise<T> {
+    return this.fetchJson<T>(`${this.baseUrl}${path}`, { method: "GET" });
   }
 }
 

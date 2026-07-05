@@ -9,11 +9,13 @@ import { sendJson } from "./routes/utils.js";
 import { handleStartRun } from "./routes/start-run.js";
 import { handleGetRun } from "./routes/get-run.js";
 import { handleCancelRun } from "./routes/cancel-run.js";
+import { handleListTools } from "./routes/list-tools.js";
 import { handleHealth } from "./routes/health.js";
 import { getSessionStore } from "@/runtime/session-store.js";
 import { FastapiClient } from "@/tools/fastapi-client.js";
 import { ToolRegistry } from "@/tools/registry.js";
 import { registerMockTools } from "@/tools/mock-tools.js";
+import { registerDefaultTools } from "@/tools/register-defaults.js";
 import { EventStream } from "@/events/stream.js";
 import type { RunContext } from "./routes/utils.js";
 
@@ -55,6 +57,7 @@ export function createServer(config: SidecarConfig): Server {
   if (config.defaultModelProvider === "mock") {
     registerMockTools(toolRegistry);
   }
+  registerDefaultTools(toolRegistry, fastapiClient);
   const stream = new EventStream();
 
   const ctx: RunContext = {
@@ -69,6 +72,7 @@ export function createServer(config: SidecarConfig): Server {
     compileRoute("POST", "/runs", handleStartRun),
     compileRoute("GET", "/runs/:runId", handleGetRun),
     compileRoute("POST", "/runs/:runId/cancel", handleCancelRun),
+    compileRoute("GET", "/tools/list", handleListTools),
     compileRoute("GET", "/health", handleHealth),
   ];
 
