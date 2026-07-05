@@ -118,17 +118,72 @@ def execute_agent_tool(
         data = {"items": [event_to_read(e).model_dump(mode="json") for e in events]}
         return _success(data, f"{len(events)} timeline events")
 
-    if tool_name == "replan-proposal":
-        cached_proposal = _find_replan_proposal_for_idempotency_key(
+    if tool_name == "stage-plan-proposal":
+        cached_proposal = _find_proposal_for_idempotency_key(
             session,
             workspace_id=workspace_id,
             project_id=project_id,
+            proposal_type="plan",
             idempotency_key=request.idempotency_key,
         )
         if cached_proposal is not None:
-            return _replan_proposal_result(
+            return _proposal_tool_result(
                 proposal_id=cached_proposal.id,
-                output=_cached_replan_tool_data(cached_proposal),
+                agent_event_id=cached_proposal.agent_event_id,
+                output=_cached_proposal_tool_data(cached_proposal, event_type="plan"),
+                request=request,
+                observation="已复用同一次工具调用生成的阶段计划草案。",
+            )
+
+        try:
+            flow_result = run_agent_flow(
+                session,
+                workspace_id,
+                lambda coordinator, state, instruction: coordinator.generate_stage_plan(
+                    state,
+                    user_instruction=instruction,
+                ),
+                project_id=project_id,
+                user_instruction=args.get("user_instruction") if isinstance(args.get("user_instruction"), str) else None,
+            )
+        except ValueError as exc:
+            return _failed(
+                "STAGE_PLAN_PROPOSAL_FAILED",
+                str(exc),
+                side_effect_status=SideEffectStatus.no_side_effect,
+            )
+        if flow_result.proposal_id:
+            _tag_proposal_event_with_idempotency_key(
+                session,
+                proposal_id=flow_result.proposal_id,
+                request=request,
+            )
+        return _proposal_tool_result(
+            proposal_id=flow_result.proposal_id,
+            agent_event_id=_proposal_agent_event_id(session, flow_result.proposal_id),
+            output=flow_result.model_dump(mode="json"),
+            request=request,
+            created_ids=flow_result.created_ids,
+            observation=(
+                "已生成待确认的阶段计划草案。"
+                if flow_result.proposal_id
+                else "未生成阶段计划草案。"
+            ),
+        )
+
+    if tool_name == "replan-proposal":
+        cached_proposal = _find_proposal_for_idempotency_key(
+            session,
+            workspace_id=workspace_id,
+            project_id=project_id,
+            proposal_type="replan",
+            idempotency_key=request.idempotency_key,
+        )
+        if cached_proposal is not None:
+            return _proposal_tool_result(
+                proposal_id=cached_proposal.id,
+                agent_event_id=cached_proposal.agent_event_id,
+                output=_cached_proposal_tool_data(cached_proposal, event_type="replan"),
                 request=request,
                 observation="已复用同一次工具调用生成的计划调整草案。",
             )
@@ -164,8 +219,9 @@ def execute_agent_tool(
                 proposal_id=flow_result.proposal_id,
                 request=request,
             )
-        return _replan_proposal_result(
+        return _proposal_tool_result(
             proposal_id=flow_result.proposal_id,
+            agent_event_id=_proposal_agent_event_id(session, flow_result.proposal_id),
             output=flow_result.model_dump(mode="json"),
             request=request,
             created_ids=flow_result.created_ids,
@@ -184,9 +240,10 @@ def execute_read_only_tool(session: Session, request: ToolExecutionRequest) -> P
     return execute_agent_tool(session, request)
 
 
-def _replan_proposal_result(
+def _proposal_tool_result(
     *,
     proposal_id: str | None,
+    agent_event_id: str | None,
     output: dict[str, Any],
     request: ToolExecutionRequest,
     observation: str,
@@ -202,6 +259,7 @@ def _replan_proposal_result(
         ),
         idempotency_key=request.idempotency_key,
         links=ToolLinks(
+            agent_event_id=agent_event_id,
             proposal_id=proposal_id,
             created_ids=created_ids or [],
         ),
@@ -249,11 +307,12 @@ def _find_pending_replan_proposal(
     ).first()
 
 
-def _find_replan_proposal_for_idempotency_key(
+def _find_proposal_for_idempotency_key(
     session: Session,
     *,
     workspace_id: str,
     project_id: str,
+    proposal_type: str,
     idempotency_key: str,
 ) -> AgentProposal | None:
     proposals = session.exec(
@@ -261,7 +320,7 @@ def _find_replan_proposal_for_idempotency_key(
         .where(
             AgentProposal.workspace_id == workspace_id,
             AgentProposal.project_id == project_id,
-            AgentProposal.proposal_type == "replan",
+            AgentProposal.proposal_type == proposal_type,
         )
         .order_by(AgentProposal.created_at.desc())
     ).all()
@@ -298,6 +357,15 @@ def _tag_proposal_event_with_idempotency_key(
     session.commit()
 
 
+def _proposal_agent_event_id(session: Session, proposal_id: str | None) -> str | None:
+    if proposal_id is None:
+        return None
+    proposal = session.get(AgentProposal, proposal_id)
+    if proposal is None:
+        return None
+    return proposal.agent_event_id
+
+
 def _proposal_payload(proposal: AgentProposal) -> dict[str, Any]:
     proposal_read = to_proposal_read(proposal)
     if isinstance(proposal_read.payload, dict):
@@ -305,9 +373,9 @@ def _proposal_payload(proposal: AgentProposal) -> dict[str, Any]:
     return {"value": proposal_read.payload}
 
 
-def _cached_replan_tool_data(proposal: AgentProposal) -> dict[str, Any]:
+def _cached_proposal_tool_data(proposal: AgentProposal, *, event_type: str) -> dict[str, Any]:
     return {
-        "event_type": "replan",
+        "event_type": event_type,
         "status": "cached",
         "attempts": 0,
         "used_fallback": False,

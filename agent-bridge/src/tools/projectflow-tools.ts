@@ -230,6 +230,30 @@ const getTimelineSliceManifest: ProjectFlowToolManifest = {
 
 // ─── Tool: generate_replan_proposal ──────────────────────────────────────────
 
+const generateStagePlanProposalManifest: ProjectFlowToolManifest = {
+  ...PROPOSAL_DEFAULTS,
+  name: "generate_stage_plan_proposal",
+  description: "根据当前项目状态生成待确认的阶段计划草案，不直接创建或修改 Stage/Project 主事实。",
+  inputSchema: {
+    type: "object",
+    properties: {
+      project_id: { type: "string", description: "项目 ID" },
+      workspace_id: { type: "string", description: "工作区 ID（可选，默认取当前 run 的 workspace）" },
+      user_instruction: { type: "string", description: "本次阶段计划的用户意图或约束（可选）" },
+    },
+    required: ["project_id"],
+  },
+  outputSchema: {
+    type: "object",
+    description: "ProjectFlowToolResult — success 时 links.proposal_id 指向 pending plan AgentProposal",
+  },
+  backend: {
+    owner: "fastapi",
+    endpoint: "POST /internal/agent-tools/stage-plan-proposal",
+    method: "POST",
+  },
+};
+
 const generateReplanProposalManifest: ProjectFlowToolManifest = {
   ...PROPOSAL_DEFAULTS,
   name: "generate_replan_proposal",
@@ -286,6 +310,14 @@ export function createReadOnlyTools(fastapiClient: FastapiClient): RegisteredToo
   ];
 }
 
+/** Build the draft-only stage plan proposal tool. */
+export function createStagePlanProposalTool(fastapiClient: FastapiClient): RegisteredTool {
+  return {
+    manifest: generateStagePlanProposalManifest,
+    execute: createFastapiToolExecutor(fastapiClient, "stage-plan-proposal"),
+  };
+}
+
 /** Build the draft-only replan proposal tool. */
 export function createReplanProposalTool(fastapiClient: FastapiClient): RegisteredTool {
   return {
@@ -298,6 +330,7 @@ export function createReplanProposalTool(fastapiClient: FastapiClient): Register
 export function createDefaultProjectFlowTools(fastapiClient: FastapiClient): RegisteredTool[] {
   return [
     ...createReadOnlyTools(fastapiClient),
+    createStagePlanProposalTool(fastapiClient),
     createReplanProposalTool(fastapiClient),
   ];
 }

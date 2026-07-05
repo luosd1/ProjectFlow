@@ -79,7 +79,47 @@ Verification:
 Coordination status:
 
 - S4 is no longer a blocker for Member A's S5 read-only tools work.
-- Member B's next implementation slices (`S6`, `S7`, `S13`) still wait for S5 to land.
+- S5 has since landed on `main`; the latest follow-up status is tracked in the S6 handoff section below.
+
+### T41 — S6 Stage Plan Proposal Tool (2026-07-05)
+
+S6 for Member B is implemented on branch `member-b/s6-stage-plan-proposal` and verified locally.
+
+Files changed:
+
+- `backend/app/api/routes_agent_tools.py`
+- `backend/app/services/agent_tools_service.py`
+- `backend/app/tests/test_agent_tools_api.py`
+- `agent-bridge/src/tools/projectflow-tools.ts`
+- `agent-bridge/tests/unit/projectflow-tools.test.ts`
+- `docs/T41/handoff-member-b-tool-implementor.md`
+
+Key results:
+
+- Explicit proposal tool path added: `POST /internal/agent-tools/stage-plan-proposal`.
+- Tool reuses the legacy `CoordinatorAgent.generate_stage_plan` path but only creates a pending `plan` `AgentProposal`; it does not directly create `Stage` or mutate `Project`.
+- Successful tool calls return `side_effect_status=proposal_persisted` with both `links.proposal_id` and `links.agent_event_id`.
+- Repeated calls with the same idempotency key reuse the existing `plan` proposal instead of duplicating draft records.
+- Existing proposal confirm flow for `plan` still persists stages only after human confirmation.
+
+Verification:
+
+- `cd backend`
+- `python -m pytest app/tests/test_agent_tools_api.py app/tests/test_agent_proposal_confirm.py -v`
+- `cd ../agent-bridge`
+- `npm test -- --run tests/unit/projectflow-tools.test.ts`
+- `npm run typecheck`
+
+Results:
+
+- backend: `35 passed`
+- sidecar unit: `123 passed`
+- typecheck: passed
+
+Coordination status:
+
+- S6 is no longer a blocker for Member B's S7.
+- S13 still waits for S6 + S7 to finish.
 
 ## Completed
 

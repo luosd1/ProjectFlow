@@ -28,6 +28,7 @@ AGENT_TOOLS = {
     "conversation",
     "pending-proposals",
     "timeline-slice",
+    "stage-plan-proposal",
     "replan-proposal",
 }
 

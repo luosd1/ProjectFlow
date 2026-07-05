@@ -108,6 +108,31 @@ def _seed(test_engine) -> dict:
     return {"event_id": event_id}
 
 
+def _create_stage_plan_fixture(client: TestClient) -> dict:
+    owner = client.post("/api/users", json={"display_name": "Owner"}).json()
+    workspace = client.post(
+        "/api/workspaces",
+        json={"name": "Stage Plan Workspace"},
+        params={"owner_user_id": owner["id"]},
+    ).json()
+    project = client.post(
+        "/api/projects",
+        json={
+            "workspace_id": workspace["id"],
+            "name": "Stage Plan Project",
+            "idea": "Create a demo-ready MVP",
+            "deadline": "2026-07-15",
+            "deliverables": "Demo",
+            "created_by": owner["id"],
+        },
+    ).json()
+    return {
+        "owner": owner,
+        "workspace": workspace,
+        "project": project,
+    }
+
+
 def _envelope(tool_name: str, arguments: dict | None = None) -> dict:
     return {
         "run_id": "run_test",
@@ -278,6 +303,115 @@ class TestInternalAgentTools:
         proposals_resp = client.get("/api/agent-proposals", params={"project_id": "p1", "proposal_type": "replan"})
         assert proposals_resp.status_code == 200, proposals_resp.text
         assert [p["id"] for p in proposals_resp.json()] == [existing_proposal_id]
+
+    def test_stage_plan_proposal_tool_creates_pending_plan_proposal_without_creating_stages(self, client, test_engine):
+        fixture = _create_stage_plan_fixture(client)
+        project = fixture["project"]
+        workspace = fixture["workspace"]
+
+        stages_before = client.get(f"/api/projects/{project['id']}/stages").json()
+        assert stages_before == []
+
+        envelope = {
+            **_envelope(
+                "generate_stage_plan_proposal",
+                {
+                    "project_id": project["id"],
+                    "workspace_id": workspace["id"],
+                    "user_instruction": "按三周节奏生成阶段计划。",
+                },
+            ),
+            "workspace_id": workspace["id"],
+            "project_id": project["id"],
+            "idempotency_key": "run_stage_plan:call_plan:v1",
+        }
+        resp = client.post("/internal/agent-tools/stage-plan-proposal", json=envelope)
+
+        assert resp.status_code == 200, resp.text
+        data = resp.json()
+        assert data["status"] == "success"
+        assert data["side_effect_status"] == "proposal_persisted"
+        assert data["links"]["proposal_id"] is not None
+        assert data["links"]["agent_event_id"] is not None
+        assert data["idempotency_key"] == "run_stage_plan:call_plan:v1"
+
+        stages_after = client.get(f"/api/projects/{project['id']}/stages").json()
+        assert stages_after == []
+
+        proposal_resp = client.get(f"/api/agent-proposals/{data['links']['proposal_id']}")
+        assert proposal_resp.status_code == 200, proposal_resp.text
+        proposal = proposal_resp.json()
+        assert proposal["proposal_type"] == "plan"
+        assert proposal["status"] == "pending"
+        assert proposal["agent_event_id"] == data["links"]["agent_event_id"]
+        assert proposal["payload"]["requires_confirmation"] is True
+
+    def test_stage_plan_proposal_tool_reuses_same_proposal_for_idempotency_key(self, client, test_engine):
+        fixture = _create_stage_plan_fixture(client)
+        project = fixture["project"]
+        workspace = fixture["workspace"]
+        envelope = {
+            **_envelope(
+                "generate_stage_plan_proposal",
+                {
+                    "project_id": project["id"],
+                    "workspace_id": workspace["id"],
+                    "user_instruction": "生成阶段计划草案。",
+                },
+            ),
+            "workspace_id": workspace["id"],
+            "project_id": project["id"],
+            "idempotency_key": "run_stage_plan:call_plan:v1",
+        }
+
+        first = client.post("/internal/agent-tools/stage-plan-proposal", json=envelope)
+        second = client.post("/internal/agent-tools/stage-plan-proposal", json=envelope)
+
+        assert first.status_code == 200, first.text
+        assert second.status_code == 200, second.text
+        first_data = first.json()
+        second_data = second.json()
+        assert first_data["links"]["proposal_id"] == second_data["links"]["proposal_id"]
+        assert first_data["links"]["agent_event_id"] == second_data["links"]["agent_event_id"]
+
+        proposals_resp = client.get("/api/agent-proposals", params={"project_id": project["id"], "proposal_type": "plan"})
+        assert proposals_resp.status_code == 200, proposals_resp.text
+        assert [p["id"] for p in proposals_resp.json()] == [first_data["links"]["proposal_id"]]
+
+    def test_stage_plan_proposal_confirm_still_persists_stages(self, client, test_engine):
+        fixture = _create_stage_plan_fixture(client)
+        project = fixture["project"]
+        workspace = fixture["workspace"]
+        owner = fixture["owner"]
+
+        envelope = {
+            **_envelope(
+                "generate_stage_plan_proposal",
+                {
+                    "project_id": project["id"],
+                    "workspace_id": workspace["id"],
+                    "user_instruction": "生成阶段计划草案。",
+                },
+            ),
+            "workspace_id": workspace["id"],
+            "project_id": project["id"],
+            "idempotency_key": "run_stage_plan:call_confirm:v1",
+        }
+        create_resp = client.post("/internal/agent-tools/stage-plan-proposal", json=envelope)
+        assert create_resp.status_code == 200, create_resp.text
+        proposal_id = create_resp.json()["links"]["proposal_id"]
+
+        confirm_resp = client.post(
+            f"/api/agent-proposals/{proposal_id}/confirm",
+            json={"confirmed_by": owner["id"]},
+        )
+        assert confirm_resp.status_code == 200, confirm_resp.text
+
+        stages_after = client.get(f"/api/projects/{project['id']}/stages").json()
+        project_after = client.get(f"/api/projects/{project['id']}").json()
+        assert len(stages_after) > 0
+        assert any(stage["status"] == "active" for stage in stages_after)
+        assert project_after["current_stage_id"] is not None
 
 
 class TestPublicProposalStatusFilter:
