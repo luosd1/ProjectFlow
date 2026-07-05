@@ -4,7 +4,7 @@ Status: current as of 2026-07-06.
 
 ## Latest Architecture Handoff
 
-### T41 — Agent Runtime Sidecar Implementation (2026-07-04~05)
+### T41 — Agent Runtime Sidecar Implementation (2026-07-04~06)
 
 T41 Agent Runtime work now has S3, S5, S6, S7, S8, S9, S10, S14, and S16 on the integrated mainline. The sidecar owns runtime/tool registration and event bridging, while FastAPI owns persistence through `/internal/agent-tools/*` and `/internal/agent-runs/*`.
 
@@ -24,7 +24,7 @@ T41 Agent Runtime work now has S3, S5, S6, S7, S8, S9, S10, S14, and S16 on the 
 
 **Code review:** Two-axis review (Standards + Spec) completed. Hard violations fixed around XML escaping, skill tool filtering, provider parallel gating, manifest input schema forwarding, FastAPI tool envelope, cancel terminal state, references, and S16 debug storage. Judgement calls remain for future refactors around `skill-selector.ts` matching strategy and `pi-runtime.ts` module size.
 
-**Test results:** 362 backend tests pass, 409 sidecar unit tests pass (11 files), 46 frontend tests pass (9 files), sidecar typecheck/build pass.
+**Test results:** 362 backend tests pass, 409 sidecar unit tests pass (15 files), 46 frontend tests pass (9 files), sidecar typecheck/build pass.
 
 **What remains (deferred):**
 - `generate_direction_card_proposal` and `generate_task_breakdown_proposal` referenced in SKILL.md but not yet implemented
@@ -652,11 +652,11 @@ cd frontend
 
 Results:
 
-- Backend: 244 tests passed.
-- Frontend tests: 26 passed across 9 files (API layer, project dashboard, home page, app shell, action card, task status update, error boundaries, assignment flow panel, agent proposal status badge).
+- Backend: 362 tests passed.
+- Agent-bridge: 409 tests passed across 15 files.
+- Frontend tests: 46 passed across 9 files (API layer, project dashboard, home page, app shell, action card, task status update, error boundaries, assignment flow panel, agent sidebar).
 - Frontend lint passed.
 - Frontend build passed.
-- Frontend audit passed with 0 vulnerabilities.
 
 ## Current Implementation Surface
 
