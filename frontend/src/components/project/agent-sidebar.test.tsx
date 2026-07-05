@@ -356,7 +356,10 @@ describe("AgentSidebar", () => {
     expect(screen.getByText("Agent 暂时没有完成这次处理")).toBeTruthy();
     expect(screen.getByText("这次没有生成可用结果")).toBeTruthy();
 
-    const retryButton = screen.getByRole("button", { name: "重新发送" });
+    const retryButton = screen
+      .getAllByRole("button", { name: "重新发送" })
+      .find((button) => button.textContent === "重新发送");
+    if (!retryButton) throw new Error("retry button not found");
     fireEvent.click(retryButton);
 
     expect(onSendMessage).toHaveBeenCalledWith("分析当前风险");
@@ -395,7 +398,7 @@ describe("AgentSidebar", () => {
       />
     );
 
-    const input = screen.getByPlaceholderText("告诉 Agent 你的具体要求...");
+    const input = screen.getByPlaceholderText("告诉 Agent 你想推进什么...");
     fireEvent.change(input, { target: { value: "分析当前风险" } });
 
     // Shift+Enter should not send
@@ -524,11 +527,14 @@ describe("AgentSidebar", () => {
       />
     );
 
-    const retryButton = screen.getByRole("button", { name: "重新发送" }) as HTMLButtonElement;
+    const retryButton = screen
+      .getAllByRole("button", { name: "重新发送" })
+      .find((button) => button.textContent === "重新发送") as HTMLButtonElement | undefined;
+    if (!retryButton) throw new Error("retry button not found");
     expect(retryButton.disabled).toBe(true);
   });
 
-  it("shows confirmed status for payload artifact whose linked proposal is confirmed", () => {
+  it("hides payload artifact whose linked proposal is confirmed", () => {
     const stateWithConfirmedProposal: ProjectState = {
       ...baseProjectState,
       agent_proposals: [
@@ -583,11 +589,11 @@ describe("AgentSidebar", () => {
       />
     );
 
-    expect(screen.getByText("已确认")).toBeTruthy();
+    expect(screen.queryByText("调整计划草案")).toBeNull();
     expect(screen.queryByRole("button", { name: "确认应用" })).toBeNull();
   });
 
-  it("shows dismissed status for payload artifact whose linked proposal is rejected", () => {
+  it("hides payload artifact whose linked proposal is rejected", () => {
     const stateWithRejectedProposal: ProjectState = {
       ...baseProjectState,
       agent_proposals: [
@@ -643,7 +649,7 @@ describe("AgentSidebar", () => {
       />
     );
 
-    expect(screen.getByText("已忽略")).toBeTruthy();
+    expect(screen.queryByText("调整计划草案")).toBeNull();
     expect(screen.queryByRole("button", { name: "确认应用" })).toBeNull();
   });
 });

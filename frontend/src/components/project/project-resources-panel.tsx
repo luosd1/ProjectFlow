@@ -154,7 +154,7 @@ export function ProjectResourcesPanel({
                     if (!title.trim()) setTitle(file.name)
                     try {
                       const result = await uploadFile(file)
-                      setContent(result.saved_path)
+                      setContent(result.file_id)
                       if (!title.trim()) setTitle(result.original_name)
                     } catch {
                       setContent(file.name)

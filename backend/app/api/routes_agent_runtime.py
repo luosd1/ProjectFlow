@@ -13,6 +13,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session
 
 from app.core.database import get_session
+from app.core.security import require_internal_service_access
 from app.schemas.runtime import (
     AppendRequest,
     AppendResponse,
@@ -25,7 +26,11 @@ from app.schemas.runtime import (
 )
 from app.services.agent_runtime_service import get_agent_runtime_service
 
-router = APIRouter(prefix="/internal/agent-runs", tags=["agent-runtime"])
+router = APIRouter(
+    prefix="/internal/agent-runs",
+    tags=["agent-runtime"],
+    dependencies=[Depends(require_internal_service_access)],
+)
 
 
 @router.post("", response_model=RunStartResponse)

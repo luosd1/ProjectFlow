@@ -43,6 +43,7 @@ def run_agent_flow(
     user_instruction: str | None = None,
     llm_client: LLMClient | None = None,
     workspace_state: WorkspaceStateResponse | None = None,
+    auto_commit: bool = True,
 ) -> AgentFlowRead:
     if workspace_state is None:
         workspace_state = get_workspace_state(session, workspace_id, project_id=project_id)
@@ -51,7 +52,12 @@ def run_agent_flow(
 
     coordinator = CoordinatorAgent(session=session, llm_client=llm_client)
     result = method(coordinator, workspace_state, user_instruction)
-    created_ids, proposal_id = _persist_agent_output(session, workspace_state, result)
+    created_ids, proposal_id = _persist_agent_output(
+        session,
+        workspace_state,
+        result,
+        auto_commit=auto_commit,
+    )
     event_type = _event_type_for_output(result)
 
     return AgentFlowRead(
@@ -69,6 +75,8 @@ def _persist_agent_output(
     session: Session,
     workspace_state: WorkspaceStateResponse,
     result: AgentRunResult,
+    *,
+    auto_commit: bool = True,
 ) -> tuple[list[str], str | None]:
     if workspace_state.project is None:
         return [], None
@@ -166,7 +174,10 @@ def _persist_agent_output(
             session, workspace_state, project_id, "replan", output
         )
 
-    session.commit()
+    if auto_commit:
+        session.commit()
+    else:
+        session.flush()
     return created_ids, proposal_id
 
 

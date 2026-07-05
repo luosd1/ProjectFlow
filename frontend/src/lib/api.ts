@@ -423,7 +423,6 @@ export async function listProjectsByWorkspace(workspaceId: string): Promise<Proj
 export type UploadResult = {
   file_id: string
   original_name: string
-  saved_path: string
 }
 
 export async function uploadFile(file: File): Promise<UploadResult> {

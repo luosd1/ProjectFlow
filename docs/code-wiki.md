@@ -196,6 +196,7 @@ FastAPI 应用组装：lifespan 初始化 DB → CORS 中间件（localhost:3000
 | `LLM_TIMEOUT_SECONDS` | `30.0` | 诊断超时 |
 | `LLM_AGENT_TIMEOUT_SECONDS` | `120.0` | Agent 生成超时 |
 | `DEMO_ADMIN_TOKEN` | 可选 | 非 development 环境保护 seed/reset |
+| `INTERNAL_SERVICE_TOKEN` | 可选配置，internal endpoints 必需 | sidecar service-to-service Bearer token |
 
 #### [core/database.py](backend/app/core/database.py)
 
@@ -594,7 +595,14 @@ Base URL: `http://localhost:8000/api`
 | POST | /internal/agent-tools/conversation | read-only Agent conversation 工具 |
 | POST | /internal/agent-tools/pending-proposals | read-only pending proposal 工具 |
 | POST | /internal/agent-tools/timeline-slice | read-only timeline slice 工具 |
+| POST | /internal/agent-tools/direction-card-proposal | draft-only `generate_direction_card_proposal`，创建 pending clarify proposal |
+| POST | /internal/agent-tools/stage-plan-proposal | draft-only `generate_stage_plan_proposal`，创建 pending plan proposal |
+| POST | /internal/agent-tools/task-breakdown-proposal | draft-only `generate_task_breakdown_proposal`，创建 pending breakdown proposal |
+| POST | /internal/agent-tools/assignment-recommendation | draft-only `recommend_assignment`，创建 typed AssignmentProposal |
+| POST | /internal/agent-tools/checkins-and-risks-analysis | advisory-write `analyze_checkins_and_risks`，创建 Risk/ActionCard advisory records |
 | POST | /internal/agent-tools/replan-proposal | draft-only `generate_replan_proposal`，创建 pending replan proposal；重复 pending replan 时返回 blocked |
+
+这些 internal tool endpoints 必须带 `Authorization: Bearer <INTERNAL_SERVICE_TOKEN>`；未知工具返回 `blocked/TOOL_NOT_FOUND`，feature flag 禁用返回 `blocked/POLICY_DENIED`，未处理 crash 返回 `failed/unknown`。
 
 ### 提案确认
 
@@ -769,6 +777,8 @@ npm audit --omit=dev                # 安全审计
 | `LLM_TIMEOUT_SECONDS` | `30.0` | 诊断超时 |
 | `LLM_AGENT_TIMEOUT_SECONDS` | `120.0` | Agent 生成超时 |
 | `DEMO_ADMIN_TOKEN` | 可选 | 非 development 环境保护 seed/reset |
+| `INTERNAL_SERVICE_TOKEN` | — | FastAPI internal agent-tools / agent-runs Bearer token |
+| `SERVICE_TOKEN` | — | agent-bridge 旧别名；`INTERNAL_SERVICE_TOKEN` 优先 |
 | `NEXT_PUBLIC_API_BASE_URL` | `http://localhost:8000/api` | 前端 API 地址 |
 
 ---

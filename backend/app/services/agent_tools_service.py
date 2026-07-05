@@ -169,6 +169,7 @@ def execute_agent_tool(
                 ),
                 project_id=project_id,
                 user_instruction=args.get("user_instruction") if isinstance(args.get("user_instruction"), str) else None,
+                auto_commit=False,
             )
         except ValueError as exc:
             return _failed(
@@ -258,6 +259,7 @@ def execute_agent_tool(
                 ),
                 project_id=project_id,
                 user_instruction=args.get("user_instruction") if isinstance(args.get("user_instruction"), str) else None,
+                auto_commit=False,
             )
         except ValueError as exc:
             return _failed(
@@ -312,6 +314,7 @@ def execute_agent_tool(
                 ),
                 project_id=project_id,
                 user_instruction=args.get("user_instruction") if isinstance(args.get("user_instruction"), str) else None,
+                auto_commit=False,
             )
         except ValueError as exc:
             return _failed(
@@ -366,6 +369,7 @@ def execute_agent_tool(
                 ),
                 project_id=project_id,
                 user_instruction=args.get("user_instruction") if isinstance(args.get("user_instruction"), str) else None,
+                auto_commit=False,
             )
         except ValueError as exc:
             return _failed(

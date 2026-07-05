@@ -66,6 +66,7 @@ LLM_BASE_URL=https://api.modelarts-maas.com/v2/chat/completions
 LLM_MODEL=glm-5.1
 LLM_TIMEOUT_SECONDS=60.0
 LLM_AGENT_TIMEOUT_SECONDS=120.0
+INTERNAL_SERVICE_TOKEN=dev-internal-service-token
 ```
 
 > `.env` 已被 Git 忽略，不会提交。**永远不要把真实 API Key 提交到仓库。**
@@ -131,7 +132,7 @@ cd backend
 .venv\Scripts\python -m ruff check app
 ```
 
-预期：后端测试全部通过，ruff 无问题。当前测试基线为 `244 passed`。
+预期：后端测试全部通过，ruff 无问题。当前测试基线为 `367 passed`。
 
 ### 前端验证
 
@@ -278,6 +279,7 @@ LLM_BASE_URL=https://你的提供商地址/v1
 LLM_MODEL=模型名称
 LLM_TIMEOUT_SECONDS=60.0
 LLM_AGENT_TIMEOUT_SECONDS=120.0
+INTERNAL_SERVICE_TOKEN=dev-internal-service-token
 ```
 
 支持的 provider 值：`mock`（默认）、`openai`（官方 OpenAI）、`openai-compatible`（任何 OpenAI 兼容端点，如 DeepSeek、Azure OpenAI、华为云 ModelArts 等）。
@@ -290,6 +292,8 @@ LLM_API_KEY=sk-你的真实key
 LLM_BASE_URL=https://api.modelarts-maas.com/v2/chat/completions
 LLM_MODEL=glm-5.1
 LLM_TIMEOUT_SECONDS=60.0
+LLM_AGENT_TIMEOUT_SECONDS=120.0
+INTERNAL_SERVICE_TOKEN=dev-internal-service-token
 ```
 
 ### 7.3 重启后端

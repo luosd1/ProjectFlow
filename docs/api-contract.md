@@ -1,6 +1,6 @@
 # ProjectFlow API Contract
 
-Status: current as of 2026-06-06. All planned MVP endpoints are implemented; confirmation-to-persist flow for clarify/plan/breakdown/replan; negotiate agent output is timeline-only; Agent workspace context includes current time and project resources; structured assignment citations and action card fields; resource CRUD with file upload and delete; reject endpoint accepts empty body and persists rejection_reason; confirmed_by validated against User table; project delete cascades through all child data; file upload via multipart/form-data with server-side persistence; workspace creation accepts team_size and use_case.
+Status: current as of 2026-07-06. All planned MVP endpoints are implemented; confirmation-to-persist flow for clarify/plan/breakdown/replan; negotiate agent output is timeline-only; Agent workspace context includes current time and project resources; structured assignment citations and action card fields; resource CRUD with file upload and delete; reject endpoint accepts empty body and persists rejection_reason; confirmed_by validated against User table; project delete cascades through all child data; file upload via multipart/form-data with server-side persistence; workspace creation accepts team_size and use_case; T41 internal agent-tool and agent-run endpoints require service-to-service Bearer auth.
 
 This document records the implemented MVP API surface. Post-MVP ideas should be tracked in roadmap docs, not mixed into this contract.
 
@@ -135,12 +135,11 @@ Accepts a single `file` field. Returns:
 ```json
 {
   "file_id": "uuid.ext",
-  "original_name": "document.md",
-  "saved_path": "D:\\...\\backend\\data\\uploads\\uuid.ext"
+  "original_name": "document.md"
 }
 ```
 
-Requires `python-multipart` package. Uploaded files are stored in `backend/data/uploads/`. The frontend file-input components automatically upload on selection and store the returned `saved_path` in the resource's `file_name` field. Agent prompts read uploaded file content (up to 8000 bytes) via `_read_resource_file()` and include it as the resource `summary`.
+Requires `python-multipart` package. Uploaded files are stored in `backend/data/uploads/` under UUID-based filenames. The frontend file-input components automatically upload on selection and store the returned `file_id` in the resource's `file_name` field. Agent prompts read uploaded file content (up to 8000 bytes) via `_read_resource_file()` and include it as the resource `summary`.
 
 ### Stages
 
@@ -269,12 +268,31 @@ POST /internal/agent-tools/workspace-state
 POST /internal/agent-tools/conversation
 POST /internal/agent-tools/pending-proposals
 POST /internal/agent-tools/timeline-slice
+POST /internal/agent-tools/direction-card-proposal
+POST /internal/agent-tools/stage-plan-proposal
+POST /internal/agent-tools/task-breakdown-proposal
+POST /internal/agent-tools/assignment-recommendation
+POST /internal/agent-tools/checkins-and-risks-analysis
 POST /internal/agent-tools/replan-proposal
 ```
 
-Every request accepts `run_id`, `tool_call_id`, `conversation_id`, `workspace_id`, `project_id`, `tool_name`, `tool_version`, `manifest_version`, `idempotency_key`, `arguments`, `client_event_id`, `ordering_hint`, and `trace`. Every response is a `ProjectFlowToolResult` with `status`, `data`, `error`, `side_effect_status`, `idempotency_key`, `links`, `observation`, and optional `trace`.
+Every request requires `Authorization: Bearer <INTERNAL_SERVICE_TOKEN>` and accepts `run_id`, `tool_call_id`, `conversation_id`, `workspace_id`, `project_id`, `tool_name`, `tool_version`, `manifest_version`, `idempotency_key`, `arguments`, `client_event_id`, `ordering_hint`, and `trace`. Every response is a `ProjectFlowToolResult` with `status`, `data`, `error`, `side_effect_status`, `idempotency_key`, `links`, `observation`, and optional `trace`.
 
-Read-only tools return `side_effect_status=no_side_effect`. `POST /internal/agent-tools/replan-proposal` is a draft-only proposal tool for the model-facing `generate_replan_proposal` manifest. On success it persists a pending `replan` `AgentProposal` and returns `side_effect_status=proposal_persisted` plus `links.proposal_id`. Repeating the same `idempotency_key` reuses the same proposal; a different tool call is blocked with `status=blocked` and `side_effect_status=no_side_effect` if a pending replan already exists for the project.
+Read-only tools return `side_effect_status=no_side_effect`. Draft-only proposal tools (`direction-card-proposal`, `stage-plan-proposal`, `task-breakdown-proposal`, `replan-proposal`) persist pending `AgentProposal` rows and return `side_effect_status=proposal_persisted` plus `links.proposal_id`. Repeated calls with the same `idempotency_key` reuse the same proposal; proposal creation and idempotency metadata are committed in the same transaction. A different replan call is blocked with `status=blocked` and `side_effect_status=no_side_effect` if a pending replan already exists for the project.
+
+`assignment-recommendation` persists typed `AssignmentProposal` draft records without writing `Task.owner_user_id`. `checkins-and-risks-analysis` persists advisory Risk/ActionCard records and returns replan signals for any primary-state mitigation. Unknown tools return `status=blocked`, `error.code=TOOL_NOT_FOUND`; disabled feature-flagged tools return `status=blocked`, `error.code=POLICY_DENIED`; unexpected tool crashes return `status=failed`, `side_effect_status=unknown`.
+
+### Internal Agent Runs
+
+The sidecar uses the internal runtime API to create runs and append persisted runtime events. These endpoints also require `Authorization: Bearer <INTERNAL_SERVICE_TOKEN>`.
+
+```http
+POST /internal/agent-runs
+GET /internal/agent-runs/{run_id}
+GET /internal/agent-runs/{run_id}/events
+POST /internal/agent-runs/{run_id}/events:append
+POST /internal/agent-runs/{run_id}/cancel
+```
 
 ### Agent Conversations
 
