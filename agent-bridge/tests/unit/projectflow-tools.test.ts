@@ -43,6 +43,8 @@ const TOOL_NAMES = [
 
 const DEFAULT_TOOL_NAMES = [
   ...TOOL_NAMES,
+  "generate_stage_plan_proposal",
+  "analyze_checkins_and_risks",
   "generate_replan_proposal",
 ];
 
@@ -52,6 +54,8 @@ const INTERNAL_TOOL_NAME: Record<string, string> = {
   get_agent_conversation: "conversation",
   list_pending_proposals: "pending-proposals",
   get_timeline_slice: "timeline-slice",
+  generate_stage_plan_proposal: "stage-plan-proposal",
+  analyze_checkins_and_risks: "checkins-and-risks-analysis",
   generate_replan_proposal: "replan-proposal",
 };
 
@@ -60,6 +64,8 @@ const INTERNAL_ENDPOINT: Record<string, string> = {
   get_agent_conversation: "POST /internal/agent-tools/conversation",
   list_pending_proposals: "POST /internal/agent-tools/pending-proposals",
   get_timeline_slice: "POST /internal/agent-tools/timeline-slice",
+  generate_stage_plan_proposal: "POST /internal/agent-tools/stage-plan-proposal",
+  analyze_checkins_and_risks: "POST /internal/agent-tools/checkins-and-risks-analysis",
   generate_replan_proposal: "POST /internal/agent-tools/replan-proposal",
 };
 
@@ -308,7 +314,7 @@ describe("projectflow-tools", () => {
       const registry = new ToolRegistry();
       const client = createStubFastapiClient();
       registerDefaultTools(registry, client);
-      expect(registry.size).toBe(5);
+      expect(registry.size).toBe(7);
       for (const name of DEFAULT_TOOL_NAMES) {
         expect(registry.has(name)).toBe(true);
       }
@@ -318,16 +324,58 @@ describe("projectflow-tools", () => {
       const registry = new ToolRegistry();
       registerDefaultTools(registry, createStubFastapiClient());
       const manifests = registry.getModelCallableManifests();
-      expect(manifests.length).toBe(5);
+      expect(manifests.length).toBe(7);
     });
 
     it("getManifests returns all default manifests", () => {
       const registry = new ToolRegistry();
       registerDefaultTools(registry, createStubFastapiClient());
       const manifests = registry.getManifests();
-      expect(manifests.length).toBe(5);
+      expect(manifests.length).toBe(7);
       const names = manifests.map((m: ProjectFlowToolManifest) => m.name).sort();
       expect(names).toEqual([...DEFAULT_TOOL_NAMES].sort());
+    });
+
+    it("registers generate_stage_plan_proposal as a draft-only proposal tool", () => {
+      const registry = new ToolRegistry();
+      registerDefaultTools(registry, createStubFastapiClient());
+      const tool = registry.get("generate_stage_plan_proposal");
+      expect(tool).toBeDefined();
+
+      const manifest = tool!.manifest;
+      expect(manifest.riskCategory).toBe("draft_only");
+      expect(manifest.annotations.readOnly).toBe(false);
+      expect(manifest.annotations.destructive).toBe(false);
+      expect(manifest.annotations.idempotent).toBe(true);
+      expect(manifest.execution.mode).toBe("sequential");
+      expect(manifest.execution.concurrencyGroup).toBe("project_proposal_write");
+      expect(manifest.execution.providerParallelToolCallsAllowed).toBe(false);
+      expect(manifest.effects.effectType).toBe("proposal_create");
+      expect(manifest.effects.idempotencyKeyRequired).toBe(true);
+      expect(manifest.backend.endpoint).toBe("POST /internal/agent-tools/stage-plan-proposal");
+      expect(manifest.proposalConfirmation?.createsProposal).toBe(true);
+      expect(manifest.proposalConfirmation?.requiredBeforeCommit).toBe(true);
+    });
+
+    it("generate_stage_plan_proposal executor calls POST /internal/agent-tools/stage-plan-proposal", async () => {
+      const client = createStubFastapiClient();
+      const registry = new ToolRegistry();
+      registerDefaultTools(registry, client);
+      const tool = registry.get("generate_stage_plan_proposal")!;
+
+      await tool.execute(
+        { project_id: "p1", workspace_id: "ws1", user_instruction: "按三周节奏生成阶段计划。" },
+        makeContext({ toolName: "generate_stage_plan_proposal" }),
+      );
+
+      expect(client.calls.length).toBe(1);
+      expect(client.calls[0]!.toolName).toBe("stage-plan-proposal");
+      expect(client.calls[0]!.payload.tool_name).toBe("generate_stage_plan_proposal");
+      expect(client.calls[0]!.payload.arguments).toEqual({
+        project_id: "p1",
+        workspace_id: "ws1",
+        user_instruction: "按三周节奏生成阶段计划。",
+      });
     });
 
     it("registers generate_replan_proposal as a draft-only proposal tool", () => {
@@ -349,6 +397,47 @@ describe("projectflow-tools", () => {
       expect(manifest.backend.endpoint).toBe("POST /internal/agent-tools/replan-proposal");
       expect(manifest.proposalConfirmation?.createsProposal).toBe(true);
       expect(manifest.proposalConfirmation?.requiredBeforeCommit).toBe(true);
+    });
+
+    it("registers analyze_checkins_and_risks as an advisory-write tool", () => {
+      const registry = new ToolRegistry();
+      registerDefaultTools(registry, createStubFastapiClient());
+      const tool = registry.get("analyze_checkins_and_risks");
+      expect(tool).toBeDefined();
+
+      const manifest = tool!.manifest;
+      expect(manifest.riskCategory).toBe("advisory_write");
+      expect(manifest.annotations.readOnly).toBe(false);
+      expect(manifest.annotations.destructive).toBe(false);
+      expect(manifest.annotations.idempotent).toBe(true);
+      expect(manifest.execution.mode).toBe("sequential");
+      expect(manifest.execution.concurrencyGroup).toBe("project_advisory_write");
+      expect(manifest.execution.providerParallelToolCallsAllowed).toBe(false);
+      expect(manifest.effects.effectType).toBe("advisory_record_create");
+      expect(manifest.effects.idempotencyKeyRequired).toBe(true);
+      expect(manifest.backend.endpoint).toBe("POST /internal/agent-tools/checkins-and-risks-analysis");
+      expect(manifest.proposalConfirmation).toBeUndefined();
+    });
+
+    it("analyze_checkins_and_risks executor calls POST /internal/agent-tools/checkins-and-risks-analysis", async () => {
+      const client = createStubFastapiClient();
+      const registry = new ToolRegistry();
+      registerDefaultTools(registry, client);
+      const tool = registry.get("analyze_checkins_and_risks")!;
+
+      await tool.execute(
+        { project_id: "p1", workspace_id: "ws1", user_instruction: "Analyze latest blockers and risks." },
+        makeContext({ toolName: "analyze_checkins_and_risks" }),
+      );
+
+      expect(client.calls.length).toBe(1);
+      expect(client.calls[0]!.toolName).toBe("checkins-and-risks-analysis");
+      expect(client.calls[0]!.payload.tool_name).toBe("analyze_checkins_and_risks");
+      expect(client.calls[0]!.payload.arguments).toEqual({
+        project_id: "p1",
+        workspace_id: "ws1",
+        user_instruction: "Analyze latest blockers and risks.",
+      });
     });
 
     it("generate_replan_proposal executor calls POST /internal/agent-tools/replan-proposal", async () => {

@@ -124,6 +124,56 @@ const PROPOSAL_DEFAULTS = {
   },
 };
 
+const ADVISORY_WRITE_DEFAULTS = {
+  schemaVersion: 1,
+  version: 1,
+  riskCategory: "advisory_write" as const,
+  modelCallable: true,
+  sidecarOnly: false,
+  humanTriggeredOnly: false,
+  annotations: {
+    readOnly: false,
+    destructive: false,
+    idempotent: true,
+    openWorld: false,
+  },
+  execution: {
+    mode: "sequential" as const,
+    concurrencyGroup: "project_advisory_write",
+    maxConcurrency: 1,
+    providerParallelToolCallsAllowed: false,
+  },
+  timeoutMs: 120000,
+  retry: {
+    maxAttempts: 1,
+    retryOn: ["timeout", "network_error"],
+  },
+  resultLimit: {
+    maxBytes: 65536,
+    redaction: "secrets" as const,
+  },
+  effects: {
+    effectType: "advisory_record_create" as const,
+    idempotencyKeyRequired: true,
+    replaySafe: true,
+  },
+  privacy: {
+    dataClassification: "project_sensitive" as const,
+    traceIncludeInputs: false,
+    traceIncludeOutputs: false,
+  },
+  errors: {
+    modelVisibleErrorPolicy: "normalized_summary" as const,
+  },
+  resume: {
+    manifestVersion: 1,
+    incompatibleVersionPolicy: "regenerate" as const,
+  },
+  trace: {
+    emits: ["tool.started", "tool.completed", "advisory_record.created"],
+  },
+};
+
 // ─── Tool: get_workspace_state ────────────────────────────────────────────────
 
 const getWorkspaceStateManifest: ProjectFlowToolManifest = {
@@ -230,6 +280,30 @@ const getTimelineSliceManifest: ProjectFlowToolManifest = {
 
 // ─── Tool: generate_replan_proposal ──────────────────────────────────────────
 
+const generateStagePlanProposalManifest: ProjectFlowToolManifest = {
+  ...PROPOSAL_DEFAULTS,
+  name: "generate_stage_plan_proposal",
+  description: "根据当前项目状态生成待确认的阶段计划草案，不直接创建或修改 Stage/Project 主事实。",
+  inputSchema: {
+    type: "object",
+    properties: {
+      project_id: { type: "string", description: "项目 ID" },
+      workspace_id: { type: "string", description: "工作区 ID（可选，默认取当前 run 的 workspace）" },
+      user_instruction: { type: "string", description: "本次阶段计划的用户意图或约束（可选）" },
+    },
+    required: ["project_id"],
+  },
+  outputSchema: {
+    type: "object",
+    description: "ProjectFlowToolResult — success 时 links.proposal_id 指向 pending plan AgentProposal",
+  },
+  backend: {
+    owner: "fastapi",
+    endpoint: "POST /internal/agent-tools/stage-plan-proposal",
+    method: "POST",
+  },
+};
+
 const generateReplanProposalManifest: ProjectFlowToolManifest = {
   ...PROPOSAL_DEFAULTS,
   name: "generate_replan_proposal",
@@ -249,6 +323,30 @@ const generateReplanProposalManifest: ProjectFlowToolManifest = {
   backend: {
     owner: "fastapi",
     endpoint: "POST /internal/agent-tools/replan-proposal",
+    method: "POST",
+  },
+};
+
+const analyzeCheckinsAndRisksManifest: ProjectFlowToolManifest = {
+  ...ADVISORY_WRITE_DEFAULTS,
+  name: "analyze_checkins_and_risks",
+  description: "分析签到和风险信号，幂等创建 advisory Risk/ActionCard 记录；若涉及主事实调整，只返回后续 replan 信号而不直接提交。",
+  inputSchema: {
+    type: "object",
+    properties: {
+      project_id: { type: "string", description: "项目 ID" },
+      workspace_id: { type: "string", description: "工作区 ID（可选，默认取当前 run 的 workspace）" },
+      user_instruction: { type: "string", description: "本次分析的补充意图或约束（可选）" },
+    },
+    required: ["project_id"],
+  },
+  outputSchema: {
+    type: "object",
+    description: "ProjectFlowToolResult - success 时返回 created_ids，以及需要后续 generate_replan_proposal 处理的 replan_signal。",
+  },
+  backend: {
+    owner: "fastapi",
+    endpoint: "POST /internal/agent-tools/checkins-and-risks-analysis",
     method: "POST",
   },
 };
@@ -286,6 +384,14 @@ export function createReadOnlyTools(fastapiClient: FastapiClient): RegisteredToo
   ];
 }
 
+/** Build the draft-only stage plan proposal tool. */
+export function createStagePlanProposalTool(fastapiClient: FastapiClient): RegisteredTool {
+  return {
+    manifest: generateStagePlanProposalManifest,
+    execute: createFastapiToolExecutor(fastapiClient, "stage-plan-proposal"),
+  };
+}
+
 /** Build the draft-only replan proposal tool. */
 export function createReplanProposalTool(fastapiClient: FastapiClient): RegisteredTool {
   return {
@@ -294,10 +400,20 @@ export function createReplanProposalTool(fastapiClient: FastapiClient): Register
   };
 }
 
+/** Build the advisory-write checkin/risk analysis tool. */
+export function createCheckinsAndRisksAnalysisTool(fastapiClient: FastapiClient): RegisteredTool {
+  return {
+    manifest: analyzeCheckinsAndRisksManifest,
+    execute: createFastapiToolExecutor(fastapiClient, "checkins-and-risks-analysis"),
+  };
+}
+
 /** Build all default ProjectFlow tools registered for the sidecar runtime. */
 export function createDefaultProjectFlowTools(fastapiClient: FastapiClient): RegisteredTool[] {
   return [
     ...createReadOnlyTools(fastapiClient),
+    createStagePlanProposalTool(fastapiClient),
+    createCheckinsAndRisksAnalysisTool(fastapiClient),
     createReplanProposalTool(fastapiClient),
   ];
 }
