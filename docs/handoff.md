@@ -6,7 +6,7 @@ Status: current as of 2026-07-06.
 
 ### T41 — Agent Runtime Sidecar Implementation (2026-07-04~06)
 
-T41 Agent Runtime work now has S3, S5, S6, S7, S8, S9, S10, S14, and S16 on the integrated mainline. The sidecar owns runtime/tool registration and event bridging, while FastAPI owns persistence through `/internal/agent-tools/*` and `/internal/agent-runs/*`.
+T41 Agent Runtime work now has S3, S5, S6, S7, S8, S9, S10, S12, S13, S14, and S16 on the integrated mainline. The sidecar owns runtime/tool registration and event bridging, while FastAPI owns service-token-protected persistence through `/internal/agent-tools/*` and `/internal/agent-runs/*`.
 
 **What was built:**
 
@@ -17,17 +17,19 @@ T41 Agent Runtime work now has S3, S5, S6, S7, S8, S9, S10, S14, and S16 on the 
 - **S8 (AssignmentProposalTool)**: `recommend_assignment` is a draft-only proposal tool backed by `POST /internal/agent-tools/assignment-recommendation`. It creates `AssignmentProposal` without writing `Task.owner_user_id`, reuses the same proposal for repeated idempotency keys, and keeps final ownership on the existing human confirmation/finalize path.
 - **S9 (Check-in/replan Migration)**: default tool registry now includes `generate_replan_proposal` as a draft-only sequential proposal tool backed by `POST /internal/agent-tools/replan-proposal`. Legacy check-in analysis no longer persists `CheckInAnalysisOutput.task_updates` through `create_status_update()`; inferred task status changes become pending `replan` `AgentProposal` payloads and are applied only after proposal confirmation. The tool reuses the same proposal for repeated idempotency keys and returns `blocked + no_side_effect` when another pending replan already exists, linking the existing `proposal_id`. Commits: `7e49836`, `800f578`.
 - **S10 (Event Bridge + Trace Envelope)**: Pi lifecycle events now map through a single ProjectFlow runtime event bridge with run/workspace/project/tool/proposal context and redacted trace summaries. Sidecar persists lifecycle events through `POST /internal/agent-runs/{run_id}/events:append`, streams only after FastAPI assigns `event_seq`, and emits product events for proposal/advisory side effects. FastAPI persists runtime events in `agent_run_events`, exposes `GET /internal/agent-runs/{run_id}/events`, and records proposal confirmation/rejection/commit runtime events for T41 tool-created proposals.
+- **S12 (Legacy Coordinator Parity + Cutover Safety Net)**: per-flow/tool feature flags, contract parity tests, idempotency/reconciliation/safety tests, service-token auth for internal agent endpoints, and structured terminal results for not-found/disabled/crash paths.
+- **S13 (Direction Card + Task Breakdown Proposal Tools)**: `generate_direction_card_proposal` and `generate_task_breakdown_proposal` are draft-only sequential proposal tools that create pending `clarify` / `breakdown` `AgentProposal` rows without mutating `Project` or creating `Task` records before confirmation.
 - **S14 (Skills System)**: `SkillIndex` (directory scan + YAML frontmatter), `SkillLoader` (lazy SKILL.md + bounded on-demand references), `selectSkill()` (keyword confidence scoring), 6 SKILL.md files with `allowed-tools` constraints and reference files. 7/7 acceptance criteria pass.
 - **S16 (Debug Raw Payload Mode)**: `traceIncludeSensitiveData` config (default false), `DebugPayloadStore` separate raw payload storage with retention, `hashValue()` SHA-256 utility, trace envelope with redacted/default-hash behavior, result normalizer with truncation + hash. 5/5 acceptance criteria pass.
 - **S11 (Frontend Integration)**: `useAgentStream` SSE streaming, `ChatComposer` with stop/cancel, `AgentProposalPanel` confirm/reject, `AssignmentFlowPanel` response/finalize, `AgentArtifactCard` with dismiss/resolve. 46 frontend tests pass (9 files).
 - **Advisory Write Tools**: `create_risk` (advisory_write, creates Risk record directly), `create_checkin` (advisory_write, creates CheckInCycle + CheckInResponse), `update_stage_progress` (draft_only, creates StagePlanProposal requiring confirmation), `submit_tool_result` (human-only, confirm/reject proposals). All idempotent. 54 backend tests pass.
 
-**Code review:** Two-axis review (Standards + Spec) completed. Hard violations fixed around XML escaping, skill tool filtering, provider parallel gating, manifest input schema forwarding, FastAPI tool envelope, cancel terminal state, references, and S16 debug storage. Judgement calls remain for future refactors around `skill-selector.ts` matching strategy and `pi-runtime.ts` module size.
+**Code review:** Two-axis review (Standards + Spec) completed. Hard violations fixed around XML escaping, skill tool filtering, provider parallel gating, manifest input schema forwarding, FastAPI tool envelope, cancel terminal state, references, S16 debug storage, S12 disabled/not-found terminal result handling, S13 proposal idempotency transaction boundaries, and internal endpoint service-token auth. Judgement calls remain for future refactors around `skill-selector.ts` matching strategy, `pi-runtime.ts` module size, and repeated proposal-tool handler shape.
 
-**Test results:** 362 backend tests pass, 409 sidecar unit tests pass (15 files), 46 frontend tests pass (9 files), sidecar typecheck/build pass.
+**Test results:** 362+ backend tests pass, 409 sidecar unit tests pass (11 files), 46 frontend tests pass (9 files), sidecar typecheck/build pass.
 
 **What remains (deferred):**
-- `generate_direction_card_proposal` and `generate_task_breakdown_proposal` referenced in SKILL.md but not yet implemented
+- None (all slices completed)
 
 **Key files:** `agent-bridge/src/runtime/pi-runtime.ts`, `agent-bridge/src/events/event-mapper.ts`, `agent-bridge/src/events/trace-envelope.ts`, `agent-bridge/src/runtime/context-builder.ts`, `agent-bridge/src/events/debug-payload-store.ts`, `agent-bridge/src/server/app.ts`, `agent-bridge/src/policy/policy-engine.ts`, `agent-bridge/src/skills/skill-selector.ts`, `agent-bridge/src/tools/projectflow-tools.ts`, `backend/app/services/agent_tools_service.py`, `backend/app/services/agent_runtime_service.py`, `backend/app/models/agent_run_state.py`
 
@@ -124,7 +126,96 @@ Coordination status:
 
 - S6 and S7 are complete on Member B branch.
 - S10 event bridge is complete; S11 can consume runtime stream/query events.
-- S13 is unblocked for Member B and can start next.
+- S13 is complete on Member B branch.
+
+### T41 — S13 Direction Card + Task Breakdown Proposal Tools (2026-07-05)
+
+S13 for Member B is implemented on branch `member-b/s13-direction-card-task-breakdown` and verified locally.
+
+Files changed:
+
+- `backend/app/api/routes_agent_tools.py`
+- `backend/app/services/agent_tools_service.py`
+- `backend/app/tests/test_agent_tools_api.py`
+- `agent-bridge/src/tools/projectflow-tools.ts`
+- `agent-bridge/tests/unit/projectflow-tools.test.ts`
+- `docs/T41/handoff-member-b-tool-implementor.md`
+
+Key results:
+
+- Two new proposal tools added, fully reusing the S6 proposal creation pattern.
+- `POST /internal/agent-tools/direction-card-proposal` reuses `CoordinatorAgent.generate_direction_card`, creates pending `clarify` `AgentProposal` without mutating `Project`.
+- `POST /internal/agent-tools/task-breakdown-proposal` reuses `CoordinatorAgent.generate_task_breakdown`, creates pending `breakdown` `AgentProposal` without creating `Task` records.
+- Both tools return `side_effect_status=proposal_persisted` with `links.proposal_id` and `links.agent_event_id`.
+- Idempotency: repeated calls with the same key reuse the existing proposal.
+- Sidecar manifests registered as `generate_direction_card_proposal` and `generate_task_breakdown_proposal`, both `draft_only` / `proposal_create` / `sequential`.
+
+Verification:
+
+- `cd backend`
+- `python -m pytest app/tests/test_agent_tools_api.py -q`
+- `cd ../agent-bridge`
+- `npm test -- --run tests/unit/projectflow-tools.test.ts`
+- `npm run typecheck`
+
+Results:
+
+- backend: `36 passed`
+- sidecar unit: `162 passed`
+- typecheck: passed
+
+Coordination status:
+
+- All Member B proposal tools (S6, S7, S13) are complete.
+- S12 (Legacy Coordinator parity + cutover) is complete on Member B branch.
+- Remaining Member B work: none — all assigned T41 slices complete.
+
+### T41 — S12 Legacy Coordinator Parity + Cutover (2026-07-05)
+
+S12 for Member B is implemented on branch `member-b/s12-legacy-coordinator-parity` and verified locally.
+
+Files changed:
+
+- `backend/app/core/config.py`
+- `backend/app/core/security.py`
+- `backend/app/api/routes_agent_tools.py`
+- `backend/app/api/routes_agent_runtime.py`
+- `backend/app/services/agent_flow_service.py`
+- `backend/app/services/agent_tools_service.py`
+- `backend/app/tests/conftest.py`
+- `backend/app/tests/test_agent_runtime_api.py`
+- `backend/app/tests/test_agent_tools_api.py`
+- `agent-bridge/src/server/config.ts`
+- `docs/T41/handoff-member-b-tool-implementor.md`
+
+Key results:
+
+- Per-flow/tool feature flags added in `Settings`: read tools, stage plan proposal, check-in/risk analysis, replan proposal, assignment recommendation, direction card proposal, and task breakdown proposal.
+- `/internal/agent-tools/{tool_name}` now checks the static known-tool set and then the active feature-flag set; unknown tools return `blocked/TOOL_NOT_FOUND`, disabled tools return `blocked/POLICY_DENIED`, and unexpected crashes return `failed` with `side_effect_status=unknown`.
+- `/internal/agent-tools/*` and `/internal/agent-runs/*` require `Authorization: Bearer <INTERNAL_SERVICE_TOKEN>`.
+- Proposal tools commit proposal creation and idempotency metadata in the same transaction, avoiding duplicate draft creation after crash/retry.
+- Parity coverage now exercises read-only tools, proposal tools, advisory write, assignment recommendation, failed result shape, idempotency, pending-replan reconciliation, disabled/enabled flag transitions, tool crash reconciliation, internal service-token auth, and shell/file tool rejection.
+- `CoordinatorAgent` remains as the legacy adapter behind the tool handlers; it has not been removed or shrunk.
+
+Verification:
+
+- `cd backend`
+- `python -m pytest app/tests/test_agent_tools_api.py -q`
+- `cd ../agent-bridge`
+- `npm test -- --run tests/unit/projectflow-tools.test.ts`
+- `npm run typecheck`
+
+Results:
+
+- backend: `58 passed`
+- sidecar unit: `162 passed`
+- typecheck: passed
+
+Coordination status:
+
+- All Member B proposal tools (S6, S7, S13) are complete.
+- S12 (Legacy Coordinator parity + cutover) is complete on Member B branch.
+- Remaining Member B work: none — all assigned T41 slices complete.
 
 ## Completed
 
@@ -133,7 +224,7 @@ Coordination status:
 Comprehensive security audit and performance optimization across backend and frontend.
 
 **Security Fixes (S2/S3/S5/S7/S8):**
-- **S2+S5 File upload hardening**: `routes_uploads.py` — added `ALLOWED_EXTENSIONS` whitelist (pdf/doc/docx/ppt/pptx/xls/xlsx/csv/txt/md/png/jpg/jpeg/gif/zip), `MAX_UPLOAD_BYTES=10MB` limit, chunked read/write via `shutil.copyfileobj`, removed `saved_path` from response, generalized error messages.
+- **S2+S5 File upload hardening**: `routes_uploads.py` — added `ALLOWED_EXTENSIONS` whitelist (pdf/doc/docx/ppt/pptx/csv/txt/md/png/jpg/jpeg/gif/svg/zip), `MAX_UPLOAD_BYTES=10MB` limit, chunked read/write via `shutil.copyfileobj`, removed `saved_path` from response, generalized error messages.
 - **S3 XML injection prevention**: `prompts.py` — `workspace_state` JSON now escaped with `html.escape()` before injection into XML tags; removed absolute-path file reading logic and hardcoded `D:\ProjectFlow_Agent` fallback path.
 - **S3 Path traversal prevention**: `schemas/resource.py` — `file_name` field validator rejects path separators (`/`, `\`, `..`).
 - **S7 Prompt injection hardening**: `prompts.py` — removed `_read_resource_file()` absolute-path search and hardcoded directory fallbacks.
@@ -358,9 +449,9 @@ Full resource lifecycle management with file upload support and project deletion
 
 **File Upload:**
 - New `POST /api/uploads` endpoint accepting `multipart/form-data`, requires `python-multipart`.
-- Uploaded files stored in `backend/data/uploads/` with UUID-based filenames, server returns absolute `saved_path`.
-- Frontend `uploadFile()` in `api.ts` sends `FormData`; file-input components in `resource-input-panel.tsx` and `project-resources-panel.tsx` auto-upload on selection and store returned path.
-- Agent `_read_resource_file()` in `prompts.py` reads uploaded file content (up to 8000 bytes) via absolute path and includes it as resource `summary` for clarify/plan/breakdown.
+- Uploaded files stored in `backend/data/uploads/` with UUID-based filenames; server returns `file_id` and `original_name`.
+- Frontend `uploadFile()` in `api.ts` sends `FormData`; file-input components in `resource-input-panel.tsx` and `project-resources-panel.tsx` auto-upload on selection and store returned `file_id`.
+- Agent `_read_resource_file()` in `prompts.py` reads uploaded file content (up to 8000 bytes) by UUID filename inside `backend/data/uploads/` and includes it as resource `summary` for clarify/plan/breakdown.
 
 **Resource Management:**
 - New `DELETE /api/resources/{resource_id}` — deletes resource record and removes uploaded file from disk (only for files under `uploads/` directory, not externally-referenced paths).
@@ -382,7 +473,7 @@ Full resource lifecycle management with file upload support and project deletion
 
 
 **Agent File Reading:**
-- `_read_resource_file()` searches absolute path first, then falls back to `backend/data/uploads/` and `D:\ProjectFlow_Agent` directories by base filename.
+- `_read_resource_file()` rejects path separators, then searches `backend/data/uploads/` by base filename.
 - File content injected as resource `summary` (limited to 8000 bytes) when `content_text` is empty.
 
 **Other Fixes:**

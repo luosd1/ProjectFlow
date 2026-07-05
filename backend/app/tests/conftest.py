@@ -8,6 +8,7 @@ os.environ["APP_ENV"] = "development"
 os.environ["DATABASE_URL"] = "sqlite://"
 os.environ["LLM_PROVIDER"] = "mock"
 os.environ["LLM_API_KEY"] = ""
+os.environ["INTERNAL_SERVICE_TOKEN"] = "test-internal-service-token"
 
 import pytest
 from fastapi import FastAPI
@@ -61,6 +62,6 @@ def client():
     app.router.lifespan_context = _noop_lifespan
 
     app.dependency_overrides[get_session] = _override_session
-    with TestClient(app) as c:
+    with TestClient(app, headers={"Authorization": "Bearer test-internal-service-token"}) as c:
         yield c
     app.dependency_overrides.clear()

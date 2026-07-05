@@ -12,8 +12,39 @@ class Settings(BaseSettings):
     llm_timeout_seconds: PositiveFloat = 30.0
     llm_agent_timeout_seconds: PositiveFloat = 120.0
     demo_admin_token: SecretStr | None = None
+    internal_service_token: SecretStr | None = None
+
+    # ── T41 Per-Tool Feature Flags ──────────────────────────────────
+    # Disable a flag to immediately stop the corresponding tool endpoint
+    # from being served (returns 404).  Default: all enabled.
+    feature_read_tools: bool = True
+    feature_stage_plan_proposal: bool = True
+    feature_checkins_and_risks_analysis: bool = True
+    feature_replan_proposal: bool = True
+    feature_assignment_recommendation: bool = True
+    feature_direction_card_proposal: bool = True
+    feature_task_breakdown_proposal: bool = True
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+
+    def enabled_agent_tools(self) -> set[str]:
+        """Return the set of tool endpoint names that are enabled."""
+        tools: set[str] = set()
+        if self.feature_read_tools:
+            tools.update({"workspace-state", "conversation", "pending-proposals", "timeline-slice"})
+        if self.feature_stage_plan_proposal:
+            tools.add("stage-plan-proposal")
+        if self.feature_checkins_and_risks_analysis:
+            tools.add("checkins-and-risks-analysis")
+        if self.feature_replan_proposal:
+            tools.add("replan-proposal")
+        if self.feature_assignment_recommendation:
+            tools.add("assignment-recommendation")
+        if self.feature_direction_card_proposal:
+            tools.add("direction-card-proposal")
+        if self.feature_task_breakdown_proposal:
+            tools.add("task-breakdown-proposal")
+        return tools
 
 
 settings = Settings()

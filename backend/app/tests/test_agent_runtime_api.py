@@ -51,7 +51,7 @@ def client(test_engine):
             yield session
 
     app.dependency_overrides[get_session] = override_get_session
-    with TestClient(app) as c:
+    with TestClient(app, headers={"Authorization": "Bearer test-internal-service-token"}) as c:
         yield c
     app.dependency_overrides.clear()
 
@@ -67,6 +67,28 @@ def db_session():
 
 class TestStartAgentRun:
     """Test POST /internal/agent-runs."""
+
+    def test_internal_agent_runs_require_service_token(self, test_engine):
+        from app.core.database import get_session
+
+        def override_get_session():
+            with Session(test_engine) as session:
+                yield session
+
+        app.dependency_overrides[get_session] = override_get_session
+        try:
+            with TestClient(app) as unauthenticated_client:
+                response = unauthenticated_client.post("/internal/agent-runs", json={
+                    "conversation_id": "conv_123",
+                    "workspace_id": "ws_456",
+                    "project_id": "proj_789",
+                    "user_message_id": "msg_001",
+                    "user_content": "帮我重新规划一下",
+                })
+        finally:
+            app.dependency_overrides.clear()
+
+        assert response.status_code == 403
 
     def test_start_run(self, client):
         """Test creating a new agent run."""

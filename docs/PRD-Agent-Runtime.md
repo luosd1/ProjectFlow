@@ -316,7 +316,7 @@ agent-bridge/
 11. Frontend integration：stream/timeline/proposal/advisory state presentation
 12. Legacy Coordinator parity + cutover：migrate remaining flows only after parity/idempotency/safety tests
 
-Progress note (2026-07-05): S3, S5, S9, S14, and S16 are implemented. S9 delivered `generate_replan_proposal` as a draft-only internal tool and migrated Agent-inferred check-in task status changes into pending `replan` proposals rather than direct `Task.status` writes.
+Progress note (2026-07-06): S3, S5, S6, S7, S8, S9, S10, S12, S13, S14, and S16 are implemented. The current tool registry includes read-only state/timeline tools, draft-only stage plan/direction card/task breakdown/replan tools, typed assignment recommendation, and advisory check-in/risk analysis. FastAPI internal agent-tools and agent-runs endpoints require service-token auth, and tool denial/not-found/crash paths return structured terminal `ProjectFlowToolResult` records.
 
 ### 安全约束
 

@@ -115,9 +115,10 @@ cd frontend
 ../scripts/npm audit --omit=dev
 ```
 
-Expected baseline as of 2026-06-08:
+Expected baseline as of 2026-07-06:
 
-- Backend tests pass: 244 tests (MVP API/model smoke plus CORS, agent schema, module, provider, fallback, timeline logging, assignment, action-card, check-in, risk, replan, seed/reset/export, demo reset, LLM diagnostic, agent proposal, agent module, agent proposal confirm, usability pass, stage override, negotiation module, time/resource prompt context, fallback Chinese, negotiate timeline-only, and retrospective tests).
+- Backend tests pass: 367 tests (MVP API/model smoke plus CORS, agent schema/module/provider/fallback, timeline logging, assignment, action-card, check-in, risk, replan, seed/reset/export, demo reset, LLM diagnostic, agent proposal confirmation, T41 internal tool/runtime contract, service-token auth, idempotency, side-effect reconciliation, and runtime event bridge tests).
+- Agent bridge tests pass: 248 tests across 11 unit files; `../scripts/npm run typecheck` and `../scripts/npm run build` pass in `agent-bridge/`.
 - Frontend tests pass: 26 tests across 9 files (API layer, project dashboard, home page, app shell, action cards, task status update, error boundaries, assignment flow panel, agent proposal panel with generation-status badge coverage).
 - Frontend lint passes.
 - Frontend production build passes.
@@ -208,6 +209,8 @@ ALTER TABLE assignment_proposals ADD COLUMN constraint_respected TEXT;
 | `LLM_TIMEOUT_SECONDS` | backend LLM diagnostics | no | Defaults to `30.0`; used by provider diagnostics and direct client checks. |
 | `LLM_AGENT_TIMEOUT_SECONDS` | backend Agent generation | no | Defaults to `120.0`; real structured Agent runs are slower than health checks. |
 | `DEMO_ADMIN_TOKEN` | backend demo admin | outside development | Required for seed/reset endpoints when `APP_ENV` is not `development`. Send it as `X-ProjectFlow-Admin-Token`. |
+| `INTERNAL_SERVICE_TOKEN` | backend + agent bridge | yes for T41 sidecar/internal endpoints | Backend requires it for `/internal/agent-tools/*` and `/internal/agent-runs/*`; sidecar sends the same value as `Authorization: Bearer ...`. |
+| `SERVICE_TOKEN` | agent bridge | no | Backward-compatible sidecar alias; ignored when `INTERNAL_SERVICE_TOKEN` is set. |
 | `NEXT_PUBLIC_API_BASE_URL` | frontend | no | Defaults to `http://localhost:8000/api`. |
 
 ## Demo Seed Data and Reset

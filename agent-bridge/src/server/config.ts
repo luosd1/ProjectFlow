@@ -33,7 +33,7 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     host: env.AGENT_BRIDGE_HOST ?? "127.0.0.1",
     port: parseInt(env.AGENT_BRIDGE_PORT ?? "4000", 10),
     fastapiBaseUrl: env.FASTAPI_BASE_URL ?? "http://localhost:8000",
-    serviceToken: env.SERVICE_TOKEN ?? "",
+    serviceToken: env.INTERNAL_SERVICE_TOKEN ?? env.SERVICE_TOKEN ?? "",
     defaultModelProvider: env.DEFAULT_MODEL_PROVIDER ?? "mock",
     defaultModelName: env.DEFAULT_MODEL_NAME ?? "mock-model",
     defaults: {

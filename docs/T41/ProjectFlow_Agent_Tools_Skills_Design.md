@@ -487,7 +487,7 @@ POST /internal/agent-tools/checkins-and-risks-analysis
 POST /internal/agent-tools/replan-proposal
 ```
 
-Current implementation status as of 2026-07-05: `workspace-state`, `conversation`, `pending-proposals`, `timeline-slice`, and `replan-proposal` are implemented. The remaining proposal/advisory tools stay in the planned endpoint set until their slices land.
+Current implementation status as of 2026-07-06: all listed first-batch endpoints are implemented behind `/internal/agent-tools/*`. Internal tool and run endpoints require `Authorization: Bearer <INTERNAL_SERVICE_TOKEN>`. Unknown tools return `blocked/TOOL_NOT_FOUND`; feature-flag-denied tools return `blocked/POLICY_DENIED`; unexpected tool crashes return `failed` with `side_effect_status=unknown`.
 
 internal endpoint 统一接收：
 

@@ -362,7 +362,7 @@ export function ResourceInputPanel({ onChange }: ResourceInputPanelProps) {
                                     try {
                                       const result = await uploadFile(file)
                                       updateResource(index, {
-                                        file_name: result.saved_path,
+                                        file_name: result.file_id,
                                         title: title || result.original_name,
                                       })
                                     } catch {
