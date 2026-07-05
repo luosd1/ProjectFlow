@@ -1,6 +1,6 @@
 # ProjectFlow Handoff
 
-Status: current as of 2026-07-04.
+Status: current as of 2026-07-05.
 
 ## Latest Architecture Handoff
 
@@ -10,21 +10,20 @@ T41 Agent Runtime TypeScript sidecar (`agent-bridge/`) implemented slices S3, S1
 
 **What was built:**
 
-- **S3 (Sidecar Skeleton + Pi Runtime Adapter)**: HTTP server on port 4000, `executeRun()` wrapping Pi's `runAgentLoop`, `toPiTool()` conversion, `handlePiEvent()` mapping, FastAPI service-to-service client, model router (openai/openrouter/deepseek/anthropic/mock), context builder with stable prefix + dynamic suffix + XML tag isolation, wire format adapter (snake_case ↔ camelCase). 10/10 acceptance criteria pass.
-- **S14 (Skills System)**: `SkillIndex` (directory scan + YAML frontmatter), `SkillLoader` (lazy SKILL.md + on-demand references), `selectSkill()` (keyword confidence scoring), 6 SKILL.md files with `allowed-tools` constraints. 7/7 acceptance criteria pass.
-- **S16 (Debug Raw Payload Mode)**: `traceIncludeSensitiveData` config (default false), `hashValue()` SHA-256 utility, trace envelope with `redacted` flag, result normalizer with truncation + hash. 5/5 acceptance criteria pass.
+- **S3 (Sidecar Skeleton + Pi Runtime Adapter)**: HTTP server on port 4000, `executeRun()` wrapping Pi's `runAgentLoop`, `toPiTool()` conversion, `handlePiEvent()` mapping, FastAPI service-to-service client, model router (openai/openrouter/deepseek/anthropic/mock), context builder with stable prefix + dynamic suffix + escaped XML data, mock provider/tool loop, cancel signal handling, wire format adapter (snake_case ↔ camelCase). 10/10 acceptance criteria pass.
+- **S14 (Skills System)**: `SkillIndex` (directory scan + YAML frontmatter), `SkillLoader` (lazy SKILL.md + bounded on-demand references), `selectSkill()` (keyword confidence scoring), 6 SKILL.md files with `allowed-tools` constraints and reference files. 7/7 acceptance criteria pass.
+- **S16 (Debug Raw Payload Mode)**: `traceIncludeSensitiveData` config (default false), `DebugPayloadStore` separate raw payload storage with retention, `hashValue()` SHA-256 utility, trace envelope with redacted/default-hash behavior, result normalizer with truncation + hash. 5/5 acceptance criteria pass.
 
-**Code review:** Two-axis review (Standards + Spec) completed. 2 hard violations fixed (`as any` removal, typed WorkspaceState), 5 judgement calls deferred.
+**Code review:** Two-axis review (Standards + Spec) completed. Hard violations fixed around XML escaping, skill tool filtering, provider parallel gating, manifest input schema forwarding, FastAPI tool envelope, cancel terminal state, references, and S16 debug storage. Judgement calls remain for future refactors around `skill-selector.ts` matching strategy and `pi-runtime.ts` module size.
 
-**Test results:** 68 sidecar unit tests pass, 12 backend S2 API tests pass, typecheck 0 errors.
+**Test results:** 79 sidecar unit tests pass, sidecar lint/typecheck/build pass, backend runtime schema/API tests pass (40 tests).
 
 **What remains (deferred):**
 - S5: Read-only tool registration (4 tools) — not in current acceptance criteria
 - S8: Assignment proposal tool registration — not in current acceptance criteria
 - S11: Frontend integration — blocked by S10 (event bridge)
-- S16: Debug mode wiring — trace envelope always emits hashes regardless of flag
 
-**Key files:** `agent-bridge/src/runtime/pi-runtime.ts`, `agent-bridge/src/server/app.ts`, `agent-bridge/src/policy/policy-engine.ts`, `agent-bridge/src/skills/skill-selector.ts`
+**Key files:** `agent-bridge/src/runtime/pi-runtime.ts`, `agent-bridge/src/runtime/context-builder.ts`, `agent-bridge/src/events/debug-payload-store.ts`, `agent-bridge/src/server/app.ts`, `agent-bridge/src/policy/policy-engine.ts`, `agent-bridge/src/skills/skill-selector.ts`
 
 ### T41 — Agent Runtime Architecture Docs (2026-07-04)
 
@@ -47,7 +46,38 @@ Key decisions:
 - LLM-callable tools cannot commit Primary Project State.
 - Risk of any severity is advisory; mitigation that changes task/stage/project/owner/date state requires replan proposal confirmation.
 - Read-only ProjectState/WorkspaceState/timeline paths must stay pure; stale state repair belongs in explicit State Repair Command / maintenance job.
-- Next step is to turn the T41 architecture docs into a PRD, then break that PRD into vertical-slice issues.
+- The architecture has already been turned into `docs/PRD-Agent-Runtime.md` and split into vertical slices/issues.
+
+### T41 — S4 Read Purity + State Repair Command (2026-07-04)
+
+S4 for Member B is implemented on branch `member-b/s4-read-purity` and verified locally.
+
+Files changed:
+
+- `backend/app/api/routes_projects.py`
+- `backend/app/schemas/project_state.py`
+- `backend/app/services/project_state_service.py`
+- `backend/app/tests/test_project_state_endpoint.py`
+- `docs/T41/handoff-member-b-tool-implementor.md`
+
+Key results:
+
+- `GET /api/projects/{project_id}/state` no longer advances or repairs Stage/Project state as a side effect.
+- Explicit repair path added: `POST /api/projects/{project_id}/state-repair`.
+- Repair returns structured result fields: `changed`, `repaired_stage_ids`, `current_stage_id`, `project_status`, `message`.
+- Regression tests now lock both `get_project_state()` and `get_workspace_state()` as pure read paths.
+- Repair tests cover both single-stage repair and cascaded repair that completes the whole project.
+
+Verification:
+
+- `cd backend`
+- `python -m pytest app/tests/test_project_state_endpoint.py app/tests/test_nplus1_workspace_state.py -v`
+- Result: `8 passed`
+
+Coordination status:
+
+- S4 is no longer a blocker for Member A's S5 read-only tools work.
+- Member B's next implementation slices (`S6`, `S7`, `S13`) still wait for S5 to land.
 
 ## Completed
 
@@ -558,7 +588,7 @@ Implemented scope:
 
 ## Verification Baseline
 
-Latest verification baseline after Phase 29:
+Latest verification baseline after Phase 41:
 
 ```bash
 cd backend
@@ -575,7 +605,7 @@ cd frontend
 
 Results:
 
-- Backend: 224 tests passed (MVP suite + usability pass + LLM diagnostics + agent proposal confirmation + agent workflow + seed/reset/export + agent module tests + proposal confirm tests + time/resource prompt context + negotiate timeline-only regression + task ordering + stage auto-advance).
+- Backend: 244 tests passed.
 - Frontend tests: 26 passed across 9 files (API layer, project dashboard, home page, app shell, action card, task status update, error boundaries, assignment flow panel, agent proposal status badge).
 - Frontend lint passed.
 - Frontend build passed.

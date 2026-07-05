@@ -128,7 +128,7 @@ export interface WireProjectFlowToolResult {
     created_ids?: string[];
   };
   observation: string;
-  trace: { input_hash?: string; output_hash?: string; redacted: boolean };
+  trace: { input_hash?: string; output_hash?: string; debug_payload_id?: string; redacted: boolean };
 }
 
 export interface WireAppendResponse {

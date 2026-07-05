@@ -3,10 +3,11 @@ name: risk-replan
 description: 当有阻塞任务、风险或需要重新规划时触发。分析风险并生成重新规划建议。
 allowed-tools:
   - get_workspace_state
-  - get_agent_conversation
-  - list_pending_proposals
   - get_timeline_slice
-references: []
+  - analyze_checkins_and_risks
+  - generate_replan_proposal
+references:
+  - references/risk-replan-playbook.md
 ---
 
 # 风险分析与重新规划

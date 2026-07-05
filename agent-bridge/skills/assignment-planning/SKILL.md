@@ -3,10 +3,9 @@ name: assignment-planning
 description: 当需要分工时触发。基于成员技能和可用时间推荐任务分配。
 allowed-tools:
   - get_workspace_state
-  - get_agent_conversation
-  - list_pending_proposals
-  - get_timeline_slice
-references: []
+  - recommend_assignment
+references:
+  - references/assignment-rubric.md
 ---
 
 # 分工推荐

@@ -50,6 +50,27 @@ export function buildContext(input: ContextBuildInput): ModelContext {
   return { systemPrompt, userMessage, tools };
 }
 
+export function filterModelCallableManifests(
+  manifests: ProjectFlowToolManifest[],
+  skillContext?: SkillContext,
+): ProjectFlowToolManifest[] {
+  const allowedTools = skillContext?.allowedTools;
+  return manifests.filter((manifest) => {
+    if (!manifest.modelCallable || manifest.humanTriggeredOnly) return false;
+    if (allowedTools && !allowedTools.includes(manifest.name)) return false;
+    return true;
+  });
+}
+
+export function escapeXmlText(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#x27;");
+}
+
 function buildSystemPrompt(input: ContextBuildInput): string {
   const sections: string[] = [];
 
@@ -68,7 +89,15 @@ function buildSystemPrompt(input: ContextBuildInput): string {
   if (input.skillContext) {
     sections.push(`当前技能: ${input.skillContext.name}
 ${input.skillContext.description}
-允许使用的工具: ${input.skillContext.allowedTools.join(", ")}`);
+允许使用的工具: ${input.skillContext.allowedTools.join(", ")}
+
+<skill_instructions>
+${input.skillContext.body}
+</skill_instructions>${
+  input.skillContext.references && input.skillContext.references.length > 0
+    ? `\n\n<skill_references>\n${input.skillContext.references.join("\n\n---\n\n")}\n</skill_references>`
+    : ""
+}`);
   }
 
   // Domain rules
@@ -86,35 +115,31 @@ function buildUserMessage(input: ContextBuildInput): string {
   const parts: string[] = [];
 
   // User content
-  parts.push(`<user_message>\n${input.userContent}\n</user_message>`);
+  parts.push(`<user_message>\n${escapeXmlText(input.userContent)}\n</user_message>`);
 
   // Workspace state summary (compressed, not full DB dump)
   if (input.workspaceState) {
     const summary = compressWorkspaceState(input.workspaceState);
-    parts.push(`<workspace_state>\n${summary}\n</workspace_state>`);
+    parts.push(`<workspace_state>\n${escapeXmlText(summary)}\n</workspace_state>`);
   }
 
   // Pending proposals
   if (input.pendingProposals && input.pendingProposals.length > 0) {
     const proposalsStr = JSON.stringify(input.pendingProposals, null, 2);
-    parts.push(`<pending_proposals>\n${proposalsStr}\n</pending_proposals>`);
+    parts.push(`<pending_proposals>\n${escapeXmlText(proposalsStr)}\n</pending_proposals>`);
   }
 
   // Recent messages
   if (input.recentMessages && input.recentMessages.length > 0) {
     const messagesStr = JSON.stringify(input.recentMessages, null, 2);
-    parts.push(`<recent_messages>\n${messagesStr}\n</recent_messages>`);
+    parts.push(`<recent_messages>\n${escapeXmlText(messagesStr)}\n</recent_messages>`);
   }
 
   return parts.join("\n\n");
 }
 
 function buildToolDefinitions(manifests: ProjectFlowToolManifest[], skillContext?: SkillContext): unknown[] {
-  // Filter tools based on skill's allowed-tools constraint
-  const allowedTools = skillContext?.allowedTools;
-  const filtered = allowedTools
-    ? manifests.filter((m) => allowedTools.includes(m.name))
-    : manifests.filter((m) => m.modelCallable);
+  const filtered = filterModelCallableManifests(manifests, skillContext);
 
   return filtered.map((m) => ({
     type: "function",

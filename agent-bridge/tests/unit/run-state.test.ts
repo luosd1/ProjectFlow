@@ -24,6 +24,11 @@ describe("run-state", () => {
       expect(state.model).toEqual({ provider: "mock", name: "mock-model" });
       expect(state.sideEffects).toEqual([]);
       expect(state.lastEventSeq).toBe(0);
+      expect(state.budgetLimits).toEqual({
+        maxSteps: 8,
+        maxToolCalls: 6,
+        timeoutMs: 180000,
+      });
     });
 
     it("generates unique run IDs", () => {

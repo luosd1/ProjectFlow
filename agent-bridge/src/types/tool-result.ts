@@ -31,6 +31,7 @@ export interface ToolLinks {
 export interface ToolTrace {
   inputHash?: string;
   outputHash?: string;
+  debugPayloadId?: string;
   redacted: boolean;
 }
 

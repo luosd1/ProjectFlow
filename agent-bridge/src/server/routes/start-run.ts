@@ -41,6 +41,8 @@ export async function handleStartRun(
 
   // Store run in session store
   ctx.sessionStore.set(runState.runId, runState);
+  const abortController = new AbortController();
+  ctx.sessionStore.setAbortController(runState.runId, abortController);
 
   // Return run_id immediately, execute loop asynchronously
   sendJson(res, 200, {
@@ -48,10 +50,8 @@ export async function handleStartRun(
     status: runState.status,
   });
 
-  // Register default read-only tools if not already registered
-  if (ctx.toolRegistry.size === 0) {
-    registerDefaultTools(ctx.toolRegistry, ctx.fastapiClient);
-  }
+  // Register default read-only tools (idempotent — Map.set overwrites same name)
+  registerDefaultTools(ctx.toolRegistry, ctx.fastapiClient);
 
   // Start the runtime loop asynchronously
   executeRun(
@@ -76,19 +76,23 @@ export async function handleStartRun(
     ctx.stream,
     {
       traceIncludeSensitiveData: parsed.runtime_config?.trace_include_sensitive_data ?? ctx.config.traceIncludeSensitiveData,
+      signal: abortController.signal,
     },
     {
       onEvent: (type, payload) => {
         ctx.stream.emit(type as StreamEventType, { type, ...payload } as RuntimeEvent);
       },
       onComplete: (state) => {
+        ctx.sessionStore.clearAbortController(state.runId);
         console.log(`[agent-bridge] run ${state.runId} completed`);
       },
       onError: (error, state) => {
+        ctx.sessionStore.clearAbortController(state.runId);
         console.error(`[agent-bridge] run ${state.runId} failed:`, error.message);
       },
     },
   ).catch((err) => {
+    ctx.sessionStore.clearAbortController(runState.runId);
     console.error(`[agent-bridge] run ${runState.runId} uncaught error:`, err);
   });
 }

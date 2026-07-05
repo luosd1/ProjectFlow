@@ -3,10 +3,10 @@ name: project-intake
 description: 当项目目标模糊、缺少方向卡时触发。帮助团队澄清项目方向、明确目标和交付物。
 allowed-tools:
   - get_workspace_state
-  - get_agent_conversation
   - list_pending_proposals
-  - get_timeline_slice
-references: []
+  - generate_direction_card_proposal
+references:
+  - references/intake-rubric.md
 ---
 
 # 项目方向澄清

@@ -5,12 +5,16 @@
 
 import type { ProjectFlowToolResult, ToolTrace } from "@/types/tool-result.js";
 import { hashValue } from "@/utils/hash.js";
+import type { DebugPayloadContext, DebugPayloadStore } from "@/events/debug-payload-store.js";
 
 export interface NormalizeOptions {
   maxBytes: number;
   redaction: "none" | "secrets" | "pii";
   recordInput: boolean;
   recordOutput: boolean;
+  includeSensitiveData: boolean;
+  debugPayloadStore?: DebugPayloadStore;
+  debugPayloadContext?: DebugPayloadContext;
 }
 
 const DEFAULT_OPTIONS: NormalizeOptions = {
@@ -18,6 +22,7 @@ const DEFAULT_OPTIONS: NormalizeOptions = {
   redaction: "none",
   recordInput: true,
   recordOutput: true,
+  includeSensitiveData: false,
 };
 
 /**
@@ -56,10 +61,15 @@ function isToolResult(value: unknown): value is ProjectFlowToolResult {
 }
 
 function buildTrace(input: unknown, output: unknown, opts: NormalizeOptions): ToolTrace {
+  const debugPayloadId = opts.includeSensitiveData && opts.debugPayloadStore && opts.debugPayloadContext
+    ? opts.debugPayloadStore.store(opts.debugPayloadContext, { input, output }).id
+    : undefined;
+
   return {
     inputHash: opts.recordInput ? hashValue(input) : undefined,
     outputHash: opts.recordOutput ? hashValue(output) : undefined,
-    redacted: opts.redaction !== "none",
+    ...(debugPayloadId ? { debugPayloadId } : {}),
+    redacted: !opts.includeSensitiveData || opts.redaction !== "none",
   };
 }
 

@@ -4,7 +4,7 @@
  */
 
 import { readFile } from "node:fs/promises";
-import { resolve, dirname } from "node:path";
+import { resolve, dirname, relative, isAbsolute } from "node:path";
 import type { SkillMetadata } from "./skill-index.js";
 
 export interface LoadedSkill {
@@ -48,6 +48,10 @@ export class SkillLoader {
 
     const skillDir = dirname(skill.metadata.location);
     const fullPath = resolve(skillDir, referencePath);
+    const relativePath = relative(skillDir, fullPath);
+    if (relativePath.startsWith("..") || isAbsolute(relativePath)) {
+      throw new Error(`Skill reference escapes skill directory: ${referencePath}`);
+    }
     const content = await readFile(fullPath, "utf-8");
 
     skill.references.set(referencePath, content);

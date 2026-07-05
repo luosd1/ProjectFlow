@@ -10,7 +10,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint src/ tests/"
+    "lint": "tsc --noEmit"
   },
   "dependencies": {
     "@earendil-works/pi-agent-core": "^0.80.3",

@@ -18,6 +18,9 @@ export interface ToolExecutionContext {
   conversationId: string;
   workspaceId: string;
   projectId: string;
+  toolName: string;
+  toolVersion: number;
+  manifestVersion: number;
   idempotencyKey: string;
 }
 
@@ -67,8 +70,18 @@ export function createFastapiToolExecutor(fastapiClient: FastapiClient, toolName
       conversation_id: context.conversationId,
       workspace_id: context.workspaceId,
       project_id: context.projectId,
+      tool_name: context.toolName,
+      tool_version: context.toolVersion,
+      manifest_version: context.manifestVersion,
       idempotency_key: context.idempotencyKey,
-      ...args,
+      arguments: args,
+      client_event_id: `${context.runId}:${context.toolCallId}:request`,
+      ordering_hint: 0,
+      trace: {
+        run_id: context.runId,
+        tool_call_id: context.toolCallId,
+        tool_name: context.toolName,
+      },
     });
   };
 }

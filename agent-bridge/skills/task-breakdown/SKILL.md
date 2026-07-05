@@ -3,10 +3,9 @@ name: task-breakdown
 description: 当需要拆分任务时触发。将阶段目标分解为可执行的任务。
 allowed-tools:
   - get_workspace_state
-  - get_agent_conversation
-  - list_pending_proposals
-  - get_timeline_slice
-references: []
+  - generate_task_breakdown_proposal
+references:
+  - references/breakdown-checklist.md
 ---
 
 # 任务拆分

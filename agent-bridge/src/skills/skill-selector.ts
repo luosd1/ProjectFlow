@@ -131,12 +131,8 @@ export async function buildSkillContext(
   // Load references on demand (one at a time)
   const referenceContents: string[] = [];
   for (const ref of skill.references) {
-    try {
-      const content = await loader.loadReference(loaded, ref);
-      referenceContents.push(content);
-    } catch {
-      // Reference not found — skip
-    }
+    const content = await loader.loadReference(loaded, ref);
+    referenceContents.push(content);
   }
 
   return {

@@ -1,7 +1,10 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect } from "vitest";
+import { mkdtemp, mkdir, writeFile } from "node:fs/promises";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
 import { SkillIndex } from "../../src/skills/skill-index.js";
 import { SkillLoader } from "../../src/skills/skill-loader.js";
-import { selectSkill } from "../../src/skills/skill-selector.js";
+import { buildSkillContext, selectSkill } from "../../src/skills/skill-selector.js";
 import type { SkillMetadata } from "../../src/skills/skill-index.js";
 
 function makeSkill(overrides: Partial<SkillMetadata> = {}): SkillMetadata {
@@ -31,12 +34,89 @@ describe("skill-system", () => {
       const index = new SkillIndex({ skillsDir: "/nonexistent" });
       expect(index.get("unknown")).toBeUndefined();
     });
+
+    it("loads valid frontmatter and references from disk", async () => {
+      const dir = await mkdtemp(join(tmpdir(), "projectflow-skills-"));
+      const skillDir = join(dir, "project-planning");
+      await mkdir(join(skillDir, "references"), { recursive: true });
+      await writeFile(join(skillDir, "references", "planning-rubric.md"), "# Rubric\n");
+      await writeFile(join(skillDir, "SKILL.md"), `---
+name: project-planning
+description: 当需要阶段计划时触发
+allowed-tools:
+  - get_workspace_state
+references:
+  - references/planning-rubric.md
+---
+
+# Body
+`);
+
+      const index = new SkillIndex({ skillsDir: dir });
+      await index.load();
+
+      expect(index.size).toBe(1);
+      expect(index.get("project-planning")?.references).toEqual(["references/planning-rubric.md"]);
+    });
   });
 
   describe("SkillLoader", () => {
     it("tracks loaded state", () => {
       const loader = new SkillLoader();
       expect(loader.isLoaded("test")).toBe(false);
+    });
+
+    it("loads skill references into skill context", async () => {
+      const dir = await mkdtemp(join(tmpdir(), "projectflow-skill-loader-"));
+      const skillDir = join(dir, "project-planning");
+      await mkdir(join(skillDir, "references"), { recursive: true });
+      await writeFile(join(skillDir, "references", "planning-rubric.md"), "rubric content");
+      const skillPath = join(skillDir, "SKILL.md");
+      await writeFile(skillPath, `---
+name: project-planning
+description: 当需要阶段计划时触发
+allowed-tools:
+  - get_workspace_state
+references:
+  - references/planning-rubric.md
+---
+
+skill body
+`);
+      const loader = new SkillLoader();
+      const context = await buildSkillContext(makeSkill({
+        name: "project-planning",
+        description: "当需要阶段计划时触发",
+        location: skillPath,
+        references: ["references/planning-rubric.md"],
+      }), loader);
+
+      expect(context.body).toBe("skill body");
+      expect(context.references).toEqual(["rubric content"]);
+    });
+
+    it("blocks reference paths outside the skill directory", async () => {
+      const dir = await mkdtemp(join(tmpdir(), "projectflow-skill-loader-"));
+      const skillDir = join(dir, "project-planning");
+      await mkdir(skillDir, { recursive: true });
+      const skillPath = join(skillDir, "SKILL.md");
+      await writeFile(skillPath, `---
+name: project-planning
+description: 当需要阶段计划时触发
+allowed-tools:
+  - get_workspace_state
+references: []
+---
+
+skill body
+`);
+      const loader = new SkillLoader();
+      const loaded = await loader.loadSkill(makeSkill({
+        name: "project-planning",
+        location: skillPath,
+      }));
+
+      await expect(loader.loadReference(loaded, "../secret.md")).rejects.toThrow("escapes skill directory");
     });
   });
 

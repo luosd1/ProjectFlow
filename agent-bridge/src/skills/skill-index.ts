@@ -85,13 +85,15 @@ function parseSkillFrontmatter(content: string, filePath: string): SkillMetadata
 
     if (typeof frontmatter.name !== "string") return null;
     if (typeof frontmatter.description !== "string") return null;
+    if (!/^[a-z0-9-]{1,64}$/.test(frontmatter.name)) return null;
+    if (frontmatter.description.length > 1024) return null;
 
     const allowedTools = Array.isArray(frontmatter["allowed-tools"])
-      ? (frontmatter["allowed-tools"] as string[])
+      ? frontmatter["allowed-tools"].filter((tool): tool is string => typeof tool === "string")
       : [];
 
     const references = Array.isArray(frontmatter.references)
-      ? (frontmatter.references as string[])
+      ? frontmatter.references.filter((reference): reference is string => typeof reference === "string")
       : [];
 
     return {
