@@ -1276,7 +1276,7 @@ def execute_create_checkin(session: Session, request: ToolExecutionRequest) -> P
         # Get stage_id from task if not provided
         stage_id = args.get("stage_id") or task.stage_id
         # Get user_id from args or use first workspace member
-        user_id = args.get("user_id") or request.arguments.get("user_id")
+        user_id = args.get("user_id")
         if not user_id:
             # Try to find a workspace member
             membership = session.exec(
@@ -1355,9 +1355,28 @@ def execute_update_stage_progress(session: Session, request: ToolExecutionReques
     risk_category=draft_only, proposalConfirmRequired=true.
     Creates a StagePlanProposal that requires human confirmation before
     the stage progress is actually committed.
+    Idempotent: same idempotency_key returns cached result.
     """
     args = request.arguments or {}
     project_id = args.get("project_id") or request.project_id
+    workspace_id = args.get("workspace_id") or request.workspace_id
+
+    # Idempotency check: reuse existing proposal for same idempotency key
+    cached_proposal = _find_proposal_for_idempotency_key(
+        session,
+        workspace_id=workspace_id,
+        project_id=project_id,
+        proposal_type="plan",
+        idempotency_key=request.idempotency_key,
+    )
+    if cached_proposal is not None:
+        return _proposal_tool_result(
+            proposal_id=cached_proposal.id,
+            agent_event_id=cached_proposal.agent_event_id,
+            output=_cached_proposal_tool_data(cached_proposal, event_type="plan"),
+            request=request,
+            observation="已复用同一次工具调用生成的阶段进展提案。",
+        )
 
     required = ["stage_id", "progress_summary", "next_steps"]
     missing = [f for f in required if not args.get(f)]

@@ -482,7 +482,7 @@ const createRiskManifest: ProjectFlowToolManifest = {
   },
   timeoutMs: 30_000,
   retry: { maxAttempts: 1, retryOn: ["timeout", "network_error"] },
-  resultLimit: { maxBytes: 50_000, redaction: "none" as const },
+  resultLimit: { maxBytes: 50_000, redaction: "secrets" as const },
   effects: {
     effectType: "advisory_record_create",
     idempotencyKeyRequired: true,
@@ -552,7 +552,7 @@ const createCheckinManifest: ProjectFlowToolManifest = {
   },
   timeoutMs: 30_000,
   retry: { maxAttempts: 1, retryOn: ["timeout", "network_error"] },
-  resultLimit: { maxBytes: 50_000, redaction: "none" as const },
+  resultLimit: { maxBytes: 50_000, redaction: "secrets" as const },
   effects: {
     effectType: "advisory_record_create",
     idempotencyKeyRequired: true,
