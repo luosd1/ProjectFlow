@@ -11,6 +11,10 @@ Read-only tools return side_effect_status=no_side_effect.
 Proposal tools return side_effect_status=proposal_persisted.
 """
 
+import os
+
+os.environ["INTERNAL_SERVICE_TOKEN"] = "test-internal-service-token"
+
 import pytest
 from fastapi.testclient import TestClient
 from sqlmodel import Session, SQLModel, create_engine
@@ -59,7 +63,7 @@ def client(test_engine):
 
     app.router.lifespan_context = noop_lifespan
     app.dependency_overrides[get_session] = override_get_session
-    with TestClient(app) as c:
+    with TestClient(app, headers={"Authorization": "Bearer test-internal-service-token"}) as c:
         yield c
     app.dependency_overrides.clear()
 
@@ -305,10 +309,13 @@ class TestInternalAgentTools:
         items = resp.json()["data"]["items"]
         assert items == []
 
-    def test_unknown_tool_returns_404(self, client, test_engine):
+    def test_unknown_tool_returns_blocked(self, client, test_engine):
         _seed(test_engine)
         resp = client.post("/internal/agent-tools/no-such-tool", json=_envelope("no-such-tool"))
-        assert resp.status_code == 404
+        assert resp.status_code == 200, resp.text
+        data = resp.json()
+        assert data["status"] == "blocked"
+        assert "not found" in data["observation"].lower()
 
     def test_workspace_not_found_returns_failed_result(self, client, test_engine):
         # No seed → workspace does not exist

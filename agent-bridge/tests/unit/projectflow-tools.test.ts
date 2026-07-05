@@ -519,7 +519,7 @@ describe("projectflow-tools", () => {
       const registry = new ToolRegistry();
       const client = createStubFastapiClient();
       registerDefaultTools(registry, client);
-      expect(registry.size).toBe(14);
+      expect(registry.size).toBe(13);
       for (const name of DEFAULT_TOOL_NAMES) {
         expect(registry.has(name)).toBe(true);
       }
@@ -529,14 +529,14 @@ describe("projectflow-tools", () => {
       const registry = new ToolRegistry();
       registerDefaultTools(registry, createStubFastapiClient());
       const manifests = registry.getModelCallableManifests();
-      expect(manifests.length).toBe(14);
+      expect(manifests.length).toBe(13);
     });
 
     it("getManifests returns all default manifests", () => {
       const registry = new ToolRegistry();
       registerDefaultTools(registry, createStubFastapiClient());
       const manifests = registry.getManifests();
-      expect(manifests.length).toBe(14);
+      expect(manifests.length).toBe(13);
       const names = manifests.map((m: ProjectFlowToolManifest) => m.name).sort();
       expect(names).toEqual([...DEFAULT_TOOL_NAMES].sort());
     });
