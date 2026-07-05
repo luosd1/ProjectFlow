@@ -13,15 +13,27 @@ from typing import Any
 
 from sqlmodel import Session, select
 
-from app.models import AgentEvent, AgentProposal
-from app.models.enums import AgentProposalStatus, SideEffectStatus, ToolResultStatus
+from app.agent.coordinator import CoordinatorAgent
+from app.agent.output_schemas import ActionCardProposal, CheckInAnalysisOutput, RiskAnalysisOutput
+from app.models import ActionCard, AgentEvent, AgentProposal
+from app.models.enums import (
+    ActionCardStatus,
+    AgentEventType,
+    AgentProposalStatus,
+    SideEffectStatus,
+    ToolResultStatus,
+)
+from app.schemas.action_card import ActionCardCreate
 from app.schemas.agent_proposal import AgentProposalRead
 from app.schemas.agent_conversation import AgentConversationRead
+from app.schemas.risk import RiskCreate
 from app.schemas.runtime import ProjectFlowToolResult, ToolError, ToolExecutionRequest, ToolLinks
 from app.schemas.workspace_state import WorkspaceStateResponse
+from app.services.action_card_service import create_action_card
 from app.services.agent_conversation_service import read_project_conversation
 from app.services.agent_flow_service import run_agent_flow
 from app.services.agent_proposal_service import list_proposals_by_project, to_proposal_read
+from app.services.risk_service import create_risk
 from app.services.timeline_service import event_to_read, list_timeline_by_project
 from app.services.workspace_state_service import get_workspace_state
 
@@ -171,6 +183,33 @@ def execute_agent_tool(
             ),
         )
 
+    if tool_name == "checkins-and-risks-analysis":
+        cached_event = _find_cached_advisory_event(
+            session,
+            workspace_id=workspace_id,
+            project_id=project_id,
+            dispatch_tool_name=tool_name,
+            idempotency_key=request.idempotency_key,
+        )
+        if cached_event is not None:
+            return _cached_advisory_tool_result(cached_event)
+
+        try:
+            return _execute_checkins_and_risks_analysis(
+                session,
+                request=request,
+                dispatch_tool_name=tool_name,
+                workspace_id=workspace_id,
+                project_id=project_id,
+                user_instruction=args.get("user_instruction") if isinstance(args.get("user_instruction"), str) else None,
+            )
+        except ValueError as exc:
+            return _failed(
+                "CHECKINS_AND_RISKS_ANALYSIS_FAILED",
+                str(exc),
+                side_effect_status=SideEffectStatus.no_side_effect,
+            )
+
     if tool_name == "replan-proposal":
         cached_proposal = _find_proposal_for_idempotency_key(
             session,
@@ -307,6 +346,105 @@ def _find_pending_replan_proposal(
     ).first()
 
 
+def _execute_checkins_and_risks_analysis(
+    session: Session,
+    *,
+    request: ToolExecutionRequest,
+    dispatch_tool_name: str,
+    workspace_id: str,
+    project_id: str,
+    user_instruction: str | None,
+) -> ProjectFlowToolResult:
+    workspace_state = get_workspace_state(session, workspace_id, project_id=project_id)
+    if workspace_state is None:
+        return _failed(
+            "WORKSPACE_NOT_FOUND",
+            f"Workspace {workspace_id} not found",
+            side_effect_status=SideEffectStatus.no_side_effect,
+        )
+    if workspace_state.project is None:
+        return _failed(
+            "PROJECT_NOT_FOUND",
+            f"Project {project_id} not found in workspace {workspace_id}",
+            side_effect_status=SideEffectStatus.no_side_effect,
+        )
+
+    coordinator = CoordinatorAgent(session=session)
+    checkin_result = coordinator.analyze_checkin(
+        workspace_state,
+        user_instruction=user_instruction,
+    )
+    checkin_output = CheckInAnalysisOutput.model_validate(checkin_result.output.model_dump(mode="json"))
+    checkin_event_id = _latest_agent_event_id(
+        session,
+        workspace_id=workspace_id,
+        project_id=project_id,
+        event_type=AgentEventType.checkin,
+    )
+
+    risk_result = coordinator.analyze_risks(
+        workspace_state,
+        user_instruction=user_instruction,
+    )
+    risk_output = RiskAnalysisOutput.model_validate(risk_result.output.model_dump(mode="json"))
+    risk_event_id = _latest_agent_event_id(
+        session,
+        workspace_id=workspace_id,
+        project_id=project_id,
+        event_type=AgentEventType.risk,
+    )
+
+    created_ids = _dedupe_ids(
+        [
+            *_persist_advisory_risks(session, project_id, checkin_output.risks),
+            *_persist_advisory_risks(session, project_id, risk_output.risks),
+            *_persist_advisory_action_cards(session, project_id, []),
+        ]
+    )
+    related_event_ids = [event_id for event_id in [checkin_event_id, risk_event_id] if event_id]
+    primary_event_id = checkin_event_id or risk_event_id
+    replan_signal = _build_replan_signal(checkin_output, risk_output)
+    data = {
+        "event_type": "checkin_and_risk_analysis",
+        "status": "success",
+        "checkin_analysis": checkin_result.output.model_dump(mode="json"),
+        "risk_analysis": risk_result.output.model_dump(mode="json"),
+        "replan_signal": replan_signal,
+        "created_ids": created_ids,
+        "related_event_ids": related_event_ids,
+    }
+    observation = _build_checkin_risk_observation(created_ids, replan_signal)
+
+    for event_id in related_event_ids:
+        _tag_agent_event_with_tool_request(
+            session,
+            event_id=event_id,
+            request=request,
+            dispatch_tool_name=dispatch_tool_name,
+        )
+    if primary_event_id is not None:
+        _store_advisory_tool_result(
+            session,
+            event_id=primary_event_id,
+            result=_advisory_tool_result(
+                data=data,
+                request=request,
+                agent_event_id=primary_event_id,
+                created_ids=created_ids,
+                observation=observation,
+            ),
+            related_event_ids=related_event_ids,
+        )
+    session.commit()
+    return _advisory_tool_result(
+        data=data,
+        request=request,
+        agent_event_id=primary_event_id,
+        created_ids=created_ids,
+        observation=observation,
+    )
+
+
 def _find_proposal_for_idempotency_key(
     session: Session,
     *,
@@ -357,6 +495,31 @@ def _tag_proposal_event_with_idempotency_key(
     session.commit()
 
 
+def _advisory_tool_result(
+    *,
+    data: dict[str, Any],
+    request: ToolExecutionRequest,
+    agent_event_id: str | None,
+    created_ids: list[str],
+    observation: str,
+) -> ProjectFlowToolResult:
+    return ProjectFlowToolResult(
+        status=ToolResultStatus.success,
+        data=data,
+        side_effect_status=(
+            SideEffectStatus.advisory_record_persisted
+            if created_ids
+            else SideEffectStatus.no_side_effect
+        ),
+        idempotency_key=request.idempotency_key,
+        links=ToolLinks(
+            agent_event_id=agent_event_id,
+            created_ids=created_ids,
+        ),
+        observation=observation,
+    )
+
+
 def _proposal_agent_event_id(session: Session, proposal_id: str | None) -> str | None:
     if proposal_id is None:
         return None
@@ -383,6 +546,223 @@ def _cached_proposal_tool_data(proposal: AgentProposal, *, event_type: str) -> d
         "created_ids": [],
         "proposal_id": proposal.id,
     }
+
+
+def _find_cached_advisory_event(
+    session: Session,
+    *,
+    workspace_id: str,
+    project_id: str,
+    dispatch_tool_name: str,
+    idempotency_key: str,
+) -> AgentEvent | None:
+    events = session.exec(
+        select(AgentEvent)
+        .where(
+            AgentEvent.workspace_id == workspace_id,
+            AgentEvent.project_id == project_id,
+        )
+        .order_by(AgentEvent.created_at.desc())
+    ).all()
+    for event in events:
+        input_snapshot = event.get_input_snapshot()
+        if not isinstance(input_snapshot, dict):
+            continue
+        if input_snapshot.get("tool_idempotency_key") != idempotency_key:
+            continue
+        if input_snapshot.get("tool_dispatch_name") != dispatch_tool_name:
+            continue
+        output_snapshot = event.get_output_snapshot()
+        if isinstance(output_snapshot, dict) and isinstance(output_snapshot.get("tool_result"), dict):
+            return event
+    return None
+
+
+def _cached_advisory_tool_result(event: AgentEvent) -> ProjectFlowToolResult:
+    output_snapshot = event.get_output_snapshot()
+    if isinstance(output_snapshot, dict) and isinstance(output_snapshot.get("tool_result"), dict):
+        return ProjectFlowToolResult.model_validate(output_snapshot["tool_result"])
+    raise ValueError("Cached advisory tool result is missing from agent event output")
+
+
+def _latest_agent_event_id(
+    session: Session,
+    *,
+    workspace_id: str,
+    project_id: str,
+    event_type: AgentEventType,
+) -> str | None:
+    event = session.exec(
+        select(AgentEvent)
+        .where(
+            AgentEvent.workspace_id == workspace_id,
+            AgentEvent.project_id == project_id,
+            AgentEvent.event_type == event_type,
+        )
+        .order_by(AgentEvent.created_at.desc())
+    ).first()
+    return event.id if event is not None else None
+
+
+def _persist_advisory_risks(
+    session: Session,
+    project_id: str,
+    risks: list[Any],
+) -> list[str]:
+    created_ids: list[str] = []
+    for risk in risks:
+        created = create_risk(
+            session,
+            RiskCreate(
+                project_id=project_id,
+                stage_id=risk.stage_id,
+                task_id=risk.task_id,
+                type=risk.type,
+                severity=risk.severity,
+                title=risk.title,
+                description=risk.description,
+                evidence=risk.evidence,
+                recommendation=risk.recommendation,
+                created_by_agent=True,
+            ),
+            auto_commit=False,
+        )
+        created_ids.append(created.id)
+    return created_ids
+
+
+def _persist_advisory_action_cards(
+    session: Session,
+    project_id: str,
+    action_cards: list[ActionCardProposal],
+) -> list[str]:
+    created_ids: list[str] = []
+    for card in action_cards:
+        existing = session.exec(
+            select(ActionCard)
+            .where(
+                ActionCard.project_id == project_id,
+                ActionCard.task_id == card.task_id,
+                ActionCard.type == card.type,
+                ActionCard.title == card.title,
+                ActionCard.status == ActionCardStatus.active,
+            )
+            .order_by(ActionCard.created_at.desc())
+        ).first()
+        if existing is not None:
+            created_ids.append(existing.id)
+            continue
+        created = create_action_card(
+            session,
+            ActionCardCreate(
+                project_id=project_id,
+                stage_id=card.stage_id,
+                user_id=card.user_id,
+                task_id=card.task_id,
+                type=card.type,
+                title=card.title,
+                content=card.content or card.title,
+                reason=card.reason,
+                goal=card.goal,
+                start_suggestion=card.start_suggestion,
+                completion_standard=card.completion_standard,
+                due_date=card.due_date,
+                created_by_agent=True,
+            ),
+            auto_commit=False,
+        )
+        created_ids.append(created.id)
+    return created_ids
+
+
+def _build_replan_signal(
+    checkin_output: CheckInAnalysisOutput,
+    risk_output: RiskAnalysisOutput,
+) -> dict[str, Any]:
+    task_changes = [
+        {
+            "task_id": update.task_id,
+            "user_id": update.user_id,
+            "status": update.status.value if hasattr(update.status, "value") else update.status,
+            "progress_note": update.progress_note,
+            "blocker": update.blocker,
+        }
+        for update in checkin_output.task_updates
+    ]
+    requires_replan = bool(task_changes) or risk_output.requires_confirmation
+    reasons: list[str] = []
+    if task_changes:
+        reasons.append("checkin analysis produced inferred task status changes that must go through replan proposal")
+    if risk_output.requires_confirmation:
+        reasons.append("risk analysis requires mitigation confirmation before any primary state change")
+    return {
+        "requires_replan_proposal": requires_replan,
+        "task_changes": task_changes,
+        "reason": "; ".join(reasons),
+    }
+
+
+def _build_checkin_risk_observation(created_ids: list[str], replan_signal: dict[str, Any]) -> str:
+    created_count = len(created_ids)
+    replan_needed = bool(replan_signal.get("requires_replan_proposal"))
+    if created_count and replan_needed:
+        return (
+            f"已创建 {created_count} 条 advisory 记录；"
+            "检测到需要后续 replan proposal 确认的主事实变更信号。"
+        )
+    if created_count:
+        return f"已创建 {created_count} 条 advisory 记录，未直接修改主事实。"
+    if replan_needed:
+        return "未创建 advisory 记录，但检测到需要后续 replan proposal 确认的主事实变更信号。"
+    return "分析完成，未创建新的 advisory 记录。"
+
+
+def _tag_agent_event_with_tool_request(
+    session: Session,
+    *,
+    event_id: str,
+    request: ToolExecutionRequest,
+    dispatch_tool_name: str,
+) -> None:
+    event = session.get(AgentEvent, event_id)
+    if event is None:
+        return
+    snapshot = event.get_input_snapshot()
+    if not isinstance(snapshot, dict):
+        snapshot = {"value": snapshot}
+    snapshot["tool_idempotency_key"] = request.idempotency_key
+    snapshot["tool_call_id"] = request.tool_call_id
+    snapshot["tool_name"] = request.tool_name
+    snapshot["tool_dispatch_name"] = dispatch_tool_name
+    event.set_input_snapshot(snapshot)
+    session.add(event)
+
+
+def _store_advisory_tool_result(
+    session: Session,
+    *,
+    event_id: str,
+    result: ProjectFlowToolResult,
+    related_event_ids: list[str],
+) -> None:
+    event = session.get(AgentEvent, event_id)
+    if event is None:
+        return
+    snapshot = event.get_output_snapshot()
+    if not isinstance(snapshot, dict):
+        snapshot = {"value": snapshot}
+    snapshot["tool_result"] = result.model_dump(mode="json")
+    snapshot["related_event_ids"] = related_event_ids
+    event.set_output_snapshot(snapshot)
+    session.add(event)
+
+
+def _dedupe_ids(ids: list[str]) -> list[str]:
+    unique_ids: list[str] = []
+    for value in ids:
+        if value not in unique_ids:
+            unique_ids.append(value)
+    return unique_ids
 
 
 __all__ = [

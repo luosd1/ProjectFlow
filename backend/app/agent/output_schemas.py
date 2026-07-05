@@ -217,10 +217,10 @@ class RiskAnalysisOutput(AgentOutputBase):
     risks: list[RiskProposal] = Field(default_factory=list)
 
     @model_validator(mode="after")
-    def high_risk_requires_confirmation(self) -> "RiskAnalysisOutput":
+    def high_risk_requires_mitigation_confirmation(self) -> "RiskAnalysisOutput":
         has_high_risk = any(risk.severity == RiskSeverity.high for risk in self.risks)
         if has_high_risk and not self.requires_confirmation:
-            raise ValueError("high severity risks require confirmation")
+            raise ValueError("high severity risks require mitigation confirmation")
         return self
 
 

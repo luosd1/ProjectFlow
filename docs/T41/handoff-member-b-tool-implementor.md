@@ -217,25 +217,60 @@ S6+S7 (你) → S12 (你，等 S10)
 
 ### S7: Advisory write tool: Risk/ActionCard → #52
 
-**已解除阻塞。S6 完成后直接开始。**
+**已完成（2026-07-05）。**
 
-实现 advisory write tool 路径。
+已实现 advisory write tool 路径，并完成 AI + 人工验收。
+
+**实现结果：**
 
 1. **Internal endpoint** — `POST /internal/agent-tools/checkins-and-risks-analysis`
-   - 复用旧 `CoordinatorAgent.analyze_checkin` 和 `analyze_risks`
-   - Risk（任意 severity）直接创建为 Advisory Project Record
-   - ActionCard 直接创建为 Advisory Project Record
+   - 复用 `CoordinatorAgent.analyze_checkin` 和 `analyze_risks`
+   - 将 advisory 持久化与旧 `_persist_agent_output()` 剥离，避免沿用会触发主事实写入的旧副作用链
+   - Risk（任意 severity）可直接创建为 Advisory Project Record
+   - 当前实现未直接创建 `ActionCard`，但保留了 advisory 持久化入口，后续可继续扩展
+   - tool result 返回 `created_ids`、`related_event_ids`、`replan_signal`
    - 不改 Primary Project State
 
-2. **Manifest** — risk_category=advisory_write, effects.effect_type=advisory_record_create, idempotency_key_required=true
+2. **Manifest / registry**
+   - sidecar 新增 `analyze_checkins_and_risks`
+   - `risk_category=advisory_write`
+   - `effects.effect_type=advisory_record_create`
+   - `idempotency_key_required=true`
 
-3. **Mitigation 边界** — high-severity Risk 的 mitigation 如果改 Task.status/owner/date/Stage/Project → 必须生成 replan proposal。Risk row 创建本身不需要确认。`RiskAnalysisOutput.requires_confirmation` 改为 mitigation confirmation 语义。
+3. **Mitigation 边界**
+   - high-severity Risk 的 mitigation 如果涉及 Task.status / owner / due_date / Stage / Project 变更，仍需后续走 replan proposal
+   - Risk row 创建本身不需要确认
+   - `RiskAnalysisOutput.requires_confirmation` 已改为 mitigation confirmation 语义
 
-4. **不直接修改 Task.status** — tool 不调用 `create_status_update()`。Agent 推断的 task status changes 返回 structured observation，让后续 replan tool 处理。
+4. **不直接修改 Task.status**
+   - tool 不调用 `create_status_update()`
+   - Agent 推断出的 task status changes 通过 `replan_signal.task_changes` 返回，交给后续 replan tool 处理
 
-5. **Idempotency** — 同 key 不重复创建 Risk/ActionCard。dedup 按 open/accepted task+type。
+5. **Idempotency**
+   - 同 key 重试复用同一次 advisory 结果，不重复创建 Risk
+   - Risk dedup 继续沿用 open/accepted task+type 规则
 
-6. **Tests** — advisory write 不改主事实、created_ids 返回、idempotency、mitigation 边界
+6. **Tests**
+   - 覆盖 advisory write 不改主事实
+   - 覆盖 `created_ids` 返回
+   - 覆盖 idempotency 复用
+   - 覆盖 mitigation / replan 边界
+
+**关键改动文件：**
+- `backend/app/api/routes_agent_tools.py`
+- `backend/app/services/agent_tools_service.py`
+- `backend/app/agent/output_schemas.py`
+- `backend/app/tests/test_agent_tools_api.py`
+- `agent-bridge/src/tools/projectflow-tools.ts`
+- `agent-bridge/tests/unit/projectflow-tools.test.ts`
+
+**验证：**
+- `python -m pytest backend/app/tests/test_agent_tools_api.py -q`
+- `python -m pytest backend/app/tests/test_checkin_replan_migration.py -q`
+- `python -m pytest backend/app/tests/test_agent_output_schemas.py -q`
+- `npm test -- --run tests/unit/projectflow-tools.test.ts`
+- `npm run typecheck`
+- 结果：backend `18 + 1 + 33 passed`，sidecar unit `125 passed`，typecheck 通过
 
 **关键约束：**
 - 任意 severity 的 Risk 都是 advisory，不需要 proposal confirmation
@@ -244,12 +279,12 @@ S6+S7 (你) → S12 (你，等 S10)
 - tool result 必须返回 created_ids
 
 **验收标准：**
-- [ ] endpoint 实现完成
-- [ ] Risk 任意 severity 可直接创建
-- [ ] mitigation 改主事实走 replan proposal
-- [ ] `requires_confirmation` 改为 mitigation confirmation 语义
-- [ ] 不直接调用 `create_status_update()`
-- [ ] idempotency 和 advisory boundary 测试通过
+- [x] endpoint 实现完成
+- [x] Risk 任意 severity 可直接创建
+- [x] mitigation 改主事实走 replan signal / 后续 replan proposal 边界
+- [x] `requires_confirmation` 改为 mitigation confirmation 语义
+- [x] 不直接调用 `create_status_update()`
+- [x] idempotency 和 advisory boundary 测试通过
 
 ### S12: Legacy Coordinator parity + cutover → #57
 

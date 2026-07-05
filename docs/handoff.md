@@ -118,8 +118,9 @@ Results:
 
 Coordination status:
 
-- S6 is no longer a blocker for Member B's S7.
-- S13 still waits for S6 + S7 to finish.
+- S6 and S7 are complete on Member B branch.
+- Lead's S10 can now consume the S6/S7 tool endpoint behavior for event bridge work.
+- S13 is unblocked for Member B and can start next.
 
 ## Completed
 

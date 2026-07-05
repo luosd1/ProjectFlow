@@ -29,6 +29,7 @@ AGENT_TOOLS = {
     "pending-proposals",
     "timeline-slice",
     "stage-plan-proposal",
+    "checkins-and-risks-analysis",
     "replan-proposal",
 }
 
