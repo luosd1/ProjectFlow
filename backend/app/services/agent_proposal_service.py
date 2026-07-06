@@ -166,6 +166,23 @@ def confirm_proposal(
 
     session.commit()
     session.refresh(proposal)
+
+    # ── ProjectMemory extraction hook ──
+    # Runs AFTER the business decision commits; failures are absorbed.
+    if proposal.proposal_type == "clarify":
+        try:
+            from app.services.memory_service import extract_from_event
+            extract_from_event(
+                source_type="direction_card_confirmed",
+                source_id=proposal.id,
+            )
+        except Exception:
+            import logging as _logging
+            _logging.getLogger(__name__).exception(
+                "ProjectMemory extraction failed for direction_card_confirmed %s",
+                proposal.id,
+            )
+
     return proposal
 
 
