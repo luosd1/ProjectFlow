@@ -237,3 +237,47 @@ class HumanActionType(str, Enum):
     reject_proposal = "reject_proposal"
     cancel_run = "cancel_run"
     commit_proposal = "commit_proposal"
+
+
+# ─── T42 ProjectMemory Enums ────────────────────────────────────────────────
+
+
+class MemorySourceType(str, Enum):
+    """Memory Source Event types that can produce ProjectMemory."""
+    direction_card_confirmed = "direction_card_confirmed"
+    proposal_rejected = "proposal_rejected"
+    assignment_confirmed = "assignment_confirmed"
+    replan_confirmed = "replan_confirmed"
+    replan_rejected = "replan_rejected"
+
+
+class MemoryType(str, Enum):
+    """Types of governed project memory."""
+    direction = "direction"
+    boundary = "boundary"
+    plan = "plan"
+    assignment = "assignment"
+    tradeoff = "tradeoff"
+    rejection = "rejection"
+    member_constraint = "member_constraint"
+
+
+class MemoryStatus(str, Enum):
+    """Lifecycle status of ProjectMemory."""
+    active = "active"
+    superseded = "superseded"
+    archived = "archived"
+
+
+class MemoryVisibility(str, Enum):
+    """Visibility scope of ProjectMemory."""
+    team = "team"
+    subject_and_owner = "subject_and_owner"
+
+
+class MemoryScope(str, Enum):
+    """Scope level of ProjectMemory."""
+    project = "project"
+    stage = "stage"
+    task = "task"
+    member = "member"

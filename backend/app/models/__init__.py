@@ -14,6 +14,7 @@ from app.models.timeline import AgentEvent
 from app.models.agent_proposal import AgentProposal
 from app.models.agent_conversation import AgentConversation, AgentMessage, AgentRun
 from app.models.agent_run_state import AgentRunEvent, AgentRunV2
+from app.models.project_memory import ProjectMemory, ProjectMemorySync
 
 __all__ = [
     "User",
@@ -40,4 +41,6 @@ __all__ = [
     "AgentRun",
     "AgentRunEvent",
     "AgentRunV2",
+    "ProjectMemory",
+    "ProjectMemorySync",
 ]
