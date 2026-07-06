@@ -1,5 +1,7 @@
 This file provides guidance to Coding Agent (claudecode, codex...) when working with code in this repository.
 
+> **注意：`AGENTS.md` 是指向本文件的软链接（`AGENTS.md -> CLAUDE.md`）。** 修改 Agent 指导内容时只编辑 `CLAUDE.md`，不要单独编辑 `AGENTS.md`，也不要用 `cp`/`cat >` 等方式覆盖 `AGENTS.md`，否则会破坏软链接导致两文件不同步。
+
 ## Project Overview
 
 ProjectFlow 是面向大学生项目小队的**主动推进型 AI Agent**。核心价值不是"记录任务"，而是持续回答：项目该往哪走？下一步做什么？谁适合做什么？哪些有风险？计划是否需要调整？
@@ -201,6 +203,10 @@ cd frontend
 - AgentProposal 只用于 clarify/plan/breakdown/replan；negotiate 使用分工协商流程和 timeline，不创建通用 AgentProposal
 - **Global Scope Rule**: 所有输出字段禁止提及外部系统（教务系统、移动端 App、GitHub 等），使用通用替代词
 - **Before Output Self-Check**: 输出前自检日期格式（YYYY-MM-DD）、禁止术语、成员/任务引用合法性、requires_confirmation 是否设置
+- **Runtime Event Consistency**: 同一 AgentRun 不得同时产生 `agent.completed` 和 `agent.failed` 事件；event-mapper 必须根据 Pi stopReason 精确映射（`"error"`/`"aborted"` → `agent.failed`，`"end_turn"`/`"tool_use"` → `agent.completed`），runtime loop 不得在 agent_end 已映射为 failed 后再追加 completed
+- **Tool Result Integrity**: Tool execution 的 result metadata（tool_use_id、is_error 等）必须在 runtime loop 各步骤间完整保留，不得被后续步骤覆盖或丢弃
+- **Proposal Uniqueness**: 同一 project 不得存在多条 pending 状态的 replan proposal；创建前必须检查并拒绝重复
+- **State Transition Validation**: AgentRunState 转换必须合法（running→completed/failed/cancelled；不得从 completed 跳回 failed 或反之）；ToolManifest 注册时必须校验 name 唯一且 schema 合法
 
 ## Agent Workflow (State Machine)
 

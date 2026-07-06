@@ -1,3 +1,9 @@
+<!--
+  Ownership: T41 Agent Runtime Team
+  Stability boundary: 各节 append-only；修改现有节内容需先创建 ADR（见 docs/adr/）
+  Verification: cd backend && .venv/bin/python -m pytest app/tests/ -q && cd ../agent-bridge && ../scripts/npm run test && cd ../frontend && ../scripts/npm run test
+-->
+
 # Technical Design Document: ProjectFlow MVP
 
 ## 1. Document Overview
