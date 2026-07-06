@@ -1,9 +1,11 @@
 "use client";
 
 import { ArrowRight, GitBranch, Minus, Plus, RefreshCw, ShieldCheck, XCircle } from "lucide-react";
+import { useState } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import type { AgentProposal, Task } from "@/lib/types";
 
 type ReplanDiffProps = {
@@ -20,7 +22,7 @@ type ReplanDiffProps = {
   /** Pending replan proposal from backend — drives confirm/reject UI */
   pendingProposal?: AgentProposal | null;
   onConfirmReplan?: (proposalId: string) => void | Promise<void>;
-  onRejectReplan?: (proposalId: string) => void | Promise<void>;
+  onRejectReplan?: (proposalId: string, reason: string) => void | Promise<void>;
   pending?: boolean;
 };
 
@@ -210,6 +212,9 @@ export function ReplanDiff({
   onRejectReplan,
   pending,
 }: ReplanDiffProps) {
+  const [showRejectForm, setShowRejectForm] = useState(false);
+  const [rejectionReason, setRejectionReason] = useState("");
+
   const diff = buildDiff(before, after);
   const added = diff.filter((d) => d.kind === "added");
   const removed = diff.filter((d) => d.kind === "removed");
@@ -309,25 +314,65 @@ export function ReplanDiff({
 
           {/* Confirm / Reject buttons for pending proposals */}
           {pendingProposal?.status === "pending" && (
-            <div className="mt-4 flex gap-2">
-              <Button
-                size="sm"
-                disabled={pending}
-                onClick={() => onConfirmReplan?.(pendingProposal.id)}
-                className="bg-moss text-white hover:bg-moss/85"
-              >
-                <ShieldCheck className="mr-1 h-4 w-4" />
-                确认调整
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={pending}
-                onClick={() => onRejectReplan?.(pendingProposal.id)}
-              >
-                <XCircle className="mr-1 h-4 w-4" />
-                拒绝调整
-              </Button>
+            <div className="mt-4 space-y-2">
+              <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  disabled={pending}
+                  onClick={() => onConfirmReplan?.(pendingProposal.id)}
+                  className="bg-moss text-white hover:bg-moss/85"
+                >
+                  <ShieldCheck className="mr-1 h-4 w-4" />
+                  确认调整
+                </Button>
+                {!showRejectForm && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={pending}
+                    onClick={() => setShowRejectForm(true)}
+                  >
+                    <XCircle className="mr-1 h-4 w-4" />
+                    拒绝调整
+                  </Button>
+                )}
+              </div>
+              {showRejectForm && (
+                <div className="space-y-2">
+                  <p className="text-sm text-ink/70">请输入拒绝理由（拒绝理由将作为项目记忆保存）：</p>
+                  <Textarea
+                    value={rejectionReason}
+                    onChange={(e) => setRejectionReason(e.target.value)}
+                    placeholder="例如：调整方案未解决核心风险"
+                    rows={2}
+                    className="text-sm"
+                  />
+                  <div className="flex items-center gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={pending || !rejectionReason.trim()}
+                      onClick={() => {
+                        onRejectReplan?.(pendingProposal.id, rejectionReason.trim());
+                        setShowRejectForm(false);
+                        setRejectionReason("");
+                      }}
+                      className="border-coral/40 text-coral hover:bg-coral/10"
+                    >
+                      <XCircle className="mr-1 h-4 w-4" />
+                      确认拒绝
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      disabled={pending}
+                      onClick={() => { setShowRejectForm(false); setRejectionReason(""); }}
+                    >
+                      取消
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>

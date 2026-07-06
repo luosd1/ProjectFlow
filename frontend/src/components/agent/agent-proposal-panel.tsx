@@ -6,6 +6,7 @@ import { useInlineConfirm } from "@/lib/use-inline-confirm";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import { DirectionDecisionView } from "@/components/agent/direction-decision-view";
 import type { AgentProposal, AgentEvent } from "@/lib/types";
 
@@ -249,9 +250,23 @@ function PendingProposalItem({
   pending?: boolean;
   onToggle: () => void;
   onConfirm: (id: string) => void;
-  onReject?: (id: string) => void;
+  onReject?: (id: string, reason: string) => void;
 }) {
-  const confirmReject = useInlineConfirm();
+  const [showRejectForm, setShowRejectForm] = useState(false);
+  const [rejectionReason, setRejectionReason] = useState("");
+
+  const handleSubmitReject = () => {
+    const trimmed = rejectionReason.trim();
+    if (!trimmed) return;
+    onReject?.(proposal.id, trimmed);
+    setShowRejectForm(false);
+    setRejectionReason("");
+  };
+
+  const handleCancelReject = () => {
+    setShowRejectForm(false);
+    setRejectionReason("");
+  };
 
   return (
     <div className="rounded-lg border border-moss/20 bg-moss/5">
@@ -284,37 +299,48 @@ function PendingProposalItem({
                 <><CheckCircle className="h-4 w-4" /> 确认应用</>
               )}
             </Button>
-            {confirmReject.confirming ? (
-              <>
+            {!showRejectForm ? (
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={pending || confirmingId === proposal.id}
+                onClick={() => setShowRejectForm(true)}
+              >
+                <XCircle className="h-4 w-4" /> 拒绝
+              </Button>
+            ) : null}
+          </div>
+          {showRejectForm && (
+            <div className="mt-3 space-y-2">
+              <p className="text-sm text-ink/70">请输入拒绝理由（拒绝理由将作为项目记忆保存，避免后续重复提出类似方案）：</p>
+              <Textarea
+                value={rejectionReason}
+                onChange={(e) => setRejectionReason(e.target.value)}
+                placeholder="例如：方案未考虑团队成员的时间约束"
+                rows={2}
+                className="text-sm"
+              />
+              <div className="flex items-center gap-2">
                 <Button
                   size="sm"
                   variant="outline"
-                  disabled={pending || confirmingId === proposal.id}
-                  onClick={confirmReject.handleConfirm(() => onReject?.(proposal.id))}
+                  disabled={pending || !rejectionReason.trim()}
+                  onClick={handleSubmitReject}
                   className="border-coral/40 text-coral hover:bg-coral/10"
                 >
-                  <XCircle className="h-4 w-4" /> 确认拒绝？
+                  <XCircle className="h-4 w-4" /> 确认拒绝
                 </Button>
                 <Button
                   size="sm"
                   variant="ghost"
                   disabled={pending}
-                  onClick={confirmReject.cancel}
+                  onClick={handleCancelReject}
                 >
                   取消
                 </Button>
-              </>
-            ) : (
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={pending || confirmingId === proposal.id}
-                onClick={confirmReject.handleConfirm(() => onReject?.(proposal.id))}
-              >
-                <XCircle className="h-4 w-4" /> 拒绝
-              </Button>
-            )}
-          </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -326,7 +352,7 @@ type AgentProposalPanelProps = {
   pending?: boolean;
   timeline?: AgentEvent[];
   onConfirm?: (proposalId: string) => void | Promise<void>;
-  onReject?: (proposalId: string) => void | Promise<void>;
+  onReject?: (proposalId: string, reason: string) => void | Promise<void>;
 };
 
 export function AgentProposalPanel({ proposals, pending, timeline = [], onConfirm, onReject }: AgentProposalPanelProps) {

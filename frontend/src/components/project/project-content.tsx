@@ -132,7 +132,7 @@ interface ProjectContentProps {
   onDismissActionCard?: (cardId: string) => void;
   onCompleteActionCard?: (cardId: string) => void;
   onConfirmProposal?: (proposalId: string) => void;
-  onRejectProposal?: (proposalId: string) => void;
+  onRejectProposal?: (proposalId: string, reason: string) => void;
   onAddResource?: (resource: AddResourceRequest) => void | Promise<void>;
   onDeleteResource?: (resourceId: string) => void | Promise<void>;
   onResetDemo?: () => void | Promise<void>;

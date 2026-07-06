@@ -141,12 +141,12 @@ describe("frontend API layer", () => {
     expect(result.artifacts[0].linked_entity_ids).toEqual(["proposal-1"]);
   });
 
-  it("rejects agent proposals with an explicit nullable reason body", async () => {
+  it("rejects agent proposals with an explicit reason body", async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
       if (url.endsWith("/agent-proposals/proposal-1/reject")) {
         expect(init?.method).toBe("POST");
-        expect(JSON.parse(String(init?.body))).toEqual({ reason: null });
+        expect(JSON.parse(String(init?.body))).toEqual({ reason: "方案不符合预期" });
         return jsonResponse({
           id: "proposal-1",
           project_id: "project-1",
@@ -157,6 +157,7 @@ describe("frontend API layer", () => {
           payload: {},
           confirmed_by: null,
           confirmed_at: null,
+          rejection_reason: "方案不符合预期",
           created_at: "2026-06-02T00:00:00Z",
         });
       }
@@ -164,7 +165,7 @@ describe("frontend API layer", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    const proposal = await rejectAgentProposal("proposal-1");
+    const proposal = await rejectAgentProposal("proposal-1", "方案不符合预期");
 
     expect(proposal.status).toBe("rejected");
   });

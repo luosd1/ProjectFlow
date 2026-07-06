@@ -187,7 +187,12 @@ def confirm_proposal(
 
 
 def reject_proposal(session: Session, proposal_id: str, reason: str | None = None) -> AgentProposal:
-    """Reject a pending proposal. No state mutation occurs."""
+    """Reject a pending proposal. No state mutation occurs.
+
+    If reason is non-empty, ProjectMemory extraction runs after the business
+    decision commits. Empty/None reason is tolerated for legacy compatibility
+    but does not produce ProjectMemory.
+    """
     proposal = require_row(session, AgentProposal, proposal_id, "Agent proposal")
     if proposal.status != AgentProposalStatus.pending:
         raise ValueError(f"Proposal is {proposal.status.value}, cannot reject")
@@ -203,6 +208,25 @@ def reject_proposal(session: Session, proposal_id: str, reason: str | None = Non
     )
     session.commit()
     session.refresh(proposal)
+
+    # ── ProjectMemory extraction hook (proposal_rejected) ──
+    # Only extract when rejection_reason is non-empty.
+    # Runs AFTER the business decision commits; failures are absorbed.
+    # Does NOT create an AgentEvent.
+    if reason and reason.strip():
+        try:
+            from app.services.memory_service import extract_from_event
+            extract_from_event(
+                source_type="proposal_rejected",
+                source_id=proposal.id,
+            )
+        except Exception:
+            import logging as _logging
+            _logging.getLogger(__name__).exception(
+                "ProjectMemory extraction failed for proposal_rejected %s",
+                proposal.id,
+            )
+
     return proposal
 
 

@@ -436,12 +436,12 @@ export default function WorkspaceDashboardPage() {
     }
   };
 
-  const handleRejectProposal = async (proposalId: string) => {
+  const handleRejectProposal = async (proposalId: string, reason: string) => {
     if (!projectState) return;
     setActionError(null);
     setActionSuccess(null);
     try {
-      await rejectAgentProposal(proposalId);
+      await rejectAgentProposal(proposalId, reason);
       await reloadProject();
       setActionSuccess("提案已拒绝");
     } catch {
