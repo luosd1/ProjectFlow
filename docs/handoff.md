@@ -21,12 +21,13 @@ T41 Agent Runtime work now has S3, S5, S6, S7, S8, S9, S10, S11, S12, S13, S14, 
 - **S13 (Direction Card + Task Breakdown Proposal Tools)**: `generate_direction_card_proposal` and `generate_task_breakdown_proposal` are draft-only sequential proposal tools that create pending `clarify` / `breakdown` `AgentProposal` rows without mutating `Project` or creating `Task` records before confirmation.
 - **S14 (Skills System)**: `SkillIndex` (directory scan + YAML frontmatter), `SkillLoader` (lazy SKILL.md + bounded on-demand references), `selectSkill()` (keyword confidence scoring), 6 SKILL.md files with `allowed-tools` constraints and reference files. 7/7 acceptance criteria pass.
 - **S16 (Debug Raw Payload Mode)**: `traceIncludeSensitiveData` config (default false), `DebugPayloadStore` separate raw payload storage with retention, `hashValue()` SHA-256 utility, trace envelope with redacted/default-hash behavior, result normalizer with truncation + hash. 5/5 acceptance criteria pass.
+- **S15 (Unit/Eval/Privacy Tests)**: 168 new tests across 3 files. Foundation unit tests (66): manifest parser, policy engine, event mapper, trace envelope, result normalizer, budget checker, run state transition validator, side effect status classifier, advisory/proposal boundary. Evaluation tests (65): skill selection matrix (18 user message patterns × 6 skills), tool evaluation matrix (12 tools × risk category + effect type), skill→tool mapping, proposal/advisory boundary, execution mode, manifest safety. Privacy/resume tests (37): trace defaults, debug raw payload, secret exclusion, redaction behavior, resume policy, data classification.
 - **S11 (Frontend Integration)**: `useAgentStream` SSE streaming, `ChatComposer` with stop/cancel, `AgentProposalPanel` confirm/reject, `AssignmentFlowPanel` response/finalize, `AgentArtifactCard` with dismiss/resolve. 46 frontend tests pass (9 files).
 - **Advisory Write Tools**: `create_risk` (advisory_write, creates Risk record directly) and `create_checkin` (advisory_write, creates CheckInCycle + CheckInResponse) are active internal agent tools. Both validate project/workspace relationships and reuse the same result for repeated idempotency keys. Proposal confirmation/rejection remains on the public proposal API and is not exposed as an internal agent tool.
 
 **Code review:** Two-axis review (Standards + Spec) completed. Hard violations fixed around XML escaping, skill tool filtering, provider parallel gating, manifest input schema forwarding, FastAPI tool envelope, cancel terminal state, references, S16 debug storage, S12 disabled/not-found terminal result handling, S13 proposal idempotency transaction boundaries, internal endpoint service-token auth, and S11 advisory write boundaries. `update_stage_progress` and `submit_tool_result` were removed from the active internal agent tool surface because stage progress has no valid current commit model and proposal confirmation must remain a user/public API boundary. Judgement calls remain for future refactors around `skill-selector.ts` matching strategy, `pi-runtime.ts` module size, and repeated proposal-tool handler shape.
 
-**Test results:** 385 backend tests pass, 386 sidecar unit tests pass (15 files), 46 frontend tests pass (9 files), sidecar typecheck/build pass.
+**Test results:** 385 backend tests pass, 554 sidecar unit tests pass (18 files), 46 frontend tests pass (9 files), sidecar typecheck/build pass.
 
 **What remains (deferred):**
 - None (all slices completed)
@@ -744,7 +745,7 @@ cd frontend
 Results:
 
 - Backend: 362 tests passed.
-- Agent-bridge: 409 tests passed across 15 files.
+- Agent-bridge: 554 tests passed across 18 files.
 - Frontend tests: 46 passed across 9 files (API layer, project dashboard, home page, app shell, action card, task status update, error boundaries, assignment flow panel, agent sidebar).
 - Frontend lint passed.
 - Frontend build passed.

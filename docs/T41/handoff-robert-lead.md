@@ -96,7 +96,7 @@ S1 → S2 ──────────→ S9 ──→ S10 ──→ S15
 - **S2**：等 S1 完成
 - **S9**：已完成（不需要等 S6/S7/S8/S13/S14）
 - **S10**：已完成（2026-07-05）
-- **S15**：等 S10+S12+S13+S14 完成
+- **S15**：已完成（2026-07-06）
 
 ## 你的 Slices（7 条）
 
@@ -149,11 +149,12 @@ S1 → S2 ──────────→ S9 ──→ S10 ──→ S15
 
 ### S15: Unit tests + evaluation tests + privacy/resume tests → #60
 
-**Blocked by S10+S12+S13+S14。最后执行。**
+**已完成（2026-07-06）。**
 
-- **Foundation unit tests**（8 个）：manifest parser, policy engine, event mapper, trace envelope builder, result normalizer, budget checker, run state transition validator, side effect status classifier
-- **Evaluation tests**（21 个 Test Matrix 场景）：侧重 skill selection 和 tool evaluation
-- **Privacy/resume tests**：trace 默认不含 sensitive data、manifest version mismatch、debug raw payload 模式
+- **Foundation unit tests**（66 个）：manifest parser, policy engine, event mapper, trace envelope builder, result normalizer, budget checker, run state transition validator, side effect status classifier, advisory/proposal boundary, tool result factory
+- **Evaluation tests**（65 个）：skill selection matrix (18 user message patterns × 6 skills), tool evaluation matrix (12 tools × risk category + effect type), skill→tool mapping, proposal/advisory boundary, execution mode, manifest safety
+- **Privacy/resume tests**（37 个）：trace defaults, debug raw payload, secret exclusion, redaction behavior, resume policy, data classification
+- verification: backend 385 passed, agent-bridge 554 passed (18 files), frontend 46 passed, sidecar typecheck/build pass
 
 ## 与其他成员的接口
 
