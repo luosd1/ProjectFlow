@@ -22,6 +22,8 @@ from app.agent.memory.extractor import (
     extract_direction_card_confirmed,
     extract_proposal_rejected,
     extract_assignment_confirmed,
+    extract_replan_confirmed,
+    extract_replan_rejected,
 )
 from app.core.database import engine as _default_engine
 from app.models import (
@@ -60,6 +62,8 @@ def get_memory_engine():
 _AGENT_PROPOSAL_EXTRACTORS = {
     "direction_card_confirmed": extract_direction_card_confirmed,
     "proposal_rejected": extract_proposal_rejected,
+    "replan_confirmed": extract_replan_confirmed,
+    "replan_rejected": extract_replan_rejected,
 }
 
 # AssignmentProposal-based extractors
