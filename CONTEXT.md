@@ -28,6 +28,22 @@ _Avoid_: Advisory record, runtime metadata
 A persisted Agent-created record that guides work without directly rewriting Primary Project State, such as a Risk of any severity or an ActionCard.
 _Avoid_: Primary project state, proposal, commit
 
+**Memory Source Event**:
+A formal business decision point that may derive a Governed Context Record, identified by a source type and source ID; it does not require a corresponding AgentEvent row.
+_Avoid_: Formal Project Event, AgentEvent, timeline event
+
+**Source-Level ProjectMemory Idempotency**:
+A V1 write contract where a Memory Source Event may derive multiple memory types, but at most one ProjectMemory per memory type; multiple same-type subitems are canonicalized into one record or skipped rather than split with item keys.
+_Avoid_: Candidate-level idempotency, V1 source item key, duplicate same-type memories
+
+**Viewer Identity Context**:
+A request-scoped ProjectFlow member identity used to evaluate project visibility in the MVP before real authentication exists; it is not proof of identity.
+_Avoid_: Auth user, login session, security credential
+
+**Governed Context Record**:
+A persisted context record derived from a Memory Source Event, governed by source, status, visibility, and lifecycle rules, and used to inform future Agent judgment without becoming current project truth.
+_Avoid_: Long-term state, Agent memory log, source of truth
+
 **Runtime Metadata**:
 Conversation, run, event, trace, state, and tool-result records that make Agent execution observable and replayable without being project commitments.
 _Avoid_: Primary project state, proposal
