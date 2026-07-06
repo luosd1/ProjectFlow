@@ -7,7 +7,7 @@ from app.models import CheckInCycle, CheckInResponse, Project, Stage, Task, User
 from app.schemas.checkin import CheckInCycleCreate, CheckInResponseCreate
 
 
-def create_checkin_cycle(session: Session, data: CheckInCycleCreate) -> CheckInCycle:
+def create_checkin_cycle(session: Session, data: CheckInCycleCreate, *, auto_commit: bool = True) -> CheckInCycle:
     if data.cadence_days < 1:
         raise ValueError("cadence_days must be at least 1")
     require_row(session, Project, data.project_id, "Project")
@@ -23,8 +23,11 @@ def create_checkin_cycle(session: Session, data: CheckInCycleCreate) -> CheckInC
         created_by_user_id=data.created_by_user_id,
     )
     session.add(cycle)
-    session.commit()
-    session.refresh(cycle)
+    if auto_commit:
+        session.commit()
+        session.refresh(cycle)
+    else:
+        session.flush()
     return cycle
 
 
@@ -36,6 +39,8 @@ def create_checkin_response(
     session: Session,
     cycle_id: str,
     data: CheckInResponseCreate,
+    *,
+    auto_commit: bool = True,
 ) -> CheckInResponse:
     cycle = require_row(session, CheckInCycle, cycle_id, "Check-in cycle")
     require_row(session, Project, data.project_id, "Project")
@@ -58,8 +63,11 @@ def create_checkin_response(
         mood_or_confidence=data.mood_or_confidence,
     )
     session.add(response)
-    session.commit()
-    session.refresh(response)
+    if auto_commit:
+        session.commit()
+        session.refresh(response)
+    else:
+        session.flush()
     return response
 
 

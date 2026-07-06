@@ -456,7 +456,7 @@ const recommendAssignmentManifest: ProjectFlowToolManifest = {
   },
 };
 
-// ─── S11: create_risk (draft_no_confirm) ────────────────────────────────────
+// ─── Advisory Write Tool: create_risk ───────────────────────────────────────
 
 const createRiskManifest: ProjectFlowToolManifest = {
   schemaVersion: 1,
@@ -505,7 +505,7 @@ const createRiskManifest: ProjectFlowToolManifest = {
     required: ["type", "severity", "title", "description", "evidence", "recommendation"],
     properties: {
       type: { type: "string", enum: ["deadline", "dependency", "workload", "scope", "review", "assignment", "checkin"] },
-      severity: { type: "string", enum: ["low", "medium", "high", "critical"] },
+      severity: { type: "string", enum: ["low", "medium", "high"] },
       title: { type: "string", minLength: 1, maxLength: 200 },
       description: { type: "string", minLength: 1, maxLength: 2000 },
       evidence: { type: "array", items: { type: "string" }, minItems: 1 },
@@ -526,7 +526,7 @@ const createRiskManifest: ProjectFlowToolManifest = {
   },
 };
 
-// ─── S11: create_checkin (draft_no_confirm) ─────────────────────────────────
+// ─── Advisory Write Tool: create_checkin ────────────────────────────────────
 
 const createCheckinManifest: ProjectFlowToolManifest = {
   schemaVersion: 1,
@@ -572,7 +572,7 @@ const createCheckinManifest: ProjectFlowToolManifest = {
   trace: { emits: ["agent.tool_call"] },
   inputSchema: {
     type: "object",
-    required: ["task_id", "what_done"],
+    required: ["task_id", "user_id", "what_done"],
     properties: {
       task_id: { type: "string" },
       what_done: { type: "string", minLength: 1, maxLength: 2000 },
@@ -581,7 +581,7 @@ const createCheckinManifest: ProjectFlowToolManifest = {
       stage_id: { type: "string" },
       cadence_days: { type: "number", minimum: 1, default: 2 },
       available_hours_next_cycle: { type: "number", minimum: 0 },
-      mood_or_confidence: { type: "string", enum: ["confident", "neutral", "concerned"] },
+      mood_or_confidence: { type: "string", enum: ["low", "medium", "high"] },
     },
   },
   outputSchema: {
@@ -592,76 +592,6 @@ const createCheckinManifest: ProjectFlowToolManifest = {
   backend: {
     owner: "fastapi",
     endpoint: "POST /internal/agent-tools/create-checkin",
-    method: "POST",
-  },
-};
-
-// ─── S11: update_stage_progress (draft + proposal confirmation) ─────────────
-
-const updateStageProgressManifest: ProjectFlowToolManifest = {
-  schemaVersion: 1,
-  version: 1,
-  name: "update_stage_progress",
-  description:
-    "更新阶段进展：提交阶段进展摘要和下一步计划，创建待确认的 StagePlanProposal。需人工确认后才生效。",
-  riskCategory: "draft_only",
-  modelCallable: true,
-  sidecarOnly: false,
-  humanTriggeredOnly: false,
-  annotations: {
-    readOnly: false,
-    destructive: false,
-    idempotent: true,
-    openWorld: false,
-  },
-  execution: {
-    mode: "sequential",
-    concurrencyGroup: "project_proposal_write",
-    maxConcurrency: 1,
-    providerParallelToolCallsAllowed: false,
-  },
-  timeoutMs: 30_000,
-  retry: { maxAttempts: 2, retryOn: ["timeout", "network_error"] },
-  resultLimit: { maxBytes: 50_000, redaction: "none" as const },
-  effects: {
-    effectType: "proposal_create",
-    idempotencyKeyRequired: true,
-    replaySafe: true,
-  },
-  proposalConfirmation: {
-    createsProposal: true,
-    requiredBeforeCommit: true,
-    publicActionOnly: true,
-    resumesModelLoopByDefault: false,
-  },
-  privacy: {
-    dataClassification: "project_sensitive" as const,
-    traceIncludeInputs: false,
-    traceIncludeOutputs: false,
-  },
-  errors: { modelVisibleErrorPolicy: "normalized_summary" },
-  resume: {
-    manifestVersion: 1,
-    incompatibleVersionPolicy: "regenerate" as const,
-  },
-  trace: { emits: ["agent.tool_call"] },
-  inputSchema: {
-    type: "object",
-    required: ["stage_id", "progress_summary", "next_steps"],
-    properties: {
-      stage_id: { type: "string" },
-      progress_summary: { type: "string", minLength: 1, maxLength: 2000 },
-      next_steps: { type: "string", minLength: 1, maxLength: 2000 },
-    },
-  },
-  outputSchema: {
-    type: "object",
-    description:
-      "ProjectFlowToolResult — status=success, data={proposal_id, proposal_type, content, requires_confirmation}, side_effect_status=proposal_persisted, links.proposal_id",
-  },
-  backend: {
-    owner: "fastapi",
-    endpoint: "POST /internal/agent-tools/update-stage-progress",
     method: "POST",
   },
 };
@@ -745,7 +675,6 @@ export function createProposalTools(fastapiClient: FastapiClient): RegisteredToo
     createStagePlanProposalTool(fastapiClient),
     createReplanProposalTool(fastapiClient),
     createAssignmentProposalTool(fastapiClient),
-    createUpdateStageProgressTool(fastapiClient),
     createDirectionCardProposalTool(fastapiClient),
     createTaskBreakdownProposalTool(fastapiClient),
   ];
@@ -759,7 +688,7 @@ export function createCheckinsAndRisksAnalysisTool(fastapiClient: FastapiClient)
   };
 }
 
-/** Build the draft_no_confirm risk creation tool (S11). */
+/** Build the advisory risk creation tool. */
 export function createRiskTool(fastapiClient: FastapiClient): RegisteredTool {
   return {
     manifest: createRiskManifest,
@@ -767,19 +696,11 @@ export function createRiskTool(fastapiClient: FastapiClient): RegisteredTool {
   };
 }
 
-/** Build the draft_no_confirm checkin creation tool (S11). */
+/** Build the advisory check-in creation tool. */
 export function createCheckinTool(fastapiClient: FastapiClient): RegisteredTool {
   return {
     manifest: createCheckinManifest,
     execute: createFastapiToolExecutor(fastapiClient, "create-checkin"),
-  };
-}
-
-/** Build the draft + proposal confirmation stage progress tool (S11). */
-export function createUpdateStageProgressTool(fastapiClient: FastapiClient): RegisteredTool {
-  return {
-    manifest: updateStageProgressManifest,
-    execute: createFastapiToolExecutor(fastapiClient, "update-stage-progress"),
   };
 }
 

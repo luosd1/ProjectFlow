@@ -151,6 +151,8 @@ LLM-callable tool 不应返回 `commit_persisted`。
 - `POST /internal/agent-tools/task-breakdown-proposal`
 - `POST /internal/agent-tools/assignment-recommendation`
 - `POST /internal/agent-tools/checkins-and-risks-analysis`
+- `POST /internal/agent-tools/create-risk`
+- `POST /internal/agent-tools/create-checkin`
 - `POST /internal/agent-tools/replan-proposal`
 
 统一接收 run_id, tool_call_id, conversation_id, workspace_id, project_id, tool_name, tool_version, manifest_version, idempotency_key, arguments, client_event_id, ordering_hint, trace。统一返回 ProjectFlowToolResult。
@@ -316,7 +318,7 @@ agent-bridge/
 11. Frontend integration：stream/timeline/proposal/advisory state presentation
 12. Legacy Coordinator parity + cutover：migrate remaining flows only after parity/idempotency/safety tests
 
-Progress note (2026-07-06): S3, S5, S6, S7, S8, S9, S10, S12, S13, S14, and S16 are implemented. The current tool registry includes read-only state/timeline tools, draft-only stage plan/direction card/task breakdown/replan tools, typed assignment recommendation, and advisory check-in/risk analysis. FastAPI internal agent-tools and agent-runs endpoints require service-token auth, and tool denial/not-found/crash paths return structured terminal `ProjectFlowToolResult` records.
+Progress note (2026-07-06): S3, S5, S6, S7, S8, S9, S10, S11, S12, S13, S14, and S16 are implemented. The current tool registry includes read-only state/timeline tools, draft-only stage plan/direction card/task breakdown/replan tools, typed assignment recommendation, advisory check-in/risk analysis, and direct advisory `create_risk` / `create_checkin`. FastAPI internal agent-tools and agent-runs endpoints require service-token auth, and tool denial/not-found/crash paths return structured terminal `ProjectFlowToolResult` records. Proposal confirmation/rejection remains a public API boundary, not an internal agent tool.
 
 ### 安全约束
 

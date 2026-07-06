@@ -418,12 +418,6 @@ def execute_agent_tool(
     if tool_name == "create-checkin":
         return execute_create_checkin(session, request)
 
-    if tool_name == "update-stage-progress":
-        return execute_update_stage_progress(session, request)
-
-    if tool_name == "submit-tool-result":
-        return execute_submit_tool_result(session, request)
-
     raise ToolNotFoundError(f"Unknown agent tool: {tool_name}")
 
 
@@ -1120,7 +1114,7 @@ def _assignment_validation_error_result(exc: ValueError | ValidationError) -> Pr
     )
 
 
-# ─── S11: create_risk / create_checkin / update_stage_progress ─────────────
+# ─── S11: create_risk / create_checkin ─────────────────────────────────────
 
 
 def execute_create_risk(session: Session, request: ToolExecutionRequest) -> ProjectFlowToolResult:
@@ -1165,10 +1159,47 @@ def execute_create_risk(session: Session, request: ToolExecutionRequest) -> Proj
         )
 
     try:
+        stage_id = args.get("stage_id")
+        task_id = args.get("task_id")
+        if stage_id:
+            stage = session.get(Stage, stage_id)
+            if stage is None:
+                return ProjectFlowToolResult(
+                    status=ToolResultStatus.validation_error,
+                    side_effect_status=SideEffectStatus.no_side_effect,
+                    observation="阶段不存在。",
+                )
+            if stage.project_id != project_id:
+                return ProjectFlowToolResult(
+                    status=ToolResultStatus.validation_error,
+                    side_effect_status=SideEffectStatus.no_side_effect,
+                    observation="阶段不属于当前项目。",
+                )
+        if task_id:
+            task = session.get(Task, task_id)
+            if task is None:
+                return ProjectFlowToolResult(
+                    status=ToolResultStatus.validation_error,
+                    side_effect_status=SideEffectStatus.no_side_effect,
+                    observation="任务不存在。",
+                )
+            if task.project_id != project_id:
+                return ProjectFlowToolResult(
+                    status=ToolResultStatus.validation_error,
+                    side_effect_status=SideEffectStatus.no_side_effect,
+                    observation="任务不属于当前项目。",
+                )
+            if stage_id and task.stage_id != stage_id:
+                return ProjectFlowToolResult(
+                    status=ToolResultStatus.validation_error,
+                    side_effect_status=SideEffectStatus.no_side_effect,
+                    observation="任务不属于所选阶段。",
+                )
+
         create_data = RiskCreate(
             project_id=project_id,
-            stage_id=args.get("stage_id"),
-            task_id=args.get("task_id"),
+            stage_id=stage_id,
+            task_id=task_id,
             type=args["type"],
             severity=args["severity"],
             title=args["title"],
@@ -1211,6 +1242,7 @@ def execute_create_risk(session: Session, request: ToolExecutionRequest) -> Proj
         session.refresh(risk)
         return result
     except (ValueError, ValidationError) as exc:
+        session.rollback()
         return ProjectFlowToolResult(
             status=ToolResultStatus.validation_error,
             side_effect_status=SideEffectStatus.no_side_effect,
@@ -1273,21 +1305,32 @@ def execute_create_checkin(session: Session, request: ToolExecutionRequest) -> P
                 observation="任务不属于当前项目。",
             )
 
-        # Get stage_id from task if not provided
         stage_id = args.get("stage_id") or task.stage_id
-        # Get user_id from args or use first workspace member
+        if stage_id != task.stage_id:
+            return ProjectFlowToolResult(
+                status=ToolResultStatus.validation_error,
+                side_effect_status=SideEffectStatus.no_side_effect,
+                observation="签到阶段必须与任务所属阶段一致。",
+            )
+
         user_id = args.get("user_id")
-        if not user_id:
-            # Try to find a workspace member
-            membership = session.exec(
-                select(WorkspaceMembership).where(WorkspaceMembership.workspace_id == request.workspace_id)
-            ).first()
-            user_id = membership.user_id if membership else None
         if not user_id:
             return ProjectFlowToolResult(
                 status=ToolResultStatus.validation_error,
                 side_effect_status=SideEffectStatus.no_side_effect,
                 observation="缺少用户身份信息。",
+            )
+        membership = session.exec(
+            select(WorkspaceMembership).where(
+                WorkspaceMembership.workspace_id == request.workspace_id,
+                WorkspaceMembership.user_id == user_id,
+            )
+        ).first()
+        if membership is None:
+            return ProjectFlowToolResult(
+                status=ToolResultStatus.validation_error,
+                side_effect_status=SideEffectStatus.no_side_effect,
+                observation="用户不是当前工作区成员。",
             )
 
         from datetime import date as date_type
@@ -1299,7 +1342,7 @@ def execute_create_checkin(session: Session, request: ToolExecutionRequest) -> P
             start_date=args.get("start_date", str(date_type.today())),
             created_by_user_id=user_id,
         )
-        cycle = create_checkin_cycle(session, cycle_data)
+        cycle = create_checkin_cycle(session, cycle_data, auto_commit=False)
 
         response_data = CheckInResponseCreate(
             project_id=project_id,
@@ -1311,7 +1354,7 @@ def execute_create_checkin(session: Session, request: ToolExecutionRequest) -> P
             available_hours_next_cycle=args.get("available_hours_next_cycle"),
             mood_or_confidence=args.get("mood_or_confidence"),
         )
-        response = create_checkin_response(session, cycle.id, response_data)
+        response = create_checkin_response(session, cycle.id, response_data, auto_commit=False)
 
         event = AgentEvent(
             project_id=project_id,
@@ -1342,206 +1385,7 @@ def execute_create_checkin(session: Session, request: ToolExecutionRequest) -> P
         session.refresh(response)
         return result
     except (ValueError, ValidationError) as exc:
-        return ProjectFlowToolResult(
-            status=ToolResultStatus.validation_error,
-            side_effect_status=SideEffectStatus.no_side_effect,
-            observation=str(exc),
-        )
-
-
-def execute_update_stage_progress(session: Session, request: ToolExecutionRequest) -> ProjectFlowToolResult:
-    """Create a StagePlanProposal for stage progress update (draft + proposal confirmation).
-
-    risk_category=draft_only, proposalConfirmRequired=true.
-    Creates a StagePlanProposal that requires human confirmation before
-    the stage progress is actually committed.
-    Idempotent: same idempotency_key returns cached result.
-    """
-    args = request.arguments or {}
-    project_id = args.get("project_id") or request.project_id
-    workspace_id = args.get("workspace_id") or request.workspace_id
-
-    # Idempotency check: reuse existing proposal for same idempotency key
-    cached_proposal = _find_proposal_for_idempotency_key(
-        session,
-        workspace_id=workspace_id,
-        project_id=project_id,
-        proposal_type="plan",
-        idempotency_key=request.idempotency_key,
-    )
-    if cached_proposal is not None:
-        return _proposal_tool_result(
-            proposal_id=cached_proposal.id,
-            agent_event_id=cached_proposal.agent_event_id,
-            output=_cached_proposal_tool_data(cached_proposal, event_type="plan"),
-            request=request,
-            observation="已复用同一次工具调用生成的阶段进展提案。",
-        )
-
-    required = ["stage_id", "progress_summary", "next_steps"]
-    missing = [f for f in required if not args.get(f)]
-    if missing:
-        return ProjectFlowToolResult(
-            status=ToolResultStatus.validation_error,
-            side_effect_status=SideEffectStatus.no_side_effect,
-            observation=f"缺少必填字段：{', '.join(missing)}",
-        )
-
-    try:
-        stage = session.get(Stage, args["stage_id"])
-        if not stage:
-            return ProjectFlowToolResult(
-                status=ToolResultStatus.validation_error,
-                side_effect_status=SideEffectStatus.no_side_effect,
-                observation="阶段不存在。",
-            )
-        if stage.project_id != project_id:
-            return ProjectFlowToolResult(
-                status=ToolResultStatus.validation_error,
-                side_effect_status=SideEffectStatus.no_side_effect,
-                observation="阶段不属于当前项目。",
-            )
-
-        import json
-
-        payload = {
-            "action": "update_stage_progress",
-            "stage_id": args["stage_id"],
-            "progress_summary": args["progress_summary"],
-            "next_steps": args["next_steps"],
-        }
-
-        proposal = AgentProposal(
-            project_id=project_id,
-            workspace_id=request.workspace_id,
-            proposal_type="plan",
-            status=AgentProposalStatus.pending,
-            agent_event_id="",  # Will be set after event creation
-            payload=json.dumps(payload, ensure_ascii=False),
-        )
-        session.add(proposal)
-        session.flush()
-
-        event = AgentEvent(
-            project_id=project_id,
-            workspace_id=request.workspace_id,
-            event_type=AgentEventType.plan,
-            reasoning_summary="阶段进展工具创建待确认提案。",
-        )
-        event.set_input_snapshot({
-            "tool_idempotency_key": request.idempotency_key,
-            "tool_call_id": request.tool_call_id,
-            "tool_name": request.tool_name,
-            "tool_dispatch_name": "update-stage-progress",
-        })
-        # Update proposal with event id
-        proposal.agent_event_id = event.id
-        result = ProjectFlowToolResult(
-            status=ToolResultStatus.success,
-            data={
-                "proposal_id": proposal.id,
-                "proposal_type": proposal.proposal_type,
-                "content": payload,
-                "requires_confirmation": True,
-            },
-            side_effect_status=SideEffectStatus.proposal_persisted,
-            idempotency_key=request.idempotency_key,
-            links=ToolLinks(
-                agent_event_id=event.id,
-                proposal_id=proposal.id,
-                created_ids=[proposal.id],
-            ),
-            observation=f"阶段进展提案已创建，等待确认。",
-        )
-        event.set_output_snapshot({"tool_result": result.model_dump(mode="json")})
-        session.add(event)
-        session.commit()
-        session.refresh(proposal)
-        return result
-    except (ValueError, ValidationError) as exc:
-        return ProjectFlowToolResult(
-            status=ToolResultStatus.validation_error,
-            side_effect_status=SideEffectStatus.no_side_effect,
-            observation=str(exc),
-        )
-
-
-# ─── submit_tool_result (human-only, not LLM-callable) ─────────────────────
-
-
-def execute_submit_tool_result(session: Session, request: ToolExecutionRequest) -> ProjectFlowToolResult:
-    """Submit a human response for a draft tool result (human-only).
-
-    This is NOT an LLM-callable tool. It's used by the frontend to:
-    - Confirm/reject proposals created by draft tools
-    - Submit human responses for tools that require human input
-
-    risk_category=N/A (human-only), not exposed in sidecar manifest.
-    """
-    args = request.arguments or {}
-
-    required = ["proposal_id", "action"]
-    missing = [f for f in required if not args.get(f)]
-    if missing:
-        return ProjectFlowToolResult(
-            status=ToolResultStatus.validation_error,
-            side_effect_status=SideEffectStatus.no_side_effect,
-            observation=f"缺少必填字段：{', '.join(missing)}",
-        )
-
-    proposal_id = args["proposal_id"]
-    action = args["action"]  # "confirm" or "reject"
-    confirmed_by = args.get("confirmed_by")
-    rejection_reason = args.get("rejection_reason")
-
-    proposal = session.get(AgentProposal, proposal_id)
-    if not proposal:
-        return ProjectFlowToolResult(
-            status=ToolResultStatus.validation_error,
-            side_effect_status=SideEffectStatus.no_side_effect,
-            observation="提案不存在。",
-        )
-
-    if proposal.status != AgentProposalStatus.pending:
-        return ProjectFlowToolResult(
-            status=ToolResultStatus.validation_error,
-            side_effect_status=SideEffectStatus.no_side_effect,
-            observation=f"提案状态为 {proposal.status}，只能确认/拒绝 pending 状态的提案。",
-        )
-
-    try:
-        if action == "confirm":
-            proposal.status = AgentProposalStatus.confirmed
-            proposal.confirmed_by = confirmed_by
-            from datetime import datetime, timezone
-            proposal.confirmed_at = datetime.now(timezone.utc)
-        elif action == "reject":
-            proposal.status = AgentProposalStatus.rejected
-            proposal.rejection_reason = rejection_reason
-        else:
-            return ProjectFlowToolResult(
-                status=ToolResultStatus.validation_error,
-                side_effect_status=SideEffectStatus.no_side_effect,
-                observation=f"不支持的操作：{action}，请使用 confirm 或 reject。",
-            )
-
-        session.add(proposal)
-        session.commit()
-        session.refresh(proposal)
-
-        result = ProjectFlowToolResult(
-            status=ToolResultStatus.success,
-            data={
-                "proposal_id": proposal.id,
-                "status": proposal.status,
-                "action": action,
-            },
-            side_effect_status=SideEffectStatus.no_side_effect,
-            links=ToolLinks(created_ids=[proposal.id]),
-            observation=f"提案已{('确认' if action == 'confirm' else '拒绝')}。",
-        )
-        return result
-    except (ValueError, ValidationError) as exc:
+        session.rollback()
         return ProjectFlowToolResult(
             status=ToolResultStatus.validation_error,
             side_effect_status=SideEffectStatus.no_side_effect,

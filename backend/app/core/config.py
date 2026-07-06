@@ -26,8 +26,6 @@ class Settings(BaseSettings):
     feature_task_breakdown_proposal: bool = True
     feature_create_risk: bool = True
     feature_create_checkin: bool = True
-    feature_update_stage_progress: bool = True
-    feature_submit_tool_result: bool = True
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
@@ -52,10 +50,6 @@ class Settings(BaseSettings):
             tools.add("create-risk")
         if self.feature_create_checkin:
             tools.add("create-checkin")
-        if self.feature_update_stage_progress:
-            tools.add("update-stage-progress")
-        if self.feature_submit_tool_result:
-            tools.add("submit-tool-result")
         return tools
 
 

@@ -44,8 +44,6 @@ ALL_AGENT_TOOLS = {
     "assignment-recommendation",
     "create-risk",
     "create-checkin",
-    "update-stage-progress",
-    "submit-tool-result",
     "direction-card-proposal",
     "task-breakdown-proposal",
 }

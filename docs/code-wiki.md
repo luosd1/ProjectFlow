@@ -600,9 +600,11 @@ Base URL: `http://localhost:8000/api`
 | POST | /internal/agent-tools/task-breakdown-proposal | draft-only `generate_task_breakdown_proposal`，创建 pending breakdown proposal |
 | POST | /internal/agent-tools/assignment-recommendation | draft-only `recommend_assignment`，创建 typed AssignmentProposal |
 | POST | /internal/agent-tools/checkins-and-risks-analysis | advisory-write `analyze_checkins_and_risks`，创建 Risk/ActionCard advisory records |
+| POST | /internal/agent-tools/create-risk | advisory-write `create_risk`，直接创建 Risk advisory record |
+| POST | /internal/agent-tools/create-checkin | advisory-write `create_checkin`，直接创建 CheckInCycle + CheckInResponse |
 | POST | /internal/agent-tools/replan-proposal | draft-only `generate_replan_proposal`，创建 pending replan proposal；重复 pending replan 时返回 blocked |
 
-这些 internal tool endpoints 必须带 `Authorization: Bearer <INTERNAL_SERVICE_TOKEN>`；未知工具返回 `blocked/TOOL_NOT_FOUND`，feature flag 禁用返回 `blocked/POLICY_DENIED`，未处理 crash 返回 `failed/unknown`。
+这些 internal tool endpoints 必须带 `Authorization: Bearer <INTERNAL_SERVICE_TOKEN>`；未知工具返回 `blocked/TOOL_NOT_FOUND`，feature flag 禁用返回 `blocked/POLICY_DENIED`，未处理 crash 返回 `failed/unknown`。Proposal confirm/reject 仍走公开 proposal API，不作为 internal agent tool。
 
 ### 提案确认
 

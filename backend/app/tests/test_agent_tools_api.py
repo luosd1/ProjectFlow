@@ -17,13 +17,14 @@ os.environ["INTERNAL_SERVICE_TOKEN"] = "test-internal-service-token"
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlmodel import Session, SQLModel, create_engine
+from sqlmodel import Session, SQLModel, create_engine, select
 from sqlalchemy.pool import StaticPool
 
 from app.main import app
 from app.models import (
     AgentEvent,
     AgentProposal,
+    CheckInCycle,
     Project,
     Stage,
     Task,
@@ -1123,7 +1124,7 @@ class TestTaskBreakdownProposalTool:
         assert resp1.json()["links"]["proposal_id"] == resp2.json()["links"]["proposal_id"]
 
 
-# ─── S11: create_risk / create_checkin / update_stage_progress ──────────────
+# ─── S11: create_risk / create_checkin ──────────────────────────────────────
 
 
 def _seed_s11(test_engine) -> dict:
@@ -1272,6 +1273,54 @@ class TestCreateRiskTool:
         data = resp.json()
         assert data["status"] == "validation_error"
 
+    def test_create_risk_rejects_stage_from_different_project(self, client, test_engine):
+        """create_risk must not link a risk to a stage outside the target project."""
+        _seed_s11(test_engine)
+        with Session(test_engine) as session:
+            session.add(
+                Project(
+                    id="p2",
+                    workspace_id="ws1",
+                    name="另一个项目",
+                    idea="另一个想法",
+                    deadline="2026-09-01",
+                    deliverables="交付物",
+                    created_by="u1",
+                )
+            )
+            session.add(
+                Stage(
+                    id="s2",
+                    project_id="p2",
+                    name="另一阶段",
+                    goal="另一目标",
+                    start_date="2026-07-01",
+                    end_date="2026-07-15",
+                    deliverable="交付物",
+                    order_index=0,
+                    status="active",
+                )
+            )
+            session.commit()
+
+        resp = client.post(
+            "/internal/agent-tools/create-risk",
+            json=_envelope("create_risk", {
+                "type": "deadline",
+                "severity": "high",
+                "title": "跨项目阶段风险",
+                "description": "阶段不属于当前项目",
+                "evidence": ["阶段来自其他项目"],
+                "recommendation": "重新选择阶段",
+                "stage_id": "s2",
+            }),
+        )
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["status"] == "validation_error"
+        assert "阶段不属于当前项目" in data["observation"]
+
 
 class TestCreateCheckinTool:
     """S11 create_checkin: advisory record, no proposal confirmation."""
@@ -1329,6 +1378,24 @@ class TestCreateCheckinTool:
         data = resp.json()
         assert data["status"] == "validation_error"
         assert "缺少" in data["observation"]
+
+    def test_create_checkin_requires_explicit_workspace_member(self, client, test_engine):
+        """create_checkin must not invent a member when user_id is missing."""
+        _seed_s11(test_engine)
+        resp = client.post(
+            "/internal/agent-tools/create-checkin",
+            json=_envelope("create_checkin", {
+                "task_id": "t1",
+                "what_done": "完成后端 API 开发",
+            }),
+        )
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["status"] == "validation_error"
+        assert "缺少用户身份信息" in data["observation"]
+        with Session(test_engine) as session:
+            assert session.exec(select(CheckInCycle)).all() == []
 
     def test_create_checkin_nonexistent_task(self, client, test_engine):
         """create_checkin with nonexistent task returns validation_error."""
@@ -1400,124 +1467,78 @@ class TestCreateCheckinTool:
         assert data["status"] == "validation_error"
         assert "不属于" in data["observation"]
 
-
-class TestUpdateStageProgressTool:
-    """S11 update_stage_progress: draft + proposal confirmation."""
-
-    def test_update_stage_progress_success(self, client, test_engine):
-        """update_stage_progress creates a StagePlanProposal."""
+    def test_create_checkin_user_must_be_workspace_member(self, client, test_engine):
+        """create_checkin must reject users outside the workspace."""
         _seed_s11(test_engine)
+        with Session(test_engine) as session:
+            session.add(User(id="u3", display_name="外部成员"))
+            session.commit()
+
         resp = client.post(
-            "/internal/agent-tools/update-stage-progress",
-            json=_envelope("update_stage_progress", {
-                "stage_id": "s1",
-                "progress_summary": "阶段进展顺利，已完成80%功能",
-                "next_steps": "继续推进剩余任务",
+            "/internal/agent-tools/create-checkin",
+            json=_envelope("create_checkin", {
+                "task_id": "t1",
+                "what_done": "完成后端 API 开发",
+                "user_id": "u3",
             }),
         )
-        assert resp.status_code == 200, resp.text
-        data = resp.json()
-        assert data["status"] == "success"
-        assert data["side_effect_status"] == "proposal_persisted"
-        assert data["data"]["proposal_id"] is not None
-        assert data["data"]["requires_confirmation"] is True
-        assert data["links"]["proposal_id"] is not None
-        assert data["links"]["created_ids"] != []
 
-    def test_update_stage_progress_missing_fields(self, client, test_engine):
-        """update_stage_progress with missing required fields returns validation_error."""
-        _seed_s11(test_engine)
-        resp = client.post(
-            "/internal/agent-tools/update-stage-progress",
-            json=_envelope("update_stage_progress", {
-                "stage_id": "s1",
-                # missing progress_summary, next_steps
-            }),
-        )
         assert resp.status_code == 200
         data = resp.json()
         assert data["status"] == "validation_error"
-        assert "缺少" in data["observation"]
+        assert "不是当前工作区成员" in data["observation"]
 
-    def test_update_stage_progress_nonexistent_stage(self, client, test_engine):
-        """update_stage_progress with nonexistent stage returns validation_error."""
-        _seed_s11(test_engine)
-        resp = client.post(
-            "/internal/agent-tools/update-stage-progress",
-            json=_envelope("update_stage_progress", {
-                "stage_id": "nonexistent",
-                "progress_summary": "进展顺利",
-                "next_steps": "继续推进",
-            }),
-        )
-        assert resp.status_code == 200
-        data = resp.json()
-        assert data["status"] == "validation_error"
-        assert "不存在" in data["observation"]
-
-    def test_update_stage_progress_stage_not_in_project(self, client, test_engine):
-        """update_stage_progress with stage from different project returns validation_error."""
+    def test_create_checkin_rejects_stage_that_does_not_match_task(self, client, test_engine):
+        """A check-in response for a task must use that task's stage."""
         _seed_s11(test_engine)
         with Session(test_engine) as session:
             session.add(
-                Project(
-                    id="p2",
-                    workspace_id="ws1",
-                    name="另一个项目",
-                    idea="另一个想法",
-                    deadline="2026-09-01",
-                    deliverables="交付物",
-                    created_by="u1",
-                )
-            )
-            session.add(
                 Stage(
-                    id="s2",
-                    project_id="p2",
-                    name="另一阶段",
-                    goal="另一目标",
-                    start_date="2026-07-01",
-                    end_date="2026-07-15",
-                    deliverable="交付物",
-                    order_index=0,
-                    status="active",
+                    id="s_other",
+                    project_id="p1",
+                    name="测试阶段",
+                    goal="测试目标",
+                    start_date="2026-07-16",
+                    end_date="2026-07-20",
+                    deliverable="测试交付物",
+                    order_index=1,
+                    status="pending",
                 )
             )
             session.commit()
+
         resp = client.post(
-            "/internal/agent-tools/update-stage-progress",
-            json=_envelope("update_stage_progress", {
-                "stage_id": "s2",
-                "progress_summary": "进展顺利",
-                "next_steps": "继续推进",
+            "/internal/agent-tools/create-checkin",
+            json=_envelope("create_checkin", {
+                "task_id": "t1",
+                "stage_id": "s_other",
+                "what_done": "完成后端 API 开发",
+                "user_id": "u1",
             }),
         )
+
         assert resp.status_code == 200
         data = resp.json()
         assert data["status"] == "validation_error"
-        assert "不属于" in data["observation"]
+        assert "签到阶段必须与任务所属阶段一致" in data["observation"]
 
-    def test_update_stage_progress_does_not_mutate_stage(self, client, test_engine):
-        """update_stage_progress creates proposal but does NOT change stage status."""
+
+class TestUpdateStageProgressTool:
+    """update_stage_progress is not exposed until it has a valid commit path."""
+
+    def test_update_stage_progress_is_not_an_active_agent_tool(self, client, test_engine):
         _seed_s11(test_engine)
-        with Session(test_engine) as session:
-            stage = session.get(Stage, "s1")
-            original_status = stage.status
         resp = client.post(
             "/internal/agent-tools/update-stage-progress",
             json=_envelope("update_stage_progress", {
                 "stage_id": "s1",
                 "progress_summary": "阶段进展顺利",
-                "next_steps": "继续推进",
+                "next_steps": "继续推进剩余任务",
             }),
         )
-        assert resp.status_code == 200
-        data = resp.json()
-        assert data["status"] == "success"
-        # Verify stage status unchanged
-        with Session(test_engine) as session:
-            stage = session.get(Stage, "s1")
-            assert stage.status == original_status
+        assert resp.status_code == 200, resp.text
+        assert resp.json()["status"] == "blocked"
+        assert resp.json()["error"]["code"] == "TOOL_NOT_FOUND"
 
 
 # ─── Idempotency Tests ─────────────────────────────────────────────────────
@@ -1571,125 +1592,23 @@ class TestCreateCheckinIdempotency:
 
 
 class TestSubmitToolResult:
-    """Test submit_tool_result human-only tool."""
+    """Proposal confirmation must stay on the public proposal API."""
 
-    def test_submit_tool_result_confirm(self, client, test_engine):
-        """submit_tool_result can confirm a proposal."""
-        _seed_s11(test_engine)
-        # First create a proposal
-        resp = client.post(
-            "/internal/agent-tools/update-stage-progress",
-            json=_envelope("update_stage_progress", {
-                "stage_id": "s1",
-                "progress_summary": "阶段进展顺利",
-                "next_steps": "继续推进",
-            }),
-        )
-        assert resp.status_code == 200
-        proposal_id = resp.json()["data"]["proposal_id"]
-
-        # Now confirm it
-        resp = client.post(
-            "/internal/agent-tools/submit-tool-result",
-            json=_envelope("submit_tool_result", {
-                "proposal_id": proposal_id,
-                "action": "confirm",
-                "confirmed_by": "u1",
-            }),
-        )
-        assert resp.status_code == 200
-        data = resp.json()
-        assert data["status"] == "success"
-        assert data["data"]["status"] == "confirmed"
-        assert data["data"]["action"] == "confirm"
-
-    def test_submit_tool_result_reject(self, client, test_engine):
-        """submit_tool_result can reject a proposal."""
-        _seed_s11(test_engine)
-        # First create a proposal
-        resp = client.post(
-            "/internal/agent-tools/update-stage-progress",
-            json=_envelope("update_stage_progress", {
-                "stage_id": "s1",
-                "progress_summary": "阶段进展顺利",
-                "next_steps": "继续推进",
-            }),
-        )
-        assert resp.status_code == 200
-        proposal_id = resp.json()["data"]["proposal_id"]
-
-        # Now reject it
-        resp = client.post(
-            "/internal/agent-tools/submit-tool-result",
-            json=_envelope("submit_tool_result", {
-                "proposal_id": proposal_id,
-                "action": "reject",
-                "rejection_reason": "计划不够详细",
-            }),
-        )
-        assert resp.status_code == 200
-        data = resp.json()
-        assert data["status"] == "success"
-        assert data["data"]["status"] == "rejected"
-        assert data["data"]["action"] == "reject"
-
-    def test_submit_tool_result_missing_fields(self, client, test_engine):
-        """submit_tool_result with missing fields returns validation_error."""
+    def test_submit_tool_result_is_not_an_agent_tool(self, client, test_engine):
         _seed_s11(test_engine)
         resp = client.post(
             "/internal/agent-tools/submit-tool-result",
             json=_envelope("submit_tool_result", {
                 "proposal_id": "some-id",
-                # missing action
-            }),
-        )
-        assert resp.status_code == 200
-        data = resp.json()
-        assert data["status"] == "validation_error"
-        assert "缺少" in data["observation"]
-
-    def test_submit_tool_result_nonexistent_proposal(self, client, test_engine):
-        """submit_tool_result with nonexistent proposal returns validation_error."""
-        _seed_s11(test_engine)
-        resp = client.post(
-            "/internal/agent-tools/submit-tool-result",
-            json=_envelope("submit_tool_result", {
-                "proposal_id": "nonexistent",
                 "action": "confirm",
+                "confirmed_by": "u1",
             }),
         )
-        assert resp.status_code == 200
-        data = resp.json()
-        assert data["status"] == "validation_error"
-        assert "不存在" in data["observation"]
+        assert resp.status_code == 200, resp.text
+        assert resp.json()["status"] == "blocked"
+        assert resp.json()["error"]["code"] == "TOOL_NOT_FOUND"
 
-    def test_submit_tool_result_invalid_action(self, client, test_engine):
-        """submit_tool_result with invalid action returns validation_error."""
-        _seed_s11(test_engine)
-        # First create a proposal
-        resp = client.post(
-            "/internal/agent-tools/update-stage-progress",
-            json=_envelope("update_stage_progress", {
-                "stage_id": "s1",
-                "progress_summary": "阶段进展顺利",
-                "next_steps": "继续推进",
-            }),
-        )
-        assert resp.status_code == 200
-        proposal_id = resp.json()["data"]["proposal_id"]
 
-        # Try invalid action
-        resp = client.post(
-            "/internal/agent-tools/submit-tool-result",
-            json=_envelope("submit_tool_result", {
-                "proposal_id": proposal_id,
-                "action": "invalid",
-            }),
-        )
-        assert resp.status_code == 200
-        data = resp.json()
-        assert data["status"] == "validation_error"
-        assert "不支持" in data["observation"]
 class TestToolContractParity:
     """S12: Each migrated tool must return a structurally valid ProjectFlowToolResult."""
 

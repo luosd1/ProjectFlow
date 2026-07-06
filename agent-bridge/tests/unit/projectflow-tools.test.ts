@@ -49,7 +49,6 @@ const DEFAULT_TOOL_NAMES = [
   "recommend_assignment",
   "create_risk",
   "create_checkin",
-  "update_stage_progress",
   "generate_direction_card_proposal",
   "generate_task_breakdown_proposal",
 ];
@@ -66,7 +65,6 @@ const INTERNAL_TOOL_NAME: Record<string, string> = {
   recommend_assignment: "assignment-recommendation",
   create_risk: "create-risk",
   create_checkin: "create-checkin",
-  update_stage_progress: "update-stage-progress",
   generate_direction_card_proposal: "direction-card-proposal",
   generate_task_breakdown_proposal: "task-breakdown-proposal",
 };
@@ -82,7 +80,6 @@ const INTERNAL_ENDPOINT: Record<string, string> = {
   recommend_assignment: "POST /internal/agent-tools/assignment-recommendation",
   create_risk: "POST /internal/agent-tools/create-risk",
   create_checkin: "POST /internal/agent-tools/create-checkin",
-  update_stage_progress: "POST /internal/agent-tools/update-stage-progress",
   generate_direction_card_proposal: "POST /internal/agent-tools/direction-card-proposal",
   generate_task_breakdown_proposal: "POST /internal/agent-tools/task-breakdown-proposal",
 };
@@ -281,7 +278,6 @@ describe("projectflow-tools", () => {
         "generate_stage_plan_proposal",
         "generate_task_breakdown_proposal",
         "recommend_assignment",
-        "update_stage_progress",
       ]);
     });
 
@@ -519,7 +515,7 @@ describe("projectflow-tools", () => {
       const registry = new ToolRegistry();
       const client = createStubFastapiClient();
       registerDefaultTools(registry, client);
-      expect(registry.size).toBe(13);
+      expect(registry.size).toBe(12);
       for (const name of DEFAULT_TOOL_NAMES) {
         expect(registry.has(name)).toBe(true);
       }
@@ -529,14 +525,14 @@ describe("projectflow-tools", () => {
       const registry = new ToolRegistry();
       registerDefaultTools(registry, createStubFastapiClient());
       const manifests = registry.getModelCallableManifests();
-      expect(manifests.length).toBe(13);
+      expect(manifests.length).toBe(12);
     });
 
     it("getManifests returns all default manifests", () => {
       const registry = new ToolRegistry();
       registerDefaultTools(registry, createStubFastapiClient());
       const manifests = registry.getManifests();
-      expect(manifests.length).toBe(13);
+      expect(manifests.length).toBe(12);
       const names = manifests.map((m: ProjectFlowToolManifest) => m.name).sort();
       expect(names).toEqual([...DEFAULT_TOOL_NAMES].sort());
     });
@@ -798,7 +794,7 @@ describe("projectflow-tools", () => {
     });
   });
 
-  // ─── S11: create_risk / create_checkin / update_stage_progress ──────────
+  // ─── Advisory Write Tools: create_risk / create_checkin ─────────────────
 
   describe("createAdvisoryTools", () => {
     it("returns all advisory tools", () => {
@@ -844,6 +840,13 @@ describe("projectflow-tools", () => {
       expect(schema.required).toContain("description");
       expect(schema.required).toContain("evidence");
       expect(schema.required).toContain("recommendation");
+    });
+
+    it("matches backend RiskSeverity enum", () => {
+      const schema = m.inputSchema as {
+        properties: { severity: { enum: string[] } };
+      };
+      expect(schema.properties.severity.enum).toEqual(["low", "medium", "high"]);
     });
 
     it("has outputSchema", () => {
@@ -1004,7 +1007,15 @@ describe("projectflow-tools", () => {
       expect(m.inputSchema).toBeDefined();
       const schema = m.inputSchema as { required: string[] };
       expect(schema.required).toContain("task_id");
+      expect(schema.required).toContain("user_id");
       expect(schema.required).toContain("what_done");
+    });
+
+    it("matches backend MoodOrConfidence enum", () => {
+      const schema = m.inputSchema as {
+        properties: { mood_or_confidence: { enum: string[] } };
+      };
+      expect(schema.properties.mood_or_confidence.enum).toEqual(["low", "medium", "high"]);
     });
 
     it("has outputSchema", () => {
@@ -1136,167 +1147,6 @@ describe("projectflow-tools", () => {
       await tool.execute(args, makeContext({ toolName: "create_checkin" }));
       expect(client.calls.length).toBe(1);
       expect(client.calls[0]!.toolName).toBe("create-checkin");
-      expect(client.calls[0]!.payload.arguments).toEqual(args);
-      expect(client.calls[0]!.payload.run_id).toBe("run_test");
-      expect(client.calls[0]!.payload.tool_call_id).toBe("call_test");
-      expect(client.calls[0]!.payload.idempotency_key).toBe("run_test:call_test:v1");
-    });
-  });
-
-  describe("update_stage_progress manifest completeness", () => {
-    const tools = createProposalTools(createStubFastapiClient());
-    const m = tools.find((tool) => tool.manifest.name === "update_stage_progress")!.manifest;
-
-    it("has schemaVersion 1", () => {
-      expect(m.schemaVersion).toBe(1);
-    });
-
-    it("has version 1", () => {
-      expect(m.version).toBe(1);
-    });
-
-    it("has non-empty description", () => {
-      expect(m.description.length).toBeGreaterThan(0);
-    });
-
-    it("has inputSchema with required fields", () => {
-      expect(m.inputSchema).toBeDefined();
-      const schema = m.inputSchema as { required: string[] };
-      expect(schema.required).toContain("stage_id");
-      expect(schema.required).toContain("progress_summary");
-      expect(schema.required).toContain("next_steps");
-    });
-
-    it("has outputSchema", () => {
-      expect(m.outputSchema).toBeDefined();
-    });
-
-    it("has backend config with POST method and internal endpoint", () => {
-      expect(m.backend.owner).toBe("fastapi");
-      expect(m.backend.method).toBe("POST");
-      expect(m.backend.endpoint).toBe("POST /internal/agent-tools/update-stage-progress");
-    });
-
-    it("has execution config", () => {
-      expect(m.execution).toBeDefined();
-      expect(m.execution.mode).toBe("sequential");
-    });
-
-    it("has timeoutMs > 0", () => {
-      expect(m.timeoutMs).toBeGreaterThan(0);
-    });
-
-    it("has retry config", () => {
-      expect(m.retry).toBeDefined();
-      expect(typeof m.retry.maxAttempts).toBe("number");
-    });
-
-    it("has resultLimit config", () => {
-      expect(m.resultLimit).toBeDefined();
-      expect(typeof m.resultLimit.maxBytes).toBe("number");
-      expect(m.resultLimit.maxBytes).toBeGreaterThan(0);
-    });
-
-    it("has effects config with proposal_create", () => {
-      expect(m.effects).toBeDefined();
-      expect(m.effects.effectType).toBe("proposal_create");
-      expect(m.effects.idempotencyKeyRequired).toBe(true);
-      expect(m.effects.replaySafe).toBe(true);
-    });
-
-    it("has proposalConfirmation config", () => {
-      expect(m.proposalConfirmation).toBeDefined();
-      expect(m.proposalConfirmation!.createsProposal).toBe(true);
-      expect(m.proposalConfirmation!.requiredBeforeCommit).toBe(true);
-    });
-
-    it("has privacy config", () => {
-      expect(m.privacy).toBeDefined();
-      expect(m.privacy.dataClassification).toBe("project_sensitive");
-    });
-
-    it("has errors config", () => {
-      expect(m.errors).toBeDefined();
-      expect(m.errors.modelVisibleErrorPolicy).toBe("normalized_summary");
-    });
-
-    it("has resume config", () => {
-      expect(m.resume).toBeDefined();
-      expect(m.resume.manifestVersion).toBe(1);
-    });
-
-    it("has trace config", () => {
-      expect(m.trace).toBeDefined();
-      expect(Array.isArray(m.trace.emits)).toBe(true);
-    });
-  });
-
-  describe("update_stage_progress proposal semantics", () => {
-    const tools = createProposalTools(createStubFastapiClient());
-    const m = tools.find((tool) => tool.manifest.name === "update_stage_progress")!.manifest;
-
-    it("riskCategory is draft_only", () => {
-      expect(m.riskCategory).toBe("draft_only");
-    });
-
-    it("annotations.readOnly is false", () => {
-      expect(m.annotations.readOnly).toBe(false);
-    });
-
-    it("annotations.destructive is false", () => {
-      expect(m.annotations.destructive).toBe(false);
-    });
-
-    it("annotations.openWorld is false", () => {
-      expect(m.annotations.openWorld).toBe(false);
-    });
-
-    it("modelCallable is true", () => {
-      expect(m.modelCallable).toBe(true);
-    });
-
-    it("sidecarOnly is false", () => {
-      expect(m.sidecarOnly).toBe(false);
-    });
-
-    it("humanTriggeredOnly is false", () => {
-      expect(m.humanTriggeredOnly).toBe(false);
-    });
-
-    it("does not have commit_persisted effect", () => {
-      expect(m.effects.effectType).not.toBe("commit_persisted");
-    });
-
-    it("execution mode is sequential", () => {
-      expect(m.execution.mode).toBe("sequential");
-    });
-
-    it("concurrencyGroup is project_proposal_write", () => {
-      expect(m.execution.concurrencyGroup).toBe("project_proposal_write");
-    });
-
-    it("idempotencyKeyRequired is true", () => {
-      expect(m.effects.idempotencyKeyRequired).toBe(true);
-    });
-
-    it("replaySafe is true", () => {
-      expect(m.effects.replaySafe).toBe(true);
-    });
-  });
-
-  describe("update_stage_progress executor routes correctly", () => {
-    it("calls POST /internal/agent-tools/update-stage-progress with args in arguments", async () => {
-      const client = createStubFastapiClient();
-      const tools = createProposalTools(client);
-      const tool = tools.find((t) => t.manifest.name === "update_stage_progress")!;
-      const args = {
-        stage_id: "s1",
-        progress_summary: "阶段进展顺利",
-        next_steps: "继续推进剩余任务",
-      };
-      await tool.execute(args, makeContext({ toolName: "update_stage_progress" }));
-      expect(client.calls.length).toBe(1);
-      expect(client.calls[0]!.toolName).toBe("update-stage-progress");
       expect(client.calls[0]!.payload.arguments).toEqual(args);
       expect(client.calls[0]!.payload.run_id).toBe("run_test");
       expect(client.calls[0]!.payload.tool_call_id).toBe("call_test");
