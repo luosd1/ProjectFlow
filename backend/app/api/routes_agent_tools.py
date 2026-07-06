@@ -42,6 +42,10 @@ ALL_AGENT_TOOLS = {
     "checkins-and-risks-analysis",
     "replan-proposal",
     "assignment-recommendation",
+    "create-risk",
+    "create-checkin",
+    "update-stage-progress",
+    "submit-tool-result",
     "direction-card-proposal",
     "task-breakdown-proposal",
 }

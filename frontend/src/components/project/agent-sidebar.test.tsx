@@ -356,10 +356,7 @@ describe("AgentSidebar", () => {
     expect(screen.getByText("Agent 暂时没有完成这次处理")).toBeTruthy();
     expect(screen.getByText("这次没有生成可用结果")).toBeTruthy();
 
-    const retryButton = screen
-      .getAllByRole("button", { name: "重新发送" })
-      .find((button) => button.textContent === "重新发送");
-    if (!retryButton) throw new Error("retry button not found");
+    const retryButton = screen.getByText("重新发送");
     fireEvent.click(retryButton);
 
     expect(onSendMessage).toHaveBeenCalledWith("分析当前风险");
@@ -527,14 +524,11 @@ describe("AgentSidebar", () => {
       />
     );
 
-    const retryButton = screen
-      .getAllByRole("button", { name: "重新发送" })
-      .find((button) => button.textContent === "重新发送") as HTMLButtonElement | undefined;
-    if (!retryButton) throw new Error("retry button not found");
+    const retryButton = screen.getByText("重新发送") as HTMLButtonElement;
     expect(retryButton.disabled).toBe(true);
   });
 
-  it("hides payload artifact whose linked proposal is confirmed", () => {
+  it("confirmed proposal artifact is filtered out of visible list", () => {
     const stateWithConfirmedProposal: ProjectState = {
       ...baseProjectState,
       agent_proposals: [
@@ -589,11 +583,12 @@ describe("AgentSidebar", () => {
       />
     );
 
+    // Component filters out confirmed artifacts from visible list
     expect(screen.queryByText("调整计划草案")).toBeNull();
     expect(screen.queryByRole("button", { name: "确认应用" })).toBeNull();
   });
 
-  it("hides payload artifact whose linked proposal is rejected", () => {
+  it("dismissed proposal artifact is filtered out of visible list", () => {
     const stateWithRejectedProposal: ProjectState = {
       ...baseProjectState,
       agent_proposals: [
@@ -649,6 +644,7 @@ describe("AgentSidebar", () => {
       />
     );
 
+    // Component filters out dismissed artifacts from visible list
     expect(screen.queryByText("调整计划草案")).toBeNull();
     expect(screen.queryByRole("button", { name: "确认应用" })).toBeNull();
   });

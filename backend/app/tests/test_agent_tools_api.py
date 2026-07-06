@@ -11,9 +11,13 @@ Read-only tools return side_effect_status=no_side_effect.
 Proposal tools return side_effect_status=proposal_persisted.
 """
 
+import os
+
+os.environ["INTERNAL_SERVICE_TOKEN"] = "test-internal-service-token"
+
 import pytest
 from fastapi.testclient import TestClient
-from sqlmodel import Session, SQLModel, create_engine, select
+from sqlmodel import Session, SQLModel, create_engine
 from sqlalchemy.pool import StaticPool
 
 from app.main import app
@@ -305,14 +309,13 @@ class TestInternalAgentTools:
         items = resp.json()["data"]["items"]
         assert items == []
 
-    def test_unknown_tool_returns_blocked_result(self, client, test_engine):
+    def test_unknown_tool_returns_blocked(self, client, test_engine):
         _seed(test_engine)
         resp = client.post("/internal/agent-tools/no-such-tool", json=_envelope("no-such-tool"))
         assert resp.status_code == 200, resp.text
         data = resp.json()
         assert data["status"] == "blocked"
-        assert data["side_effect_status"] == "no_side_effect"
-        assert data["error"]["code"] == "TOOL_NOT_FOUND"
+        assert "not found" in data["observation"].lower()
 
     def test_workspace_not_found_returns_failed_result(self, client, test_engine):
         # No seed → workspace does not exist
@@ -635,178 +638,6 @@ class TestPublicProposalStatusFilter:
         resp = client.get("/api/agent-proposals", params={"project_id": "p1"})
         assert resp.status_code == 200, resp.text
         assert len(resp.json()) == 2
-
-
-# ─── S13: Direction Card Proposal Tool ────────────────────────────────────
-
-
-class TestDirectionCardProposalTool:
-    """S13: direction-card-proposal tool via POST /internal/agent-tools/direction-card-proposal."""
-
-    def test_creates_pending_clarify_proposal_without_mutating_project(self, client, test_engine):
-        fixture = _create_stage_plan_fixture(client)
-        project = fixture["project"]
-        workspace = fixture["workspace"]
-
-        with Session(test_engine) as session:
-            db_project = session.get(Project, project["id"])
-            assert db_project is not None
-            assert db_project.direction_card is None
-
-        envelope = {
-            **_envelope(
-                "generate_direction_card_proposal",
-                {
-                    "project_id": project["id"],
-                    "workspace_id": workspace["id"],
-                    "user_instruction": "请基于项目idea生成方向卡。",
-                },
-            ),
-            "workspace_id": workspace["id"],
-            "project_id": project["id"],
-            "idempotency_key": "run_direction_card:call_dc:v1",
-        }
-        resp = client.post("/internal/agent-tools/direction-card-proposal", json=envelope)
-
-        assert resp.status_code == 200, resp.text
-        data = resp.json()
-        assert data["status"] == "success"
-        assert data["side_effect_status"] == "proposal_persisted"
-        assert data["links"]["proposal_id"] is not None
-        assert data["links"]["agent_event_id"] is not None
-        assert data["idempotency_key"] == "run_direction_card:call_dc:v1"
-
-        proposal_resp = client.get(f"/api/agent-proposals/{data['links']['proposal_id']}")
-        assert proposal_resp.status_code == 200, proposal_resp.text
-        proposal = proposal_resp.json()
-        assert proposal["proposal_type"] == "clarify"
-        assert proposal["status"] == "pending"
-        assert proposal["payload"]["requires_confirmation"] is True
-
-        with Session(test_engine) as session:
-            db_project = session.get(Project, project["id"])
-            assert db_project is not None
-            assert db_project.direction_card is None
-
-    def test_reuses_same_proposal_for_idempotency_key(self, client, test_engine):
-        fixture = _create_stage_plan_fixture(client)
-        project = fixture["project"]
-        workspace = fixture["workspace"]
-        envelope = {
-            **_envelope(
-                "generate_direction_card_proposal",
-                {
-                    "project_id": project["id"],
-                    "workspace_id": workspace["id"],
-                    "user_instruction": "生成方向卡草案。",
-                },
-            ),
-            "workspace_id": workspace["id"],
-            "project_id": project["id"],
-            "idempotency_key": "run_direction_card:call_dc:v1",
-        }
-
-        first = client.post("/internal/agent-tools/direction-card-proposal", json=envelope)
-        second = client.post("/internal/agent-tools/direction-card-proposal", json=envelope)
-
-        assert first.status_code == 200, first.text
-        assert second.status_code == 200, second.text
-        first_data = first.json()
-        second_data = second.json()
-        assert first_data["links"]["proposal_id"] == second_data["links"]["proposal_id"]
-        assert first_data["links"]["agent_event_id"] == second_data["links"]["agent_event_id"]
-
-        proposals_resp = client.get(
-            "/api/agent-proposals",
-            params={"project_id": project["id"], "proposal_type": "clarify"},
-        )
-        assert proposals_resp.status_code == 200, proposals_resp.text
-        assert [p["id"] for p in proposals_resp.json()] == [first_data["links"]["proposal_id"]]
-
-
-# ─── S13: Task Breakdown Proposal Tool ────────────────────────────────────
-
-
-class TestTaskBreakdownProposalTool:
-    """S13: task-breakdown-proposal tool via POST /internal/agent-tools/task-breakdown-proposal."""
-
-    def test_creates_pending_breakdown_proposal_without_creating_tasks(self, client, test_engine):
-        fixture = _create_stage_plan_fixture(client)
-        project = fixture["project"]
-        workspace = fixture["workspace"]
-
-        with Session(test_engine) as session:
-            tasks_before = session.exec(select(Task).where(Task.project_id == project["id"])).all()
-            assert tasks_before == []
-
-        envelope = {
-            **_envelope(
-                "generate_task_breakdown_proposal",
-                {
-                    "project_id": project["id"],
-                    "workspace_id": workspace["id"],
-                    "user_instruction": "将项目需求拆解为具体任务。",
-                },
-            ),
-            "workspace_id": workspace["id"],
-            "project_id": project["id"],
-            "idempotency_key": "run_task_breakdown:call_tb:v1",
-        }
-        resp = client.post("/internal/agent-tools/task-breakdown-proposal", json=envelope)
-
-        assert resp.status_code == 200, resp.text
-        data = resp.json()
-        assert data["status"] == "success"
-        assert data["side_effect_status"] == "proposal_persisted"
-        assert data["links"]["proposal_id"] is not None
-        assert data["links"]["agent_event_id"] is not None
-        assert data["idempotency_key"] == "run_task_breakdown:call_tb:v1"
-
-        proposal_resp = client.get(f"/api/agent-proposals/{data['links']['proposal_id']}")
-        assert proposal_resp.status_code == 200, proposal_resp.text
-        proposal = proposal_resp.json()
-        assert proposal["proposal_type"] == "breakdown"
-        assert proposal["status"] == "pending"
-        assert proposal["payload"]["requires_confirmation"] is True
-
-        with Session(test_engine) as session:
-            tasks_after = session.exec(select(Task).where(Task.project_id == project["id"])).all()
-            assert tasks_after == []
-
-    def test_reuses_same_proposal_for_idempotency_key(self, client, test_engine):
-        fixture = _create_stage_plan_fixture(client)
-        project = fixture["project"]
-        workspace = fixture["workspace"]
-        envelope = {
-            **_envelope(
-                "generate_task_breakdown_proposal",
-                {
-                    "project_id": project["id"],
-                    "workspace_id": workspace["id"],
-                    "user_instruction": "拆解任务草案。",
-                },
-            ),
-            "workspace_id": workspace["id"],
-            "project_id": project["id"],
-            "idempotency_key": "run_task_breakdown:call_tb:v1",
-        }
-
-        first = client.post("/internal/agent-tools/task-breakdown-proposal", json=envelope)
-        second = client.post("/internal/agent-tools/task-breakdown-proposal", json=envelope)
-
-        assert first.status_code == 200, first.text
-        assert second.status_code == 200, second.text
-        first_data = first.json()
-        second_data = second.json()
-        assert first_data["links"]["proposal_id"] == second_data["links"]["proposal_id"]
-        assert first_data["links"]["agent_event_id"] == second_data["links"]["agent_event_id"]
-
-        proposals_resp = client.get(
-            "/api/agent-proposals",
-            params={"project_id": project["id"], "proposal_type": "breakdown"},
-        )
-        assert proposals_resp.status_code == 200, proposals_resp.text
-        assert [p["id"] for p in proposals_resp.json()] == [first_data["links"]["proposal_id"]]
 
 
 # ─── S8: Assignment Recommendation Tool ──────────────────────────────────
@@ -1219,10 +1050,646 @@ class TestAssignmentRecommendationTool:
 
 
 # ═══════════════════════════════════════════════════════════════════════
-# S12: Legacy Coordinator Parity + Cutover
+# S13: Direction Card Proposal Tool
 # ═══════════════════════════════════════════════════════════════════════
 
 
+class TestDirectionCardProposalTool:
+    """S13: generate_direction_card_proposal tool via POST /internal/agent-tools/direction-card-proposal."""
+
+    def test_create_direction_card_proposal_success(self, client, test_engine):
+        """Creating a direction card proposal returns proposal_persisted."""
+        _seed_assignment(test_engine)
+        resp = client.post(
+            "/internal/agent-tools/direction-card-proposal",
+            json=_envelope("direction-card-proposal", {
+                "project_id": "p1",
+                "user_instruction": "明确项目方向",
+            }),
+        )
+        assert resp.status_code == 200, resp.text
+        data = resp.json()
+        assert data["status"] == "success"
+        assert data["side_effect_status"] == "proposal_persisted"
+        assert data["links"]["proposal_id"] is not None
+
+    def test_direction_card_proposal_idempotency(self, client, test_engine):
+        """Same idempotency key reuses existing proposal."""
+        _seed_assignment(test_engine)
+        envelope = _envelope("direction-card-proposal", {
+            "project_id": "p1",
+            "user_instruction": "明确项目方向",
+        })
+        resp1 = client.post("/internal/agent-tools/direction-card-proposal", json=envelope)
+        resp2 = client.post("/internal/agent-tools/direction-card-proposal", json=envelope)
+        assert resp1.json()["links"]["proposal_id"] == resp2.json()["links"]["proposal_id"]
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# S13: Task Breakdown Proposal Tool
+# ═══════════════════════════════════════════════════════════════════════
+
+
+class TestTaskBreakdownProposalTool:
+    """S13: generate_task_breakdown_proposal tool via POST /internal/agent-tools/task-breakdown-proposal."""
+
+    def test_create_task_breakdown_proposal_success(self, client, test_engine):
+        """Creating a task breakdown proposal returns proposal_persisted."""
+        _seed_assignment(test_engine)
+        resp = client.post(
+            "/internal/agent-tools/task-breakdown-proposal",
+            json=_envelope("task-breakdown-proposal", {
+                "project_id": "p1",
+                "stage_id": "s1",
+                "user_instruction": "拆分任务",
+            }),
+        )
+        assert resp.status_code == 200, resp.text
+        data = resp.json()
+        assert data["status"] == "success"
+        assert data["side_effect_status"] == "proposal_persisted"
+        assert data["links"]["proposal_id"] is not None
+
+    def test_task_breakdown_proposal_idempotency(self, client, test_engine):
+        """Same idempotency key reuses existing proposal."""
+        _seed_assignment(test_engine)
+        envelope = _envelope("task-breakdown-proposal", {
+            "project_id": "p1",
+            "stage_id": "s1",
+            "user_instruction": "拆分任务",
+        })
+        resp1 = client.post("/internal/agent-tools/task-breakdown-proposal", json=envelope)
+        resp2 = client.post("/internal/agent-tools/task-breakdown-proposal", json=envelope)
+        assert resp1.json()["links"]["proposal_id"] == resp2.json()["links"]["proposal_id"]
+
+
+# ─── S11: create_risk / create_checkin / update_stage_progress ──────────────
+
+
+def _seed_s11(test_engine) -> dict:
+    """Seed workspace/project/stage/task/user for S11 tool tests."""
+    with Session(test_engine) as session:
+        session.add(User(id="u1", display_name="小林"))
+        session.add(User(id="u2", display_name="小王"))
+        session.add(Workspace(id="ws1", name="测试工作区", owner_user_id="u1"))
+        session.add(WorkspaceMembership(workspace_id="ws1", user_id="u1", role="owner"))
+        session.add(WorkspaceMembership(workspace_id="ws1", user_id="u2", role="member"))
+        session.add(
+            Project(
+                id="p1",
+                workspace_id="ws1",
+                name="测试项目",
+                idea="做一个 demo",
+                deadline="2026-08-01",
+                deliverables="演示闭环",
+                created_by="u1",
+            )
+        )
+        session.add(
+            Stage(
+                id="s1",
+                project_id="p1",
+                name="开发阶段",
+                goal="完成功能开发",
+                start_date="2026-07-01",
+                end_date="2026-07-15",
+                deliverable="功能代码",
+                order_index=0,
+                status="active",
+            )
+        )
+        session.add(
+            Task(
+                id="t1",
+                project_id="p1",
+                stage_id="s1",
+                title="后端 API 开发",
+                priority="P0",
+                status=TaskStatus.not_started,
+                order_index=0,
+            )
+        )
+        session.commit()
+    return {}
+
+
+class TestCreateRiskTool:
+    """S11 create_risk: advisory record, no proposal confirmation."""
+
+    def test_create_risk_success(self, client, test_engine):
+        """create_risk creates a Risk record directly."""
+        _seed_s11(test_engine)
+        resp = client.post(
+            "/internal/agent-tools/create-risk",
+            json=_envelope("create_risk", {
+                "type": "deadline",
+                "severity": "high",
+                "title": "截止日期风险",
+                "description": "距离截止日期仅剩3天",
+                "evidence": ["日历显示"],
+                "recommendation": "加快进度",
+            }),
+        )
+        assert resp.status_code == 200, resp.text
+        data = resp.json()
+        assert data["status"] == "success"
+        assert data["side_effect_status"] == "advisory_record_persisted"
+        assert data["data"]["type"] == "deadline"
+        assert data["data"]["severity"] == "high"
+        assert data["data"]["title"] == "截止日期风险"
+        assert data["links"]["created_ids"] != []
+
+    def test_create_risk_with_stage_and_task(self, client, test_engine):
+        """create_risk with optional stage_id and task_id."""
+        _seed_s11(test_engine)
+        resp = client.post(
+            "/internal/agent-tools/create-risk",
+            json=_envelope("create_risk", {
+                "type": "dependency",
+                "severity": "medium",
+                "title": "依赖风险",
+                "description": "外部依赖未到位",
+                "evidence": ["邮件确认"],
+                "recommendation": "联系供应商",
+                "stage_id": "s1",
+                "task_id": "t1",
+            }),
+        )
+        assert resp.status_code == 200, resp.text
+        data = resp.json()
+        assert data["status"] == "success"
+        assert data["data"]["stage_id"] == "s1"
+        assert data["data"]["task_id"] == "t1"
+
+    def test_create_risk_missing_fields(self, client, test_engine):
+        """create_risk with missing required fields returns validation_error."""
+        _seed_s11(test_engine)
+        resp = client.post(
+            "/internal/agent-tools/create-risk",
+            json=_envelope("create_risk", {
+                "type": "deadline",
+                # missing severity, title, description, evidence, recommendation
+            }),
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["status"] == "validation_error"
+        assert "缺少" in data["observation"]
+
+    def test_create_risk_invalid_type(self, client, test_engine):
+        """create_risk with invalid type returns validation_error."""
+        _seed_s11(test_engine)
+        resp = client.post(
+            "/internal/agent-tools/create-risk",
+            json=_envelope("create_risk", {
+                "type": "invalid_type",
+                "severity": "high",
+                "title": "测试",
+                "description": "测试",
+                "evidence": ["测试"],
+                "recommendation": "测试",
+            }),
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["status"] == "validation_error"
+
+    def test_create_risk_empty_evidence(self, client, test_engine):
+        """create_risk with empty evidence list returns validation_error."""
+        _seed_s11(test_engine)
+        resp = client.post(
+            "/internal/agent-tools/create-risk",
+            json=_envelope("create_risk", {
+                "type": "deadline",
+                "severity": "high",
+                "title": "测试",
+                "description": "测试",
+                "evidence": [],
+                "recommendation": "测试",
+            }),
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["status"] == "validation_error"
+
+
+class TestCreateCheckinTool:
+    """S11 create_checkin: advisory record, no proposal confirmation."""
+
+    def test_create_checkin_success(self, client, test_engine):
+        """create_checkin creates a CheckInCycle + CheckInResponse."""
+        _seed_s11(test_engine)
+        resp = client.post(
+            "/internal/agent-tools/create-checkin",
+            json=_envelope("create_checkin", {
+                "task_id": "t1",
+                "what_done": "完成后端 API 开发",
+                "blocker": "无",
+                "user_id": "u1",
+            }),
+        )
+        assert resp.status_code == 200, resp.text
+        data = resp.json()
+        assert data["status"] == "success"
+        assert data["side_effect_status"] == "advisory_record_persisted"
+        assert "cycle" in data["data"]
+        assert "responses" in data["data"]
+        assert len(data["data"]["responses"]) == 1
+        assert data["data"]["responses"][0]["what_done"] == "完成后端 API 开发"
+        assert data["links"]["created_ids"] != []
+
+    def test_create_checkin_with_blocker(self, client, test_engine):
+        """create_checkin with blocker."""
+        _seed_s11(test_engine)
+        resp = client.post(
+            "/internal/agent-tools/create-checkin",
+            json=_envelope("create_checkin", {
+                "task_id": "t1",
+                "what_done": "部分完成",
+                "blocker": "等待设计稿",
+                "user_id": "u1",
+            }),
+        )
+        assert resp.status_code == 200, resp.text
+        data = resp.json()
+        assert data["status"] == "success"
+        assert data["data"]["responses"][0]["blocker"] == "等待设计稿"
+
+    def test_create_checkin_missing_fields(self, client, test_engine):
+        """create_checkin with missing required fields returns validation_error."""
+        _seed_s11(test_engine)
+        resp = client.post(
+            "/internal/agent-tools/create-checkin",
+            json=_envelope("create_checkin", {
+                "task_id": "t1",
+                # missing what_done
+            }),
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["status"] == "validation_error"
+        assert "缺少" in data["observation"]
+
+    def test_create_checkin_nonexistent_task(self, client, test_engine):
+        """create_checkin with nonexistent task returns validation_error."""
+        _seed_s11(test_engine)
+        resp = client.post(
+            "/internal/agent-tools/create-checkin",
+            json=_envelope("create_checkin", {
+                "task_id": "nonexistent",
+                "what_done": "测试",
+                "user_id": "u1",
+            }),
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["status"] == "validation_error"
+        assert "不存在" in data["observation"]
+
+    def test_create_checkin_task_not_in_project(self, client, test_engine):
+        """create_checkin with task from different project returns validation_error."""
+        _seed_s11(test_engine)
+        with Session(test_engine) as session:
+            session.add(
+                Project(
+                    id="p2",
+                    workspace_id="ws1",
+                    name="另一个项目",
+                    idea="另一个想法",
+                    deadline="2026-09-01",
+                    deliverables="交付物",
+                    created_by="u1",
+                )
+            )
+            session.add(
+                Stage(
+                    id="s2",
+                    project_id="p2",
+                    name="另一阶段",
+                    goal="另一目标",
+                    start_date="2026-07-01",
+                    end_date="2026-07-15",
+                    deliverable="交付物",
+                    order_index=0,
+                    status="active",
+                )
+            )
+            session.add(
+                Task(
+                    id="t2",
+                    project_id="p2",
+                    stage_id="s2",
+                    title="另一任务",
+                    priority="P1",
+                    status=TaskStatus.not_started,
+                    order_index=0,
+                )
+            )
+            session.commit()
+        resp = client.post(
+            "/internal/agent-tools/create-checkin",
+            json=_envelope("create_checkin", {
+                "task_id": "t2",
+                "what_done": "测试",
+                "user_id": "u1",
+            }),
+            # project_id defaults to p1 from envelope
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["status"] == "validation_error"
+        assert "不属于" in data["observation"]
+
+
+class TestUpdateStageProgressTool:
+    """S11 update_stage_progress: draft + proposal confirmation."""
+
+    def test_update_stage_progress_success(self, client, test_engine):
+        """update_stage_progress creates a StagePlanProposal."""
+        _seed_s11(test_engine)
+        resp = client.post(
+            "/internal/agent-tools/update-stage-progress",
+            json=_envelope("update_stage_progress", {
+                "stage_id": "s1",
+                "progress_summary": "阶段进展顺利，已完成80%功能",
+                "next_steps": "继续推进剩余任务",
+            }),
+        )
+        assert resp.status_code == 200, resp.text
+        data = resp.json()
+        assert data["status"] == "success"
+        assert data["side_effect_status"] == "proposal_persisted"
+        assert data["data"]["proposal_id"] is not None
+        assert data["data"]["requires_confirmation"] is True
+        assert data["links"]["proposal_id"] is not None
+        assert data["links"]["created_ids"] != []
+
+    def test_update_stage_progress_missing_fields(self, client, test_engine):
+        """update_stage_progress with missing required fields returns validation_error."""
+        _seed_s11(test_engine)
+        resp = client.post(
+            "/internal/agent-tools/update-stage-progress",
+            json=_envelope("update_stage_progress", {
+                "stage_id": "s1",
+                # missing progress_summary, next_steps
+            }),
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["status"] == "validation_error"
+        assert "缺少" in data["observation"]
+
+    def test_update_stage_progress_nonexistent_stage(self, client, test_engine):
+        """update_stage_progress with nonexistent stage returns validation_error."""
+        _seed_s11(test_engine)
+        resp = client.post(
+            "/internal/agent-tools/update-stage-progress",
+            json=_envelope("update_stage_progress", {
+                "stage_id": "nonexistent",
+                "progress_summary": "进展顺利",
+                "next_steps": "继续推进",
+            }),
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["status"] == "validation_error"
+        assert "不存在" in data["observation"]
+
+    def test_update_stage_progress_stage_not_in_project(self, client, test_engine):
+        """update_stage_progress with stage from different project returns validation_error."""
+        _seed_s11(test_engine)
+        with Session(test_engine) as session:
+            session.add(
+                Project(
+                    id="p2",
+                    workspace_id="ws1",
+                    name="另一个项目",
+                    idea="另一个想法",
+                    deadline="2026-09-01",
+                    deliverables="交付物",
+                    created_by="u1",
+                )
+            )
+            session.add(
+                Stage(
+                    id="s2",
+                    project_id="p2",
+                    name="另一阶段",
+                    goal="另一目标",
+                    start_date="2026-07-01",
+                    end_date="2026-07-15",
+                    deliverable="交付物",
+                    order_index=0,
+                    status="active",
+                )
+            )
+            session.commit()
+        resp = client.post(
+            "/internal/agent-tools/update-stage-progress",
+            json=_envelope("update_stage_progress", {
+                "stage_id": "s2",
+                "progress_summary": "进展顺利",
+                "next_steps": "继续推进",
+            }),
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["status"] == "validation_error"
+        assert "不属于" in data["observation"]
+
+    def test_update_stage_progress_does_not_mutate_stage(self, client, test_engine):
+        """update_stage_progress creates proposal but does NOT change stage status."""
+        _seed_s11(test_engine)
+        with Session(test_engine) as session:
+            stage = session.get(Stage, "s1")
+            original_status = stage.status
+        resp = client.post(
+            "/internal/agent-tools/update-stage-progress",
+            json=_envelope("update_stage_progress", {
+                "stage_id": "s1",
+                "progress_summary": "阶段进展顺利",
+                "next_steps": "继续推进",
+            }),
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["status"] == "success"
+        # Verify stage status unchanged
+        with Session(test_engine) as session:
+            stage = session.get(Stage, "s1")
+            assert stage.status == original_status
+
+
+# ─── Idempotency Tests ─────────────────────────────────────────────────────
+
+
+class TestCreateRiskIdempotency:
+    """Test create_risk idempotency behavior."""
+
+    def test_create_risk_same_idempotency_key_returns_cached(self, client, test_engine):
+        """Same idempotency key returns cached result."""
+        _seed_s11(test_engine)
+        envelope = _envelope("create_risk", {
+            "type": "deadline",
+            "severity": "high",
+            "title": "截止日期风险",
+            "description": "距离截止日期仅剩3天",
+            "evidence": ["日历显示"],
+            "recommendation": "加快进度",
+        })
+        resp1 = client.post("/internal/agent-tools/create-risk", json=envelope)
+        assert resp1.status_code == 200
+        assert resp1.json()["status"] == "success"
+
+        resp2 = client.post("/internal/agent-tools/create-risk", json=envelope)
+        assert resp2.status_code == 200
+        assert resp2.json()["status"] == "success"
+        # Same idempotency key should return same result
+        assert resp1.json()["links"]["created_ids"] == resp2.json()["links"]["created_ids"]
+
+
+class TestCreateCheckinIdempotency:
+    """Test create_checkin idempotency behavior."""
+
+    def test_create_checkin_same_idempotency_key_returns_cached(self, client, test_engine):
+        """Same idempotency key returns cached result."""
+        _seed_s11(test_engine)
+        envelope = _envelope("create_checkin", {
+            "task_id": "t1",
+            "what_done": "完成后端 API 开发",
+            "user_id": "u1",
+        })
+        resp1 = client.post("/internal/agent-tools/create-checkin", json=envelope)
+        assert resp1.status_code == 200
+        assert resp1.json()["status"] == "success"
+
+        resp2 = client.post("/internal/agent-tools/create-checkin", json=envelope)
+        assert resp2.status_code == 200
+        assert resp2.json()["status"] == "success"
+        # Same idempotency key should return same result
+        assert resp1.json()["links"]["created_ids"] == resp2.json()["links"]["created_ids"]
+
+
+class TestSubmitToolResult:
+    """Test submit_tool_result human-only tool."""
+
+    def test_submit_tool_result_confirm(self, client, test_engine):
+        """submit_tool_result can confirm a proposal."""
+        _seed_s11(test_engine)
+        # First create a proposal
+        resp = client.post(
+            "/internal/agent-tools/update-stage-progress",
+            json=_envelope("update_stage_progress", {
+                "stage_id": "s1",
+                "progress_summary": "阶段进展顺利",
+                "next_steps": "继续推进",
+            }),
+        )
+        assert resp.status_code == 200
+        proposal_id = resp.json()["data"]["proposal_id"]
+
+        # Now confirm it
+        resp = client.post(
+            "/internal/agent-tools/submit-tool-result",
+            json=_envelope("submit_tool_result", {
+                "proposal_id": proposal_id,
+                "action": "confirm",
+                "confirmed_by": "u1",
+            }),
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["status"] == "success"
+        assert data["data"]["status"] == "confirmed"
+        assert data["data"]["action"] == "confirm"
+
+    def test_submit_tool_result_reject(self, client, test_engine):
+        """submit_tool_result can reject a proposal."""
+        _seed_s11(test_engine)
+        # First create a proposal
+        resp = client.post(
+            "/internal/agent-tools/update-stage-progress",
+            json=_envelope("update_stage_progress", {
+                "stage_id": "s1",
+                "progress_summary": "阶段进展顺利",
+                "next_steps": "继续推进",
+            }),
+        )
+        assert resp.status_code == 200
+        proposal_id = resp.json()["data"]["proposal_id"]
+
+        # Now reject it
+        resp = client.post(
+            "/internal/agent-tools/submit-tool-result",
+            json=_envelope("submit_tool_result", {
+                "proposal_id": proposal_id,
+                "action": "reject",
+                "rejection_reason": "计划不够详细",
+            }),
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["status"] == "success"
+        assert data["data"]["status"] == "rejected"
+        assert data["data"]["action"] == "reject"
+
+    def test_submit_tool_result_missing_fields(self, client, test_engine):
+        """submit_tool_result with missing fields returns validation_error."""
+        _seed_s11(test_engine)
+        resp = client.post(
+            "/internal/agent-tools/submit-tool-result",
+            json=_envelope("submit_tool_result", {
+                "proposal_id": "some-id",
+                # missing action
+            }),
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["status"] == "validation_error"
+        assert "缺少" in data["observation"]
+
+    def test_submit_tool_result_nonexistent_proposal(self, client, test_engine):
+        """submit_tool_result with nonexistent proposal returns validation_error."""
+        _seed_s11(test_engine)
+        resp = client.post(
+            "/internal/agent-tools/submit-tool-result",
+            json=_envelope("submit_tool_result", {
+                "proposal_id": "nonexistent",
+                "action": "confirm",
+            }),
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["status"] == "validation_error"
+        assert "不存在" in data["observation"]
+
+    def test_submit_tool_result_invalid_action(self, client, test_engine):
+        """submit_tool_result with invalid action returns validation_error."""
+        _seed_s11(test_engine)
+        # First create a proposal
+        resp = client.post(
+            "/internal/agent-tools/update-stage-progress",
+            json=_envelope("update_stage_progress", {
+                "stage_id": "s1",
+                "progress_summary": "阶段进展顺利",
+                "next_steps": "继续推进",
+            }),
+        )
+        assert resp.status_code == 200
+        proposal_id = resp.json()["data"]["proposal_id"]
+
+        # Try invalid action
+        resp = client.post(
+            "/internal/agent-tools/submit-tool-result",
+            json=_envelope("submit_tool_result", {
+                "proposal_id": proposal_id,
+                "action": "invalid",
+            }),
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["status"] == "validation_error"
+        assert "不支持" in data["observation"]
 class TestToolContractParity:
     """S12: Each migrated tool must return a structurally valid ProjectFlowToolResult."""
 

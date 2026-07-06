@@ -53,7 +53,7 @@ export function successResult<T>(data: T, observation: string, links?: ToolLinks
     data,
     sideEffectStatus: "no_side_effect",
     observation,
-    trace: { redacted: false },
+    trace: { redacted: true },
     ...(links ? { links } : {}),
   };
 }
@@ -79,7 +79,7 @@ export function failedResult(code: string, message: string, details?: unknown): 
     sideEffectStatus: "unknown",
     error: { code, message, details },
     observation: `操作失败: ${message}`,
-    trace: { redacted: false },
+    trace: { redacted: true },
   };
 }
 
@@ -93,6 +93,6 @@ export function timeoutResult(toolName: string, timeoutMs: number): ProjectFlowT
       message: `工具 ${toolName} 执行超时 (${timeoutMs}ms)`,
     },
     observation: `工具执行超时`,
-    trace: { redacted: false },
+    trace: { redacted: true },
   };
 }

@@ -24,6 +24,10 @@ class Settings(BaseSettings):
     feature_assignment_recommendation: bool = True
     feature_direction_card_proposal: bool = True
     feature_task_breakdown_proposal: bool = True
+    feature_create_risk: bool = True
+    feature_create_checkin: bool = True
+    feature_update_stage_progress: bool = True
+    feature_submit_tool_result: bool = True
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
@@ -44,6 +48,14 @@ class Settings(BaseSettings):
             tools.add("direction-card-proposal")
         if self.feature_task_breakdown_proposal:
             tools.add("task-breakdown-proposal")
+        if self.feature_create_risk:
+            tools.add("create-risk")
+        if self.feature_create_checkin:
+            tools.add("create-checkin")
+        if self.feature_update_stage_progress:
+            tools.add("update-stage-progress")
+        if self.feature_submit_tool_result:
+            tools.add("submit-tool-result")
         return tools
 
 
