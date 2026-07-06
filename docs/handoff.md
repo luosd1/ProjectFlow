@@ -4,6 +4,42 @@ Status: current as of 2026-07-06.
 
 ## Latest Architecture Handoff
 
+### T42 — ProjectMemory V1 Proposal Rejection Memory (2026-07-06)
+
+Second vertical slice of ProjectMemory V1 (issue #72). When a proposal is rejected with a non-empty reason, ProjectFlow creates a governed rejection memory. Empty/blank reasons are tolerated for legacy compatibility but do not produce memory.
+
+**What was built:**
+
+- **Deterministic extractor**: `extract_proposal_rejected` creates exactly 1 `rejection` memory when `rejection_reason` is non-empty and non-blank. Empty/blank → skip (no memory). No LLM calls.
+- **Hook**: `reject_proposal()` in `agent_proposal_service.py` calls `extract_from_event(source_type="proposal_rejected", source_id=proposal.id)` after commit when reason is non-empty. Does NOT create an AgentEvent or expand AgentEvent enums.
+- **Content/rationale semantics**: `content` states what proposal was not adopted (uses Chinese proposal type label + project name). `rationale` cites only the explicit rejection reason, does not infer hidden causality.
+- **Visibility**: `team` (all workspace members can see rejection memory). Participates in same JSON/Markdown visibility as direction card memory.
+- **Idempotency**: Same source_hash → skip; different hash → supersede old active rejection memory.
+- **No raw IDs**: All user-visible text uses display names and Chinese labels.
+- **Frontend**: Rejection flow now requires non-empty reason via textarea input before confirming reject. `onRejectProposal` callback signature changed from `(id: string) => void` to `(id: string, reason: string) => void`. Replan rejection also requires reason input.
+
+**Acceptance criteria verified (9/9):**
+1. Frontend rejection requires non-empty reason ✓
+2. Legacy/empty reason calls compatible, no memory write ✓
+3. Non-empty reason creates exactly one rejection memory with correct source_type/source_id ✓
+4. proposal_rejected does not create AgentEvent ✓
+5. content/rationale semantics correct ✓
+6. Team-visible, participates in JSON/Markdown visibility ✓
+7. Idempotent replay; changed reason supersedes ✓
+8. No raw internal IDs ✓
+9. Tests cover all paths ✓
+
+**Test results:** 18 new tests in `test_proposal_rejection_memory.py`, 425 backend tests total pass, 46 frontend tests pass.
+
+**Key files:** `backend/app/agent/memory/extractor.py`, `backend/app/services/agent_proposal_service.py`, `backend/app/services/memory_service.py`, `backend/app/tests/test_proposal_rejection_memory.py`, `frontend/src/components/agent/agent-proposal-panel.tsx`, `frontend/src/components/risk/replan-diff.tsx`, `frontend/src/lib/api.ts`
+
+**What remains (T42 V1 next tracer bullets):**
+- `assignment_confirmed` extractor
+- `replan_confirmed`/`replan_rejected` extractor
+- FTS5 retrieval + Agent context injection
+- Frontend memory list/export UI
+- Optional vector retrieval (memory-vector extra)
+
 ### T42 — ProjectMemory V1 Direction Card Tracer Bullet (2026-07-06)
 
 First vertical slice of ProjectMemory V1 (issue #71). When a direction card is confirmed through the clarify proposal flow, ProjectFlow creates governed project memory and exposes it through read surfaces.
@@ -40,7 +76,6 @@ First vertical slice of ProjectMemory V1 (issue #71). When a direction card is c
 **Key files:** `backend/app/models/project_memory.py`, `backend/app/agent/memory/extractor.py`, `backend/app/agent/memory/display_resolver.py`, `backend/app/services/memory_service.py`, `backend/app/api/routes_memories.py`, `backend/app/schemas/project_memory.py`, `backend/app/tests/test_project_memory.py`
 
 **What remains (T42 V1 next tracer bullets):**
-- `proposal_rejected` extractor (requires non-empty rejection_reason)
 - `assignment_confirmed` extractor
 - `replan_confirmed`/`replan_rejected` extractor
 - FTS5 retrieval + Agent context injection
