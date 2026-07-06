@@ -19,7 +19,7 @@ from datetime import datetime
 
 from sqlmodel import Session
 
-from app.agent.memory.display_resolver import resolve_project_name
+from app.agent.memory.display_resolver import resolve_project_name, resolve_display_name
 from app.agent.output_schemas import DirectionCardOutput
 from app.models import AgentProposal, Project
 
@@ -132,5 +132,72 @@ def extract_direction_card_confirmed(
                 visibility="team",
             )
         )
+
+    return candidates
+
+
+# ─── proposal_type 中文标签 ──────────────────────────────────────────────────
+
+_PROPOSAL_TYPE_CN = {
+    "clarify": "方向卡",
+    "plan": "阶段计划",
+    "breakdown": "任务分解",
+    "replan": "计划调整",
+}
+
+
+def _get_proposal_rejected_stable_fields(
+    proposal: AgentProposal,
+    rejection_reason: str,
+) -> dict:
+    """提取 proposal rejection 中影响抽取语义的稳定字段。"""
+    return {
+        "proposal_type": proposal.proposal_type,
+        "rejection_reason": rejection_reason,
+    }
+
+
+def extract_proposal_rejected(
+    session: Session,
+    *,
+    proposal: AgentProposal,
+    project: Project,
+) -> list[ProjectMemoryCandidate]:
+    """proposal_rejected → 1 条 rejection 记忆（仅当 rejection_reason 非空）。
+
+    前置条件：调用方已确认 rejection_reason 非空且非空白。
+    visibility=team, scope=project
+    source_id=AgentProposal.id（不创建 AgentEvent）
+    """
+    rejection_reason = (proposal.rejection_reason or "").strip()
+    if not rejection_reason:
+        # 空 reason → 不产生 ProjectMemory
+        return []
+
+    project_name = resolve_project_name(session, project.id)
+    proposal_label = _PROPOSAL_TYPE_CN.get(proposal.proposal_type, proposal.proposal_type)
+
+    source_hash = _compute_source_hash(
+        _get_proposal_rejected_stable_fields(proposal, rejection_reason)
+    )
+
+    # content: 说明哪个方案未被采纳
+    content = f"项目「{project_name}」的{proposal_label}方案未被采纳。"
+
+    # rationale: 只引用显式拒绝理由，不推断隐藏因果
+    rationale = f"拒绝理由：{rejection_reason}。来源：方案拒绝。"
+
+    candidates: list[ProjectMemoryCandidate] = [
+        ProjectMemoryCandidate(
+            memory_type="rejection",
+            scope="project",
+            content=content,
+            rationale=rationale,
+            source_type="proposal_rejected",
+            source_id=proposal.id,
+            source_hash=source_hash,
+            visibility="team",
+        )
+    ]
 
     return candidates

@@ -20,6 +20,7 @@ from app.agent.memory.extractor import (
     EXTRACTOR_VERSION,
     ProjectMemoryCandidate,
     extract_direction_card_confirmed,
+    extract_proposal_rejected,
 )
 from app.core.database import engine as _default_engine
 from app.models import (
@@ -53,6 +54,7 @@ def get_memory_engine():
 
 _EXTRACTOR_DISPATCH = {
     "direction_card_confirmed": extract_direction_card_confirmed,
+    "proposal_rejected": extract_proposal_rejected,
 }
 
 
